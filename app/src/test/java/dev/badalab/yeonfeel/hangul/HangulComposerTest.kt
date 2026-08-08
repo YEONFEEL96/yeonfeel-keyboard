@@ -1,0 +1,157 @@
+package dev.badalab.yeonfeel.hangul
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class HangulComposerTest {
+
+    /** 에디터를 흉내 내어 자모 열을 입력한 뒤 (확정 + 조합 중) 전체 문자열을 돌려준다. */
+    private fun type(jamos: String): String {
+        val composer = HangulComposer()
+        val committed = StringBuilder()
+        var composing = ""
+        jamos.forEach { jamo ->
+            val result = composer.input(jamo)
+            committed.append(result.commit)
+            composing = result.composing
+        }
+        return committed.toString() + composing
+    }
+
+    @Test
+    fun `기본 음절 조합`() {
+        assertEquals("안녕", type("ㅇㅏㄴㄴㅕㅇ"))
+        assertEquals("한글", type("ㅎㅏㄴㄱㅡㄹ"))
+    }
+
+    @Test
+    fun `도깨비불 - 받침이 다음 글자 초성으로 이동`() {
+        assertEquals("가나", type("ㄱㅏㄴㅏ"))
+        assertEquals("읽어", type("ㅇㅣㄹㄱㅇㅓ"))
+    }
+
+    @Test
+    fun `겹받침에서 도깨비불 - 마지막 요소만 이동`() {
+        assertEquals("일거", type("ㅇㅣㄹㄱㅓ"))
+    }
+
+    @Test
+    fun `겹받침 조합`() {
+        assertEquals("닭", type("ㄷㅏㄹㄱ"))
+        assertEquals("값", type("ㄱㅏㅂㅅ"))
+        assertEquals("않", type("ㅇㅏㄴㅎ"))
+    }
+
+    @Test
+    fun `복합 모음 조합`() {
+        assertEquals("과", type("ㄱㅗㅏ"))
+        assertEquals("왜", type("ㅇㅗㅐ"))
+        assertEquals("위", type("ㅇㅜㅣ"))
+        assertEquals("의", type("ㅇㅡㅣ"))
+        assertEquals("워", type("ㅇㅜㅓ"))
+    }
+
+    @Test
+    fun `쌍자음 초성`() {
+        assertEquals("까치", type("ㄲㅏㅊㅣ"))
+        assertEquals("빵", type("ㅃㅏㅇ"))
+    }
+
+    @Test
+    fun `종성이 될 수 없는 자음은 새 글자로 시작`() {
+        assertEquals("가따", type("ㄱㅏㄸㅏ"))
+    }
+
+    @Test
+    fun `자음 연타는 각각 확정`() {
+        assertEquals("ㄱㄱ", type("ㄱㄱ"))
+        assertEquals("ㅋㅋㅋ", type("ㅋㅋㅋ"))
+    }
+
+    @Test
+    fun `모음 단독 입력`() {
+        assertEquals("ㅏㅏ", type("ㅏㅏ"))
+        assertEquals("ㅘ", type("ㅗㅏ"))
+    }
+
+    @Test
+    fun `백스페이스 역순 분해`() {
+        val composer = HangulComposer()
+        "ㄷㅏㄹㄱ".forEach { composer.input(it) } // 닭
+
+        assertEquals("달", composer.backspace()!!.composing)
+        assertEquals("다", composer.backspace()!!.composing)
+        assertEquals("ㄷ", composer.backspace()!!.composing)
+        assertEquals("", composer.backspace()!!.composing)
+        assertNull(composer.backspace())
+    }
+
+    @Test
+    fun `복합 모음 백스페이스 분해`() {
+        val composer = HangulComposer()
+        "ㄱㅗㅏ".forEach { composer.input(it) } // 과
+
+        assertEquals("고", composer.backspace()!!.composing)
+        assertEquals("ㄱ", composer.backspace()!!.composing)
+    }
+
+    private fun typeDanmoeum(jamos: String): String {
+        val composer = HangulComposer().apply { doubleTapIotation = true }
+        val committed = StringBuilder()
+        var composing = ""
+        jamos.forEach { jamo ->
+            val result = composer.input(jamo)
+            committed.append(result.commit)
+            composing = result.composing
+        }
+        return committed.toString() + composing
+    }
+
+    @Test
+    fun `단모음 - 모음 연타로 이중모음 입력`() {
+        assertEquals("야", typeDanmoeum("ㅇㅏㅏ"))
+        assertEquals("교", typeDanmoeum("ㄱㅗㅗ"))
+        assertEquals("예", typeDanmoeum("ㅇㅔㅔ"))
+    }
+
+    @Test
+    fun `단모음 - 자음 연타는 쌍자음이 되지 않는다 (하꾜 문제 회피)`() {
+        assertEquals("학교", typeDanmoeum("ㅎㅏㄱㄱㅗㅗ"))
+    }
+
+    @Test
+    fun `단모음 꺼짐 - 모음 연타는 별개 글자`() {
+        assertEquals("아ㅏ", type("ㅇㅏㅏ"))
+    }
+
+    @Test
+    fun `세벌식 - 역할 명시 자모 조합`() {
+        // 초성ㅎ+ㅏ+종성ㄴ, 초성ㄱ+ㅡ+종성ㄹ → 한글
+        assertEquals("한글", type("한글"))
+    }
+
+    @Test
+    fun `세벌식 - 받침 뒤 모음은 도깨비불 없이 새 글자`() {
+        // 간 + ㅏ → "간ㅏ" (두벌식과 달리 받침이 이동하지 않는다)
+        assertEquals("간ㅏ", type("간ᅡ"))
+    }
+
+    @Test
+    fun `세벌식 - 겹받침 직접 입력과 조합`() {
+        // 앉: 초성ㅇ+ㅏ+종성ㄴ+종성ㅈ (조합)
+        assertEquals("앉", type("안ᆽ"))
+        // 닭: 초성ㄷ+ㅏ+종성ㄺ (한 키)
+        assertEquals("닭", type("닭"))
+    }
+
+    @Test
+    fun `flush는 조합 중 글자를 확정하고 상태를 비운다`() {
+        val composer = HangulComposer()
+        "ㄱㅏ".forEach { composer.input(it) }
+
+        assertEquals("가", composer.flush())
+        assertEquals(false, composer.isComposing)
+        assertEquals("", composer.flush())
+    }
+}

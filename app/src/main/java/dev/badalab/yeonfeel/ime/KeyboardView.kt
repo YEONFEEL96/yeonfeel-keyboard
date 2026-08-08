@@ -1,0 +1,438 @@
+package dev.badalab.yeonfeel.ime
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.CornerPathEffect
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.util.TypedValue
+import android.view.MotionEvent
+import android.view.View
+import dev.badalab.yeonfeel.settings.KeyboardSettings
+import dev.badalab.yeonfeel.settings.KoreanLayoutType
+
+/**
+ * 키보드 판을 직접 그리는 커스텀 뷰.
+ * 레이아웃은 [KeyboardLayouts]의 행 정의를 그대로 그리며,
+ * 키 입력은 [onKeyListener] 콜백으로 서비스에 전달한다.
+ */
+@SuppressLint("ViewConstructor")
+class KeyboardView(
+    context: Context,
+    var onKeyListener: (Key) -> Unit,
+) : View(context) {
+
+    var mode: LayoutMode = LayoutMode.KOREAN
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var shifted: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var theme: KeyboardTheme = KeyboardTheme.DARK
+        set(value) {
+            field = value
+            applyTheme()
+            invalidate()
+        }
+
+    /** 키 영역 높이(dp). 여백 조정의 상하 핸들로 조절된다. */
+    var heightDp: Int = KeyboardSettings.HEIGHT_DEFAULT
+        set(value) {
+            field = value
+            requestLayout()
+        }
+
+    var showNumberRow: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** 특수문자 페이지 (0 = 1/2, 1 = 2/2). */
+    var symbolsPage: Int = 0
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** 한/영 키 표시 여부. 숨기면 스페이스바가 넓어진다. */
+    var showLangKey: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** 스페이스바 좌우 스와이프로 언어를 바꿀 수 있는지. */
+    var languageSwipeEnabled: Boolean = false
+    var onLanguageSwipe: (() -> Unit)? = null
+
+    var koreanLayout: KoreanLayoutType = KoreanLayoutType.DUBEOLSIK
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var shiftNumberRowSymbols: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** 키캡 배경 표시. 끄면 글자만 그리는 플랫 스타일 (눌린 키만 하이라이트). */
+    var showKeyBackground: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var hapticEnabled: Boolean = true
+    var hapticStrength: Int = 50
+
+    private val vibrator: Vibrator? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Vibrator::class.java)
+        }
+
+    /** 강도 조절이 되는 기기에선 진폭으로, 아니면 짧은 진동으로 피드백한다. */
+    private fun performKeyHaptic() {
+        if (!hapticEnabled || hapticStrength <= 0) return
+        val vib = vibrator ?: return
+        val amplitude = (1 + hapticStrength * 2.54).toInt().coerceIn(1, 255)
+        runCatching {
+            vib.vibrate(VibrationEffect.createOneShot(HAPTIC_DURATION_MS, amplitude))
+        }
+    }
+
+    private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val specialKeyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val pressedPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val spaceGlyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+
+    // 기능 키 아이콘(시프트·삭제·엔터)은 선 두께·크기를 통일해 직접 그린다.
+    private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val iconFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(20f)
+    }
+    private val smallTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(13f)
+    }
+
+    init {
+        applyTheme()
+    }
+
+    private fun applyTheme() {
+        keyPaint.color = theme.key
+        specialKeyPaint.color = theme.specialKey
+        pressedPaint.color = theme.pressed
+        textPaint.color = theme.text
+        smallTextPaint.color = theme.text
+        spaceGlyphPaint.color = theme.subText
+        iconPaint.color = theme.text
+        iconPaint.strokeWidth = dp(1.8f)
+        iconPaint.pathEffect = CornerPathEffect(dp(1.5f))
+        iconFillPaint.color = ACCENT
+        spaceGlyphPaint.strokeWidth = dp(2f)
+        theme.keyBorder?.let {
+            borderPaint.color = it
+            borderPaint.strokeWidth = dp(1.5f)
+        }
+    }
+
+    private data class KeyBounds(val key: Key, val rect: RectF)
+
+    private var keyBounds: List<KeyBounds> = emptyList()
+
+    // 멀티터치: 포인터별로 눌린 키를 추적해야 빠른 타이핑(이전 키를 떼기 전에
+    // 다음 키를 누르는 패턴)에서 글자가 씹히지 않는다.
+    private val pressedByPointer = HashMap<Int, Key>()
+    private val downXByPointer = HashMap<Int, Float>()
+    private var spacePointerId = -1
+    private var spaceSwiped = false
+    private var deletePointerId = -1
+
+    private val repeatHandler = Handler(Looper.getMainLooper())
+    private val repeatDelete = object : Runnable {
+        override fun run() {
+            onKeyListener(Key(KeyType.DELETE, "⌫"))
+            repeatHandler.postDelayed(this, 50L)
+        }
+    }
+
+    private fun dp(v: Float): Float =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
+
+    private fun sp(v: Float): Float =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        setMeasuredDimension(width, dp(heightDp.toFloat()).toInt())
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = rebuildBounds()
+
+    /** 숫자 열은 다른 열보다 살짝 낮게 그린다. 기호 페이지의 숫자 열도 포함. */
+    private fun hasCompactNumberRow(): Boolean = when {
+        mode == LayoutMode.SYMBOLS -> true
+        mode == LayoutMode.KOREAN && koreanLayout == KoreanLayoutType.SEBEOLSIK_390 -> false
+        else -> showNumberRow
+    }
+
+    private fun rebuildBounds() {
+        val rows = KeyboardLayouts.rows(
+            mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout, shiftNumberRowSymbols,
+        )
+        val heightWeights = FloatArray(rows.size) { 1f }
+        if (hasCompactNumberRow() && rows.isNotEmpty()) {
+            heightWeights[0] = NUMBER_ROW_HEIGHT_WEIGHT
+        }
+        val unit = height.toFloat() / heightWeights.sum()
+        // 수직 간격을 수평보다 넓게 — 키 높이가 낮아 보이는 인상을 준다.
+        val gapX = dp(3f)
+        val gapY = dp(6.5f)
+        val bounds = mutableListOf<KeyBounds>()
+        var top = 0f
+        rows.forEachIndexed { rowIdx, row ->
+            val rowHeight = unit * heightWeights[rowIdx]
+            val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
+            var x = 0f
+            row.forEach { key ->
+                val keyWidth = width * (key.widthWeight / totalWeight)
+                bounds += KeyBounds(
+                    key,
+                    RectF(x + gapX, top + gapY, x + keyWidth - gapX, top + rowHeight - gapY),
+                )
+                x += keyWidth
+            }
+            top += rowHeight
+        }
+        keyBounds = bounds
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        canvas.drawColor(theme.background)
+        rebuildBounds()
+        val radius = dp(8f)
+        keyBounds.forEach { (key, rect) ->
+            if (key.type == KeyType.SPACER) return@forEach
+            val pressed = pressedByPointer.containsValue(key)
+            if (showKeyBackground || pressed) {
+                val paint = when {
+                    pressed -> pressedPaint
+                    key.type == KeyType.CHAR -> keyPaint
+                    key.type == KeyType.SPACE -> keyPaint
+                    else -> specialKeyPaint
+                }
+                canvas.drawRoundRect(rect, radius, radius, paint)
+                if (showKeyBackground && theme.keyBorder != null) {
+                    canvas.drawRoundRect(rect, radius, radius, borderPaint)
+                }
+            }
+            when (key.type) {
+                KeyType.SPACE -> {
+                    // 스페이스바 중앙에 ⎵ 기호를 직접 그린다 (폰트 글리프 의존 없이).
+                    val half = dp(22f)
+                    val tick = dp(7f)
+                    val cx = rect.centerX()
+                    val baseY = rect.centerY() + tick / 2
+                    canvas.drawLine(cx - half, baseY - tick, cx - half, baseY, spaceGlyphPaint)
+                    canvas.drawLine(cx - half, baseY, cx + half, baseY, spaceGlyphPaint)
+                    canvas.drawLine(cx + half, baseY - tick, cx + half, baseY, spaceGlyphPaint)
+                }
+                KeyType.SHIFT -> drawShiftIcon(canvas, rect)
+                KeyType.DELETE -> drawDeleteIcon(canvas, rect)
+                KeyType.ENTER -> drawEnterIcon(canvas, rect)
+                else -> if (key.label.isNotEmpty()) {
+                    // 한/영 키는 작은 글자로 표시한다.
+                    val paint = if (key.type == KeyType.LANG) smallTextPaint else textPaint
+                    val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
+                    canvas.drawText(key.label, rect.centerX(), y, paint)
+                }
+            }
+        }
+    }
+
+    /** 시프트: 집 모양 화살표 외곽선. 활성 상태면 액센트 색으로 채운다. */
+    private fun drawShiftIcon(canvas: Canvas, rect: RectF) {
+        val u = dp(1f)
+        val path = Path().apply {
+            moveTo(0f, -9f * u)
+            lineTo(7.5f * u, -0.5f * u)
+            lineTo(3.5f * u, -0.5f * u)
+            lineTo(3.5f * u, 8f * u)
+            lineTo(-3.5f * u, 8f * u)
+            lineTo(-3.5f * u, -0.5f * u)
+            lineTo(-7.5f * u, -0.5f * u)
+            close()
+        }
+        canvas.withTranslation(rect.centerX(), rect.centerY()) {
+            if (shifted) {
+                drawPath(path, iconFillPaint)
+            } else {
+                drawPath(path, iconPaint)
+            }
+        }
+    }
+
+    /** 삭제: 왼쪽이 뾰족한 오각형 + 가운데 ×. */
+    private fun drawDeleteIcon(canvas: Canvas, rect: RectF) {
+        val u = dp(1f)
+        val body = Path().apply {
+            moveTo(-10f * u, 0f)
+            lineTo(-4f * u, -6.5f * u)
+            lineTo(9.5f * u, -6.5f * u)
+            lineTo(9.5f * u, 6.5f * u)
+            lineTo(-4f * u, 6.5f * u)
+            close()
+        }
+        canvas.withTranslation(rect.centerX(), rect.centerY()) {
+            drawPath(body, iconPaint)
+            val c = 2.4f * u
+            val ox = 1.8f * u
+            drawLine(ox - c, -c, ox + c, c, iconPaint)
+            drawLine(ox - c, c, ox + c, -c, iconPaint)
+        }
+    }
+
+    /** 엔터: ↵ 모양 꺾인 화살표. */
+    private fun drawEnterIcon(canvas: Canvas, rect: RectF) {
+        val u = dp(1f)
+        canvas.withTranslation(rect.centerX(), rect.centerY()) {
+            drawLine(7f * u, -7.5f * u, 7f * u, 2.5f * u, iconPaint)
+            drawLine(7f * u, 2.5f * u, -7f * u, 2.5f * u, iconPaint)
+            drawLine(-7f * u, 2.5f * u, -2.5f * u, -2f * u, iconPaint)
+            drawLine(-7f * u, 2.5f * u, -2.5f * u, 7f * u, iconPaint)
+        }
+    }
+
+    private inline fun Canvas.withTranslation(x: Float, y: Float, block: Canvas.() -> Unit) {
+        val save = save()
+        translate(x, y)
+        block()
+        restoreToCount(save)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                val index = event.actionIndex
+                val pointerId = event.getPointerId(index)
+                val key = keyAt(event.getX(index), event.getY(index)) ?: return true
+                pressedByPointer[pointerId] = key
+                downXByPointer[pointerId] = event.getX(index)
+                performKeyHaptic()
+                when (key.type) {
+                    // 스페이스는 좌우 스와이프(언어 변경)와 구분해야 하므로 UP에서 입력한다.
+                    KeyType.SPACE -> {
+                        spacePointerId = pointerId
+                        spaceSwiped = false
+                    }
+                    KeyType.DELETE -> {
+                        onKeyListener(key)
+                        deletePointerId = pointerId
+                        repeatHandler.postDelayed(repeatDelete, 400L)
+                    }
+                    else -> onKeyListener(key)
+                }
+                invalidate()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (spacePointerId != -1 && languageSwipeEnabled && !spaceSwiped) {
+                    val index = event.findPointerIndex(spacePointerId)
+                    val startX = downXByPointer[spacePointerId]
+                    if (index >= 0 && startX != null &&
+                        kotlin.math.abs(event.getX(index) - startX) > dp(48f)
+                    ) {
+                        spaceSwiped = true
+                        performKeyHaptic()
+                        onLanguageSwipe?.invoke()
+                    }
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                val pointerId = event.getPointerId(event.actionIndex)
+                val key = pressedByPointer.remove(pointerId)
+                downXByPointer.remove(pointerId)
+                if (key?.type == KeyType.SPACE && pointerId == spacePointerId) {
+                    if (!spaceSwiped) onKeyListener(key)
+                    spacePointerId = -1
+                }
+                if (pointerId == deletePointerId) {
+                    repeatHandler.removeCallbacks(repeatDelete)
+                    deletePointerId = -1
+                }
+                if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    clearTouchState()
+                }
+                invalidate()
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                clearTouchState()
+                invalidate()
+            }
+        }
+        return true
+    }
+
+    /**
+     * 터치 지점의 키를 찾는다. 키 사이 틈에 떨어진 터치도 버리지 않고
+     * 가장 가까운 키로 스냅한다 — 빠른 타이핑에서 가장자리 터치가 씹히는 것을 막는다.
+     */
+    private fun keyAt(x: Float, y: Float): Key? {
+        val candidates = keyBounds.filter { it.key.type != KeyType.SPACER }
+        candidates.firstOrNull { it.rect.contains(x, y) }?.let { return it.key }
+        return candidates.minByOrNull {
+            val dx = x - it.rect.centerX()
+            val dy = y - it.rect.centerY()
+            dx * dx + dy * dy
+        }?.key
+    }
+
+    private fun clearTouchState() {
+        pressedByPointer.clear()
+        downXByPointer.clear()
+        spacePointerId = -1
+        deletePointerId = -1
+        repeatHandler.removeCallbacks(repeatDelete)
+    }
+
+    override fun onDetachedFromWindow() {
+        repeatHandler.removeCallbacks(repeatDelete)
+        super.onDetachedFromWindow()
+    }
+
+    companion object {
+        private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
+        private const val ACCENT = 0xFF3D8BFF.toInt()
+        private const val HAPTIC_DURATION_MS = 12L
+    }
+}

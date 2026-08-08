@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- IME는 입력 이력을 다루므로 백업 반출 경로를 차단한다 -->
+    <application
+        android:allowBackup="false"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:exported="true"
+            android:label="@string/settings_title" />
+
+        <activity
+            android:name=".settings.LanguageSettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_language_section" />
+
+        <activity
+            android:name=".settings.LayoutSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.ThemeSettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_section_theme" />
+
+        <activity
+            android:name=".settings.SymbolSettingsActivity"
+            android:exported="false"
+            android:label="@string/symbol_menu" />
+
+        <activity
+            android:name=".settings.SymbolPickerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.GestureFeedbackActivity"
+            android:exported="false"
+            android:label="@string/gesture_feedback_menu" />
+
+        <activity
+            android:name=".settings.FeedbackSettingsActivity"
+            android:exported="false"
+            android:label="@string/feedback_menu" />
+
+        <service
+            android:name=".ime.YeonfeelImeService"
+            android:exported="true"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+    </application>
+</manifest>

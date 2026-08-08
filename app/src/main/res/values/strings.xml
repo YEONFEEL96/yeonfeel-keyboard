@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">연필키보드</string>
+    <string name="ime_name">연필키보드</string>
+    <string name="subtype_korean">한국어</string>
+    <string name="subtype_english">English</string>
+    <string name="setup_guide">1. 아래 버튼으로 시스템 설정을 열어 \'연필키보드\'를 사용함으로 켭니다.\n2. 키보드 전환 버튼으로 연필키보드를 선택합니다.\n3. 아래 입력창에서 바로 테스트할 수 있습니다.</string>
+    <string name="enable_keyboard">1. 키보드 사용 설정 열기</string>
+    <string name="switch_keyboard">2. 키보드 전환</string>
+    <string name="open_settings">3. 키보드 설정</string>
+    <string name="test_field_hint">여기에 입력해 보세요</string>
+
+    <string name="toolbar_settings">⚙&#xFE0E;</string>
+    <string name="toolbar_layout">⌨&#xFE0E;</string>
+    <string name="toolbar_clipboard">⧉</string>
+    <string name="toolbar_settings_desc">설정</string>
+    <string name="toolbar_layout_desc">레이아웃 조정</string>
+    <string name="toolbar_clipboard_desc">클립보드</string>
+
+    <string name="clipboard_back_to_keyboard">키보드로 돌아가기</string>
+    <string name="clipboard_delete">삭제</string>
+    <string name="clipboard_pin">고정</string>
+    <string name="clipboard_cancel">취소</string>
+    <string name="clipboard_empty">복사한 내용이 여기에 표시됩니다.</string>
+
+    <string name="adjust_reset">초기화</string>
+    <string name="adjust_done">완료</string>
+
+    <string name="settings_title">연필키보드 설정</string>
+    <string name="settings_section_theme">테마</string>
+    <string name="settings_theme_dark">다크</string>
+    <string name="settings_theme_light">라이트</string>
+    <string name="settings_high_contrast">고대비 (접근성)</string>
+    <string name="settings_high_contrast_short">고대비</string>
+    <string name="theme_show_keycap">키캡 배경 표시</string>
+    <string name="settings_section_input">입력</string>
+    <string name="settings_language_section">언어 및 키보드 형식</string>
+    <string name="language_manage_title">키보드 입력 언어 관리</string>
+    <string name="language_min_one">최소 한 개의 언어는 켜져 있어야 합니다.</string>
+    <string name="korean_layout_title">한국어 자판</string>
+    <string name="korean_layout_dubeolsik">두벌식 (표준)</string>
+    <string name="korean_layout_danmoeum">단모음 (모음 연타로 ㅑㅕㅛㅠ 입력)</string>
+    <string name="korean_layout_sebeolsik">세벌식 390</string>
+    <string name="korean_layout_chunjiin">천지인 (ㅣㆍㅡ 조합)</string>
+    <string name="korean_layout_naratgul">나랏글 (획추가·쌍자음)</string>
+    <string name="korean_layout_name_dubeolsik">두벌식</string>
+    <string name="korean_layout_name_danmoeum">단모음</string>
+    <string name="korean_layout_name_sebeolsik">세벌식 390</string>
+    <string name="korean_layout_name_chunjiin">천지인</string>
+    <string name="korean_layout_name_naratgul">나랏글</string>
+    <string name="number_symbol_title">숫자 및 기호</string>
+    <string name="symbol_menu">기호</string>
+    <string name="gesture_feedback_menu">제스처 및 피드백</string>
+    <string name="feedback_menu">피드백</string>
+    <string name="feedback_haptic">햅틱 피드백</string>
+    <string name="feedback_haptic_strength">햅틱 강도</string>
+    <string name="symbol_favorite_title">기호 즐겨찾기</string>
+    <string name="symbol_left_title">스페이스바 좌측에 기호 표시하기</string>
+    <string name="symbol_left_switch">스페이스바 좌측 기호 표시</string>
+    <string name="symbol_disabled">사용 안 함</string>
+    <string name="symbol_pick_caption">기호 선택</string>
+    <string name="symbol_custom_title">직접 입력</string>
+    <string name="symbol_custom_hint">원하는 기호 한 글자를 입력하세요</string>
+    <string name="shift_number_symbols">Shift로 숫자 열을 기호로 전환 (PC 자판 기준)</string>
+    <string name="english_layout_title">영어 자판</string>
+    <string name="english_layout_qwerty">QWERTY</string>
+    <string name="language_switch_method_title">언어 변경 방법</string>
+    <string name="switch_method_button">언어 버튼으로 변경</string>
+    <string name="switch_method_button_swipe">언어 버튼 + 스페이스바 좌우로 밀어서 변경</string>
+    <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경 (언어 버튼 숨김)</string>
+    <string name="settings_number_row">숫자 열 표시</string>
+    <string name="settings_section_margins">키보드 여백</string>
+    <string name="settings_margin_hint">키보드 툴바의 \'레이아웃\' 메뉴에서 키보드 가장자리의 화살표를 드래그해 조정합니다. 좌우는 중앙 정렬을 유지하며 함께 움직이고, 상하는 따로 조정됩니다.</string>
+</resources>
