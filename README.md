@@ -1,4 +1,4 @@
-# 연필키보드
+# 연필키보드 (YEONFEEL Keyboard)
 
 안드로이드용 한글 키보드(IME). 한글 입력 품질, AI 기능, 커스터마이징에 집중한다. 로드맵은 [PLAN.md](PLAN.md) 참고.
 (코드 패키지명은 `dev.badalab.yeonfeel`이다.)
