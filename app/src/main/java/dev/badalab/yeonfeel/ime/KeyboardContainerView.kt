@@ -459,8 +459,8 @@ class KeyboardContainerView(
         val panel = LinearLayout(context).apply {
             orientation = VERTICAL
             setBackgroundColor(theme.background)
-            // 시스템 하단바(제스처 영역)와 겹치지 않게 탭 바를 위로 띄운다.
-            setPadding(0, 0, 0, navBarInset())
+            // 키보드 하단 여백 + 시스템 하단바 인셋만큼 탭 바를 위로 띄운다.
+            setPadding(0, 0, 0, dp(marginBottomDp) + navBarInset())
         }
         panel.addView(emojiScroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         panel.addView(
@@ -475,13 +475,7 @@ class KeyboardContainerView(
         return panel
     }
 
-    private fun navBarInset(): Int =
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom ?: 0
-        } else {
-            @Suppress("DEPRECATION")
-            rootWindowInsets?.systemWindowInsetBottom ?: 0
-        }
+    private fun navBarInset(): Int = navInsetPx
 
     /** 이모지 검색 모드: 헤더가 검색창이 되고, 그 아래 결과 스트립 + 일반 키보드로 입력한다. */
     private fun openEmojiSearch() {

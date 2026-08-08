@@ -8,6 +8,7 @@ import android.os.Build
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import dev.badalab.yeonfeel.R
 import dev.badalab.yeonfeel.clipboard.ClipboardHistory
 import dev.badalab.yeonfeel.clipboard.SecureClipboardStore
 import dev.badalab.yeonfeel.hangul.ChunjiinComposer
@@ -91,6 +92,7 @@ class YeonfeelImeService : InputMethodService() {
             it.keyboardView.mode = mode
             it.keyboardView.shifted = false
         }
+        updateLanguageNames()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -258,6 +260,15 @@ class YeonfeelImeService : InputMethodService() {
         mode = if (mode == LayoutMode.ENGLISH) LayoutMode.KOREAN else LayoutMode.ENGLISH
         view.mode = mode
         view.shifted = false
+        updateLanguageNames()
+    }
+
+    /** 스페이스 홀드 언어 팝업에 쓸 현재/다음 언어 이름. */
+    private fun updateLanguageNames() {
+        val view = container?.keyboardView ?: return
+        val korean = mode != LayoutMode.ENGLISH
+        view.languageName = getString(if (korean) R.string.subtype_korean else R.string.subtype_english)
+        view.nextLanguageName = getString(if (korean) R.string.subtype_english else R.string.subtype_korean)
     }
 
     /** 조합기로 보내야 하는 입력인지 — 호환/옛한글 자모, 천지인 ㆍ, 나랏글 변형 키. */

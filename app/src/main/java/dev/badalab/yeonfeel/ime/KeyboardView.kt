@@ -81,6 +81,66 @@ class KeyboardView(
     var languageSwipeEnabled: Boolean = false
     var onLanguageSwipe: (() -> Unit)? = null
 
+    /** 언어 팝업에 표시할 현재/다음 언어 이름. 서비스가 갱신한다. */
+    var languageName: String = "한국어"
+    var nextLanguageName: String = "English"
+
+    // 스페이스 홀드 시 언어 팝업
+    private var langPopupWindow: android.widget.PopupWindow? = null
+    private var langDragOffset = 0f
+    private val langPopupRunnable = Runnable { showLanguagePopup() }
+
+    /** 현재 언어가 중앙, 다음 언어가 양옆에서 드래그를 따라 들어오는 팝업 내용. */
+    private inner class LangPopupContent : View(context) {
+        override fun onDraw(canvas: Canvas) {
+            val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+            val radius = dp(12f)
+            canvas.drawRoundRect(rect, radius, radius, previewBgPaint)
+            canvas.drawRoundRect(rect, radius, radius, previewBorderPaint)
+            val cx = width / 2f + langDragOffset
+            val y = height / 2f - (langTextPaint.ascent() + langTextPaint.descent()) / 2
+            canvas.drawText(languageName, cx, y, langTextPaint)
+            langTextPaint.color = theme.subText
+            canvas.drawText(nextLanguageName, cx - width, y, langTextPaint)
+            canvas.drawText(nextLanguageName, cx + width, y, langTextPaint)
+            langTextPaint.color = theme.text
+        }
+    }
+
+    private val langTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(16f)
+    }
+
+    private fun showLanguagePopup() {
+        if (spacePointerId == -1 || variantPopup != null) return
+        val spaceKey = pressedByPointer[spacePointerId] ?: return
+        val bound = keyBounds.firstOrNull { it.key == spaceKey } ?: return
+        langTextPaint.color = theme.text
+        langDragOffset = 0f
+        val popupWidth = dp(150f).toInt()
+        val popupHeight = dp(44f).toInt()
+        val location = IntArray(2)
+        getLocationInWindow(location)
+        val x = (bound.rect.centerX() - popupWidth / 2f).toInt()
+        val y = (bound.rect.top - popupHeight - dp(8f)).toInt()
+        val window = android.widget.PopupWindow(LangPopupContent(), popupWidth, popupHeight).apply {
+            isClippingEnabled = false
+            isTouchable = false
+            isFocusable = false
+        }
+        window.showAtLocation(this, Gravity.NO_GRAVITY, location[0] + x, location[1] + y)
+        langPopupWindow = window
+        performKeyHaptic()
+    }
+
+    private fun dismissLanguagePopup() {
+        repeatHandler.removeCallbacks(langPopupRunnable)
+        langPopupWindow?.dismiss()
+        langPopupWindow = null
+        langDragOffset = 0f
+    }
+
     /** 타점 수집 콜백: (키, 키보드 정규화 x·y, 키 중심 대비 상대 x·y). */
     var onTapRecorded: ((Key, Float, Float, Float, Float) -> Unit)? = null
 
@@ -487,6 +547,7 @@ class KeyboardView(
                 if (spacePointerId != -1 && !spaceSwiped && pointerId != spacePointerId) {
                     pressedByPointer[spacePointerId]?.let { onKeyListener(it) }
                     spaceSwiped = true // UP에서 중복 입력 방지
+                    dismissLanguagePopup()
                 }
                 // 변형 키 롤오버: 팝업이 뜨기 전에 다른 키가 눌리면 원래 문자를 먼저 확정
                 pendingVariant?.let { pending ->
@@ -503,6 +564,9 @@ class KeyboardView(
                     key.type == KeyType.SPACE -> {
                         spacePointerId = pointerId
                         spaceSwiped = false
+                        if (languageSwipeEnabled) {
+                            repeatHandler.postDelayed(langPopupRunnable, LANG_POPUP_DELAY_MS)
+                        }
                     }
                     key.type == KeyType.DELETE -> {
                         onKeyListener(key)
@@ -537,15 +601,21 @@ class KeyboardView(
                         }
                     }
                 }
-                if (spacePointerId != -1 && languageSwipeEnabled && !spaceSwiped) {
+                if (spacePointerId != -1 && languageSwipeEnabled) {
                     val index = event.findPointerIndex(spacePointerId)
                     val startX = downXByPointer[spacePointerId]
-                    if (index >= 0 && startX != null &&
-                        kotlin.math.abs(event.getX(index) - startX) > dp(48f)
-                    ) {
-                        spaceSwiped = true
-                        performKeyHaptic()
-                        onLanguageSwipe?.invoke()
+                    if (index >= 0 && startX != null) {
+                        langDragOffset = (event.getX(index) - startX).coerceIn(-dp(70f), dp(70f))
+                        langPopupWindow?.contentView?.invalidate()
+                        if (kotlin.math.abs(event.getX(index) - startX) > dp(48f)) {
+                            spaceSwiped = true // 이 제스처에선 스페이스를 입력하지 않는다
+                            performKeyHaptic()
+                            onLanguageSwipe?.invoke()
+                            // 기준점을 리셋해 반대로 밀면 다시 전환할 수 있게 한다
+                            downXByPointer[spacePointerId] = event.getX(index)
+                            langDragOffset = 0f
+                            langPopupWindow?.contentView?.invalidate()
+                        }
                     }
                 }
             }
@@ -568,6 +638,7 @@ class KeyboardView(
                 if (key?.type == KeyType.SPACE && pointerId == spacePointerId) {
                     if (!spaceSwiped) onKeyListener(key)
                     spacePointerId = -1
+                    dismissLanguagePopup()
                 }
                 if (pointerId == deletePointerId) {
                     repeatHandler.removeCallbacks(repeatDelete)
@@ -630,6 +701,7 @@ class KeyboardView(
         repeatCharKey = null
         repeatCharPointerId = -1
         cancelPendingVariant()
+        dismissLanguagePopup()
     }
 
     private fun cancelPendingVariant() {
@@ -731,6 +803,7 @@ class KeyboardView(
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val HAPTIC_DURATION_MS = 12L
         private const val LONG_PRESS_MS = 350L
+        private const val LANG_POPUP_DELAY_MS = 300L
         private const val CHAR_REPEAT_START_MS = 400L
         private const val CHAR_REPEAT_INTERVAL_MS = 60L
 
