@@ -14,6 +14,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import dev.badalab.yeonfeel.settings.KeyboardSettings
@@ -108,8 +109,6 @@ class KeyboardView(
     /** 누른 키를 크게 보여주는 미리보기 팝업. */
     var keyPreviewEnabled: Boolean = true
 
-    /** 변형 팝업이 뷰 위쪽(툴바 영역)으로 나갈 수 있는 여유 공간(px). 컨테이너가 설정한다. */
-    var popupHeadroomPx: Int = 0
 
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -223,7 +222,17 @@ class KeyboardView(
 
     private var pendingVariant: PendingVariant? = null
     private var variantPopup: VariantPopupState? = null
+    private var variantPopupWindow: android.widget.PopupWindow? = null
     private val longPressRunnable = Runnable { showVariantPopup() }
+
+    /** 팝업 창에 그려지는 내용. 셀 좌표는 키보드 로컬 기준이므로 패널 원점만큼 이동해 그린다. */
+    private inner class VariantPopupContent : View(context) {
+        override fun onDraw(canvas: Canvas) {
+            val popup = variantPopup ?: return
+            canvas.translate(-popup.panel.left, -popup.panel.top)
+            drawVariantPopup(canvas, popup)
+        }
+    }
 
     private val repeatHandler = Handler(Looper.getMainLooper())
     private val repeatDelete = object : Runnable {
@@ -286,8 +295,12 @@ class KeyboardView(
         keyBounds = bounds
     }
 
+    private val backgroundPaint = Paint()
+
     override fun onDraw(canvas: Canvas) {
-        canvas.drawColor(theme.background)
+        // 부모 클리핑이 풀려 있으므로 drawColor(캔버스 전체)가 아니라 뷰 영역만 칠한다.
+        backgroundPaint.color = theme.background
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
         if (boundsDirty) {
             rebuildBounds()
             boundsDirty = false
@@ -317,7 +330,6 @@ class KeyboardView(
                 drawKeyPreview(canvas, pressed, bound.rect)
             }
         }
-        variantPopup?.let { drawVariantPopup(canvas, it) }
     }
 
     private fun drawVariantPopup(canvas: Canvas, popup: VariantPopupState) {
@@ -498,7 +510,7 @@ class KeyboardView(
                         val selected = nearestVariantCell(popup, event.getX(idx), event.getY(idx))
                         if (selected != popup.selected) {
                             popup.selected = selected
-                            invalidate()
+                            variantPopupWindow?.contentView?.invalidate()
                         }
                     }
                 }
@@ -585,6 +597,8 @@ class KeyboardView(
     private fun cancelPendingVariant() {
         repeatHandler.removeCallbacks(longPressRunnable)
         pendingVariant = null
+        variantPopupWindow?.dismiss()
+        variantPopupWindow = null
         if (variantPopup != null) {
             variantPopup = null
             invalidate()
@@ -604,10 +618,8 @@ class KeyboardView(
         val panelWidth = pad * 2 + columns * cellWidth
         val panelHeight = pad * 2 + rows * cellHeight
         val left = anchor.left.coerceIn(dp(2f), maxOf(dp(2f), width - panelWidth - dp(2f)))
-        // 손가락(키) 수직 위에 띄운다. 공간이 모자라면 뷰 위쪽 여유(툴바 영역)까지 올린다.
-        var bottom = anchor.top - dp(4f)
-        val minTop = -popupHeadroomPx + dp(2f)
-        if (bottom - panelHeight < minTop) bottom = minTop + panelHeight
+        // 손가락(키) 수직 위. PopupWindow 오버레이라 키보드 창 밖(툴바·앱 영역)까지 올라간다.
+        val bottom = anchor.top - dp(4f)
         val panel = RectF(left, bottom - panelHeight, left + panelWidth, bottom)
         // 셀은 아랫줄부터 채운다 (원래 키가 왼쪽 아래, 참고 디자인과 동일)
         val cells = options.indices.map { index ->
@@ -618,6 +630,24 @@ class KeyboardView(
             RectF(x + dp(2f), y + dp(2f), x + cellWidth - dp(2f), y + cellHeight - dp(2f))
         }
         variantPopup = VariantPopupState(pending.pointerId, options, panel, cells)
+        val location = IntArray(2)
+        getLocationInWindow(location)
+        val window = android.widget.PopupWindow(
+            VariantPopupContent(),
+            panelWidth.toInt(),
+            panelHeight.toInt(),
+        ).apply {
+            isClippingEnabled = false
+            isTouchable = false
+            isFocusable = false
+        }
+        window.showAtLocation(
+            this,
+            Gravity.NO_GRAVITY,
+            location[0] + panel.left.toInt(),
+            location[1] + panel.top.toInt(),
+        )
+        variantPopupWindow = window
         performKeyHaptic()
         invalidate()
     }
@@ -639,6 +669,7 @@ class KeyboardView(
 
     override fun onDetachedFromWindow() {
         repeatHandler.removeCallbacks(repeatDelete)
+        cancelPendingVariant()
         super.onDetachedFromWindow()
     }
 

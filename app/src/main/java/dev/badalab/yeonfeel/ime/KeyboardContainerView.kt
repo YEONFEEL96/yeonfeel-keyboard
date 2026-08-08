@@ -68,9 +68,6 @@ class KeyboardContainerView(
 
     init {
         orientation = VERTICAL
-        // 롱프레스 변형 팝업이 키보드 뷰 위(툴바 영역)까지 그려질 수 있도록 클리핑을 푼다.
-        clipChildren = false
-        clipToPadding = false
 
         toolbar.orientation = HORIZONTAL
         toolbar.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply {
@@ -94,10 +91,6 @@ class KeyboardContainerView(
         toolbar.addView(clipboardButton)
         addView(toolbar)
 
-        keyboardWrapper.clipChildren = false
-        keyboardWrapper.clipToPadding = false
-        contentFrame.clipChildren = false
-        contentFrame.clipToPadding = false
         keyboardWrapper.addView(
             keyboardView,
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT),
@@ -126,9 +119,6 @@ class KeyboardContainerView(
         keyboardView.shiftNumberRowSymbols = settings.shiftNumberRowSymbols
         keyboardView.showKeyBackground = settings.showKeyBackground
         keyboardView.keyPreviewEnabled = settings.keyPreviewEnabled
-        // 변형 팝업이 뷰 위로 얼마나 나갈 수 있는지 (툴바 + 상단 여백)
-        keyboardView.popupHeadroomPx =
-            dp(settings.marginTopDp) + if (toolbarEnabled) dp(50) else 0
         keyboardView.hapticEnabled = settings.hapticEnabled
         keyboardView.hapticStrength = settings.hapticStrength
         KeyboardLayouts.favoriteSymbol = settings.favoriteSymbol.first()
