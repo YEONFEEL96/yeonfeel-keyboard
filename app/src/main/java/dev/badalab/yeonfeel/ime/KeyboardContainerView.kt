@@ -251,18 +251,36 @@ class KeyboardContainerView(
         keyboardView.visibility = VISIBLE
     }
 
+    private var navInsetPx = 0
+
     private fun applyMargins(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {
         marginTopDp = topDp
         marginBottomDp = bottomDp
         marginSideDp = sideDp
         keyboardHeightDp = heightDp
         keyboardView.heightDp = heightDp
-        keyboardWrapper.setPadding(dp(sideDp), dp(topDp), dp(sideDp), dp(bottomDp))
+        // 하단에는 시스템 내비게이션 바 인셋을 더해 제스처 영역과 겹치지 않게 한다.
+        keyboardWrapper.setPadding(dp(sideDp), dp(topDp), dp(sideDp), dp(bottomDp) + navInsetPx)
         // 콘텐츠 영역 높이를 키보드 높이로 고정 — 패널(클립보드·이모지) 내용이
         // 길어도 창이 위로 자라지 않고 패널 안에서 스크롤된다.
         contentFrame.layoutParams = (contentFrame.layoutParams as LayoutParams).apply {
-            height = dp(heightDp + topDp + bottomDp)
+            height = dp(heightDp + topDp + bottomDp) + navInsetPx
         }
+    }
+
+    override fun onApplyWindowInsets(insets: android.view.WindowInsets): android.view.WindowInsets {
+        val newInset =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetBottom
+            }
+        if (newInset != navInsetPx) {
+            navInsetPx = newInset
+            applyMargins(marginTopDp, marginBottomDp, marginSideDp, keyboardHeightDp)
+        }
+        return super.onApplyWindowInsets(insets)
     }
 
     private fun toggleAdjustMode() {
