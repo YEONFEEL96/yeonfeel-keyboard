@@ -242,6 +242,16 @@ class KeyboardView(
         }
     }
 
+    // ㅋ 등 반복 입력 키: 꾹 누르면 연속 입력된다.
+    private var repeatCharKey: Key? = null
+    private var repeatCharPointerId = -1
+    private val repeatCharRunnable = object : Runnable {
+        override fun run() {
+            repeatCharKey?.let { onKeyListener(it) }
+            repeatHandler.postDelayed(this, CHAR_REPEAT_INTERVAL_MS)
+        }
+    }
+
     private fun dp(v: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
 
@@ -504,6 +514,14 @@ class KeyboardView(
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(longPressRunnable, LONG_PRESS_MS)
                     }
+                    // ㅋ 등은 꾹 누르면 반복 입력된다.
+                    (key.type == KeyType.CHAR || key.type == KeyType.GHOST) &&
+                        key.char in REPEATABLE_CHARS -> {
+                        onKeyListener(key)
+                        repeatCharKey = key
+                        repeatCharPointerId = pointerId
+                        repeatHandler.postDelayed(repeatCharRunnable, CHAR_REPEAT_START_MS)
+                    }
                     else -> onKeyListener(key)
                 }
                 invalidate()
@@ -555,6 +573,11 @@ class KeyboardView(
                     repeatHandler.removeCallbacks(repeatDelete)
                     deletePointerId = -1
                 }
+                if (pointerId == repeatCharPointerId) {
+                    repeatHandler.removeCallbacks(repeatCharRunnable)
+                    repeatCharKey = null
+                    repeatCharPointerId = -1
+                }
                 if (event.actionMasked == MotionEvent.ACTION_UP) {
                     clearTouchState()
                 }
@@ -603,6 +626,9 @@ class KeyboardView(
         spacePointerId = -1
         deletePointerId = -1
         repeatHandler.removeCallbacks(repeatDelete)
+        repeatHandler.removeCallbacks(repeatCharRunnable)
+        repeatCharKey = null
+        repeatCharPointerId = -1
         cancelPendingVariant()
     }
 
@@ -641,7 +667,8 @@ class KeyboardView(
             val y = panel.bottom - pad - (row + 1) * cellHeight
             RectF(x + dp(2f), y + dp(2f), x + cellWidth - dp(2f), y + cellHeight - dp(2f))
         }
-        variantPopup = VariantPopupState(pending.pointerId, options, panel, cells)
+        // 첫 변형(위첨자)을 기본 선택으로 — 길게 눌렀다 그대로 떼면 위첨자가 입력된다.
+        variantPopup = VariantPopupState(pending.pointerId, options, panel, cells, selected = 1)
         val location = IntArray(2)
         getLocationInWindow(location)
         val window = android.widget.PopupWindow(
@@ -690,15 +717,24 @@ class KeyboardView(
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val HAPTIC_DURATION_MS = 12L
         private const val LONG_PRESS_MS = 350L
+        private const val CHAR_REPEAT_START_MS = 400L
+        private const val CHAR_REPEAT_INTERVAL_MS = 60L
 
-        /** 롱프레스 변형 문자: 숫자 키의 유니코드 분수. */
+        /** 꾹 누르면 반복 입력되는 문자. */
+        private val REPEATABLE_CHARS = setOf('ㅋ')
+
+        /** 롱프레스 변형 문자: 위첨자(첫 후보, 기본 선택) + 유니코드 분수. */
         private val KEY_VARIANTS = mapOf(
-            '1' to "½⅓¼⅕⅙⅐⅛⅑",
-            '2' to "⅔⅖",
-            '3' to "¾⅗⅜",
-            '4' to "⅘",
-            '5' to "⅚⅝",
-            '7' to "⅞",
+            '1' to "¹½⅓¼⅕⅙⅐⅛⅑",
+            '2' to "²⅔⅖",
+            '3' to "³¾⅗⅜",
+            '4' to "⁴⅘",
+            '5' to "⁵⅚⅝",
+            '6' to "⁶",
+            '7' to "⁷⅞",
+            '8' to "⁸",
+            '9' to "⁹",
+            '0' to "⁰",
         )
     }
 }
