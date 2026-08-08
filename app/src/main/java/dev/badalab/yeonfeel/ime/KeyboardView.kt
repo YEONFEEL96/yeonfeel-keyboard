@@ -88,19 +88,25 @@ class KeyboardView(
     // 스페이스 홀드 시 언어 팝업
     private var langPopupWindow: android.widget.PopupWindow? = null
     private var langDragOffset = 0f
+    private var spaceLastDx = 0f
     private val langPopupRunnable = Runnable { showLanguagePopup() }
 
-    /** 현재 언어가 중앙, 다음 언어가 양옆에서 드래그를 따라 들어오는 팝업 내용. */
+    /**
+     * 현재 언어가 중앙, 다음 언어가 양옆에서 드래그를 따라 들어오는 팝업 내용.
+     * 임계값을 넘으면 다음 언어가 강조된다 — 손을 떼면 그 언어로 바뀐다는 예고.
+     */
     private inner class LangPopupContent : View(context) {
         override fun onDraw(canvas: Canvas) {
             val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
             val radius = dp(12f)
             canvas.drawRoundRect(rect, radius, radius, previewBgPaint)
             canvas.drawRoundRect(rect, radius, radius, previewBorderPaint)
+            val willSwitch = kotlin.math.abs(spaceLastDx) > dp(48f)
             val cx = width / 2f + langDragOffset
             val y = height / 2f - (langTextPaint.ascent() + langTextPaint.descent()) / 2
+            langTextPaint.color = if (willSwitch) theme.subText else theme.text
             canvas.drawText(languageName, cx, y, langTextPaint)
-            langTextPaint.color = theme.subText
+            langTextPaint.color = if (willSwitch) theme.text else theme.subText
             canvas.drawText(nextLanguageName, cx - width, y, langTextPaint)
             canvas.drawText(nextLanguageName, cx + width, y, langTextPaint)
             langTextPaint.color = theme.text
@@ -565,6 +571,7 @@ class KeyboardView(
                     key.type == KeyType.SPACE -> {
                         spacePointerId = pointerId
                         spaceSwiped = false
+                        spaceLastDx = 0f
                         if (languageSwipeEnabled) {
                             repeatHandler.postDelayed(langPopupRunnable, LANG_POPUP_DELAY_MS)
                         }
@@ -606,17 +613,10 @@ class KeyboardView(
                     val index = event.findPointerIndex(spacePointerId)
                     val startX = downXByPointer[spacePointerId]
                     if (index >= 0 && startX != null) {
-                        langDragOffset = (event.getX(index) - startX).coerceIn(-dp(70f), dp(70f))
+                        // 전환은 손을 뗄 때 1회만 — 드래그 중에는 미리보기만 갱신한다.
+                        spaceLastDx = event.getX(index) - startX
+                        langDragOffset = spaceLastDx.coerceIn(-dp(70f), dp(70f))
                         langPopupWindow?.contentView?.invalidate()
-                        if (kotlin.math.abs(event.getX(index) - startX) > dp(48f)) {
-                            spaceSwiped = true // 이 제스처에선 스페이스를 입력하지 않는다
-                            performKeyHaptic()
-                            onLanguageSwipe?.invoke()
-                            // 기준점을 리셋해 반대로 밀면 다시 전환할 수 있게 한다
-                            downXByPointer[spacePointerId] = event.getX(index)
-                            langDragOffset = 0f
-                            langPopupWindow?.contentView?.invalidate()
-                        }
                     }
                 }
             }
@@ -637,8 +637,16 @@ class KeyboardView(
                     }
                 }
                 if (key?.type == KeyType.SPACE && pointerId == spacePointerId) {
-                    if (!spaceSwiped) onKeyListener(key)
+                    val swiped = languageSwipeEnabled && kotlin.math.abs(spaceLastDx) > dp(48f)
+                    when {
+                        swiped -> {
+                            performKeyHaptic()
+                            onLanguageSwipe?.invoke()
+                        }
+                        !spaceSwiped -> onKeyListener(key)
+                    }
                     spacePointerId = -1
+                    spaceLastDx = 0f
                     dismissLanguagePopup()
                 }
                 if (pointerId == deletePointerId) {
