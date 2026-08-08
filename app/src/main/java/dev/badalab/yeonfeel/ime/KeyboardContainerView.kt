@@ -30,8 +30,10 @@ class KeyboardContainerView(
     interface Callbacks {
         fun onKey(key: Key)
         fun onPaste(text: String)
+        fun onEmoji(emoji: String)
         fun onOpenSettings()
         fun onLanguageSwipe()
+        fun onToolbarOrderChanged(order: String)
         fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
@@ -47,6 +49,7 @@ class KeyboardContainerView(
     private val keyboardWrapper = FrameLayout(context)
     private val contentFrame = FrameLayout(context)
     private var clipboardPanel: View? = null
+    private var emojiPanel: View? = null
     private var clipboardHeader: View? = null
     private var adjustOverlay: MarginAdjustOverlay? = null
 
@@ -65,6 +68,8 @@ class KeyboardContainerView(
     private lateinit var settingsButton: android.widget.ImageView
     private lateinit var layoutButton: android.widget.ImageView
     private lateinit var clipboardButton: android.widget.ImageView
+    private lateinit var emojiButton: android.widget.ImageView
+    private val toolbarButtons = linkedMapOf<String, android.widget.ImageView>()
 
     init {
         orientation = VERTICAL
@@ -87,9 +92,16 @@ class KeyboardContainerView(
             R.drawable.ic_toolbar_clipboard,
             context.getString(R.string.toolbar_clipboard_desc),
         ) { toggleClipboardPanel() }
-        toolbar.addView(settingsButton)
-        toolbar.addView(layoutButton)
-        toolbar.addView(clipboardButton)
+        emojiButton = toolbarIcon(
+            R.drawable.ic_toolbar_emoji,
+            context.getString(R.string.toolbar_emoji_desc),
+        ) { toggleEmojiPanel() }
+        toolbarButtons["settings"] = settingsButton
+        toolbarButtons["layout"] = layoutButton
+        toolbarButtons["clipboard"] = clipboardButton
+        toolbarButtons["emoji"] = emojiButton
+        setupToolbarReorder()
+        applyToolbarOrder(KeyboardSettings.TOOLBAR_ORDER_DEFAULT)
         addView(toolbar)
 
         keyboardWrapper.addView(
@@ -135,15 +147,67 @@ class KeyboardContainerView(
         setBackgroundColor(theme.background)
         keyboardWrapper.setBackgroundColor(theme.background)
         toolbar.setBackgroundColor(theme.specialKey)
-        listOf(settingsButton, layoutButton, clipboardButton).forEach {
+        toolbarButtons.values.forEach {
             it.imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
         }
+        applyToolbarOrder(settings.toolbarOrder)
         showKeyboard()
+    }
+
+    /** 툴바 아이콘 순서 적용. 목록에 없는 아이콘은 뒤에 붙인다. */
+    private fun applyToolbarOrder(orderCsv: String) {
+        toolbar.removeAllViews()
+        val added = mutableSetOf<String>()
+        orderCsv.split(',').map { it.trim() }.forEach { id ->
+            toolbarButtons[id]?.let {
+                toolbar.addView(it)
+                added.add(id)
+            }
+        }
+        toolbarButtons.forEach { (id, view) -> if (id !in added) toolbar.addView(view) }
+    }
+
+    /** 아이콘을 길게 눌러 드래그하면 순서를 바꾼다. */
+    private fun setupToolbarReorder() {
+        toolbarButtons.forEach { (id, view) ->
+            view.tag = id
+            view.setOnLongClickListener { v ->
+                v.startDragAndDrop(
+                    android.content.ClipData.newPlainText("toolbar", id),
+                    View.DragShadowBuilder(v),
+                    v,
+                    0,
+                )
+                true
+            }
+        }
+        toolbar.setOnDragListener { _, event ->
+            when (event.action) {
+                android.view.DragEvent.ACTION_DROP -> {
+                    val dragged = event.localState as? View ?: return@setOnDragListener false
+                    toolbar.removeView(dragged)
+                    var index = 0
+                    for (i in 0 until toolbar.childCount) {
+                        val child = toolbar.getChildAt(i)
+                        if (event.x > child.x + child.width / 2f) index = i + 1
+                    }
+                    toolbar.addView(dragged, index)
+                    val order = (0 until toolbar.childCount)
+                        .mapNotNull { toolbar.getChildAt(it).tag as? String }
+                        .joinToString(",")
+                    callbacks.onToolbarOrderChanged(order)
+                    true
+                }
+                else -> true
+            }
+        }
     }
 
     fun showKeyboard() {
         clipboardPanel?.let { contentFrame.removeView(it) }
         clipboardPanel = null
+        emojiPanel?.let { contentFrame.removeView(it) }
+        emojiPanel = null
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = null
         toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
@@ -189,6 +253,108 @@ class KeyboardContainerView(
         )
     }
 
+    private fun toggleEmojiPanel() {
+        val wasOpen = emojiPanel != null
+        showKeyboard()
+        if (wasOpen) return
+
+        val panel = buildEmojiPanel()
+        emojiPanel = panel
+        keyboardView.visibility = INVISIBLE
+        contentFrame.addView(
+            panel,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
+        )
+        attachHeader(buildEmojiHeader())
+    }
+
+    private fun buildEmojiHeader(): View {
+        val header = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(theme.specialKey)
+            setPadding(dp(8), 0, dp(8), 0)
+        }
+        header.addView(
+            headerImage(R.drawable.ic_toolbar_keyboard, context.getString(R.string.clipboard_back_to_keyboard)) {
+                showKeyboard()
+            },
+        )
+        header.addView(TextView(context).apply {
+            text = context.getString(R.string.toolbar_emoji_desc)
+            setTextColor(theme.text)
+            setTypeface(null, Typeface.BOLD)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setPadding(dp(6), 0, 0, 0)
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        })
+        header.addView(
+            headerImage(R.drawable.ic_icon_backspace, context.getString(R.string.clipboard_delete)) {
+                callbacks.onKey(Key(KeyType.DELETE, "⌫"))
+            },
+        )
+        return header
+    }
+
+    private fun buildEmojiPanel(): View {
+        val column = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setBackgroundColor(theme.background)
+            setPadding(dp(8), dp(2), dp(8), dp(4))
+        }
+        EmojiData.categories.forEach { category ->
+            column.addView(TextView(context).apply {
+                text = category.title
+                setTextColor(theme.subText)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setPadding(dp(6), dp(8), 0, dp(2))
+            })
+            category.emojis.chunked(8).forEach { rowEmojis ->
+                val row = LinearLayout(context).apply { orientation = HORIZONTAL }
+                rowEmojis.forEach { emoji ->
+                    row.addView(
+                        TextView(context).apply {
+                            text = emoji
+                            gravity = Gravity.CENTER
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                            setOnClickListener { callbacks.onEmoji(emoji) }
+                        },
+                        LayoutParams(0, dp(44), 1f),
+                    )
+                }
+                // 마지막 줄이 8개 미만이면 빈 칸으로 채워 정렬을 유지한다.
+                repeat(8 - rowEmojis.size) {
+                    row.addView(View(context), LayoutParams(0, dp(44), 1f))
+                }
+                column.addView(row)
+            }
+        }
+        return ScrollView(context).apply {
+            setBackgroundColor(theme.background)
+            addView(column)
+        }
+    }
+
+    private fun headerImage(drawableRes: Int, description: String, onClick: () -> Unit) =
+        toolbarIcon(drawableRes, description, onClick).apply {
+            imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
+            (layoutParams as MarginLayoutParams).apply {
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
+        }
+
+    private fun attachHeader(header: View) {
+        toolbar.visibility = GONE
+        clipboardHeader?.let { removeView(it) }
+        clipboardHeader = header
+        addView(
+            header,
+            0,
+            LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply { bottomMargin = dp(6) },
+        )
+    }
+
     private fun toggleClipboardPanel() {
         val wasOpen = clipboardPanel != null
         showKeyboard()
@@ -207,15 +373,7 @@ class KeyboardContainerView(
 
     /** 클립보드 헤더가 툴바 자리를 대체한다. */
     private fun attachClipboardHeader() {
-        toolbar.visibility = GONE
-        clipboardHeader?.let { removeView(it) }
-        val header = buildClipboardHeader()
-        clipboardHeader = header
-        addView(
-            header,
-            0,
-            LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply { bottomMargin = dp(6) },
-        )
+        attachHeader(buildClipboardHeader())
     }
 
     private fun buildClipboardHeader(): View {

@@ -108,6 +108,15 @@ class YeonfeelImeService : InputMethodService() {
             container?.showKeyboard()
         }
 
+        override fun onEmoji(emoji: String) {
+            finishComposition()
+            currentInputConnection?.commitText(emoji, 1)
+        }
+
+        override fun onToolbarOrderChanged(order: String) {
+            settings.toolbarOrder = order
+        }
+
         override fun onOpenSettings() {
             startActivity(
                 Intent(this@YeonfeelImeService, SettingsActivity::class.java)

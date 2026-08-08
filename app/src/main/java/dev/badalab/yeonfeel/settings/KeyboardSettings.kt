@@ -73,6 +73,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_TOOLBAR, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_TOOLBAR, value).apply()
 
+    /** 툴바 아이콘 순서 (쉼표 구분 id). 아이콘을 길게 눌러 드래그하면 바뀐다. */
+    var toolbarOrder: String
+        get() = prefs.getString(KEY_TOOLBAR_ORDER, TOOLBAR_ORDER_DEFAULT) ?: TOOLBAR_ORDER_DEFAULT
+        set(value) = prefs.edit().putString(KEY_TOOLBAR_ORDER, value).apply()
+
     var highContrast: Boolean
         get() = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
         set(value) = prefs.edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
@@ -196,9 +201,11 @@ class KeyboardSettings(context: Context) {
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
+        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji"
 
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SHOW_TOOLBAR = "show_toolbar"
+        private const val KEY_TOOLBAR_ORDER = "toolbar_order"
         private const val KEY_HIGH_CONTRAST = "high_contrast"
         private const val KEY_SHOW_KEY_BACKGROUND = "show_key_background"
         private const val KEY_HIGH_CONTRAST_STYLE = "high_contrast_style"
