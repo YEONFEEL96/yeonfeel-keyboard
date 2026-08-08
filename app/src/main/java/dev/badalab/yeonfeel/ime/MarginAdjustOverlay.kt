@@ -222,7 +222,7 @@ class MarginAdjustOverlay(
                     }
                     button === resetRect && resetRect.contains(event.x, event.y) -> {
                         topDp = 0
-                        bottomDp = 0
+                        bottomDp = KeyboardSettings.MARGIN_BOTTOM_DEFAULT
                         sideDp = 0
                         heightDp = KeyboardSettings.HEIGHT_DEFAULT
                         listener.onMarginsChanged(topDp, bottomDp, sideDp, heightDp)

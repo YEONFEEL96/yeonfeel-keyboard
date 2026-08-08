@@ -67,8 +67,9 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_MARGIN_TOP, 0)
         set(value) = prefs.edit().putInt(KEY_MARGIN_TOP, value).apply()
 
+    /** 하단 여백 기본값은 제스처 내비게이션 영역과 겹치지 않도록 살짝 띄운다. */
     var marginBottomDp: Int
-        get() = prefs.getInt(KEY_MARGIN_BOTTOM, 0)
+        get() = prefs.getInt(KEY_MARGIN_BOTTOM, MARGIN_BOTTOM_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_MARGIN_BOTTOM, value).apply()
 
     var marginSideDp: Int
@@ -142,6 +143,7 @@ class KeyboardSettings(context: Context) {
     companion object {
         const val MARGIN_TOP_MAX = 60
         const val MARGIN_BOTTOM_MAX = 100
+        const val MARGIN_BOTTOM_DEFAULT = 12
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
