@@ -47,6 +47,9 @@ class SettingsActivity : Activity() {
             ui.switchRow(getString(R.string.settings_number_row), settings.showNumberRow) { checked, _ ->
                 settings.showNumberRow = checked
             },
+            ui.switchRow(getString(R.string.settings_show_toolbar), settings.showToolbar) { checked, _ ->
+                settings.showToolbar = checked
+            },
         )
 
         ui.card(

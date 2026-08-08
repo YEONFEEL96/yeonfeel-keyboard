@@ -56,6 +56,7 @@ class KeyboardContainerView(
     private var clipboardMode = ClipboardMode.NORMAL
     private val clipboardSelected = mutableSetOf<String>()
 
+    private var toolbarEnabled = true
     private var marginTopDp = 0
     private var marginBottomDp = 0
     private var marginSideDp = 0
@@ -103,6 +104,7 @@ class KeyboardContainerView(
 
     /** 설정 변경(테마·여백)을 반영한다. 열린 패널·조정 모드는 닫는다. */
     fun applySettings(settings: KeyboardSettings) {
+        toolbarEnabled = settings.showToolbar
         val dark = when (settings.themeMode) {
             ThemeMode.DARK -> true
             ThemeMode.LIGHT -> false
@@ -140,7 +142,7 @@ class KeyboardContainerView(
         clipboardPanel = null
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = null
-        toolbar.visibility = VISIBLE
+        toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
         adjustOverlay?.let { contentFrame.removeView(it) }
         adjustOverlay = null
         clipboardMode = ClipboardMode.NORMAL

@@ -50,8 +50,13 @@ class KeyboardSettings(context: Context) {
     var themeMode: ThemeMode
         get() = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "")
-        }.getOrDefault(ThemeMode.SYSTEM)
+        }.getOrDefault(ThemeMode.LIGHT)
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value.name).apply()
+
+    /** 키보드 상단 툴바 표시 여부. */
+    var showToolbar: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_TOOLBAR, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_TOOLBAR, value).apply()
 
     var highContrast: Boolean
         get() = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
@@ -157,6 +162,7 @@ class KeyboardSettings(context: Context) {
         const val HEIGHT_DEFAULT = 240
 
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_SHOW_TOOLBAR = "show_toolbar"
         private const val KEY_HIGH_CONTRAST = "high_contrast"
         private const val KEY_SHOW_KEY_BACKGROUND = "show_key_background"
         private const val KEY_SHOW_NUMBER_ROW = "show_number_row"
