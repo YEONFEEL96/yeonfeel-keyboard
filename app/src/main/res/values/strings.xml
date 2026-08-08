@@ -28,6 +28,7 @@
 
     <string name="settings_title">연필키보드 설정</string>
     <string name="settings_section_theme">테마</string>
+    <string name="settings_theme_system">시스템 설정에 맞춤</string>
     <string name="settings_theme_dark">다크</string>
     <string name="settings_theme_light">라이트</string>
     <string name="settings_high_contrast">고대비 (접근성)</string>

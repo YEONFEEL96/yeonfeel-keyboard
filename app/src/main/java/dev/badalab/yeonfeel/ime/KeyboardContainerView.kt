@@ -14,6 +14,7 @@ import dev.badalab.yeonfeel.R
 import dev.badalab.yeonfeel.clipboard.ClipboardHistory
 import dev.badalab.yeonfeel.settings.KeyboardSettings
 import dev.badalab.yeonfeel.settings.LanguageSwitchMethod
+import dev.badalab.yeonfeel.settings.ThemeMode
 
 /**
  * IME 입력 뷰 전체: 상단 툴바 + (키보드 | 클립보드 패널 | 여백 조정 오버레이).
@@ -102,7 +103,14 @@ class KeyboardContainerView(
 
     /** 설정 변경(테마·여백)을 반영한다. 열린 패널·조정 모드는 닫는다. */
     fun applySettings(settings: KeyboardSettings) {
-        theme = KeyboardTheme.of(settings.darkTheme, settings.highContrast)
+        val dark = when (settings.themeMode) {
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+            ThemeMode.SYSTEM ->
+                resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        theme = KeyboardTheme.of(dark, settings.highContrast)
         keyboardView.theme = theme
         keyboardView.showNumberRow = settings.showNumberRow
         keyboardView.koreanLayout = settings.koreanLayout

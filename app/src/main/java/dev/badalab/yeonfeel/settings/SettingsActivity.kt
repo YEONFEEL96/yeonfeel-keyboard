@@ -60,7 +60,15 @@ class SettingsActivity : Activity() {
     }
 
     private fun currentThemeName(): String = buildString {
-        append(getString(if (settings.darkTheme) R.string.settings_theme_dark else R.string.settings_theme_light))
+        append(
+            getString(
+                when (settings.themeMode) {
+                    ThemeMode.SYSTEM -> R.string.settings_theme_system
+                    ThemeMode.DARK -> R.string.settings_theme_dark
+                    ThemeMode.LIGHT -> R.string.settings_theme_light
+                },
+            ),
+        )
         if (settings.highContrast) {
             append(" · ")
             append(getString(R.string.settings_high_contrast_short))

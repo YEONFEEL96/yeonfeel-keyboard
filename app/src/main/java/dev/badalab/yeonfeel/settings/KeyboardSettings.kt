@@ -3,6 +3,14 @@ package dev.badalab.yeonfeel.settings
 import android.content.Context
 import android.content.SharedPreferences
 
+/** 테마 모드. */
+enum class ThemeMode {
+    /** 시스템 다크 모드 설정을 따른다 */
+    SYSTEM,
+    DARK,
+    LIGHT,
+}
+
 /** 언어 변경 방법. */
 enum class LanguageSwitchMethod {
     /** 한/영 버튼으로만 변경 */
@@ -39,9 +47,11 @@ class KeyboardSettings(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("keyboard_settings", Context.MODE_PRIVATE)
 
-    var darkTheme: Boolean
-        get() = prefs.getBoolean(KEY_DARK_THEME, true)
-        set(value) = prefs.edit().putBoolean(KEY_DARK_THEME, value).apply()
+    var themeMode: ThemeMode
+        get() = runCatching {
+            ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "")
+        }.getOrDefault(ThemeMode.SYSTEM)
+        set(value) = prefs.edit().putString(KEY_THEME_MODE, value.name).apply()
 
     var highContrast: Boolean
         get() = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
@@ -136,7 +146,7 @@ class KeyboardSettings(context: Context) {
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
 
-        private const val KEY_DARK_THEME = "dark_theme"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_HIGH_CONTRAST = "high_contrast"
         private const val KEY_SHOW_KEY_BACKGROUND = "show_key_background"
         private const val KEY_SHOW_NUMBER_ROW = "show_number_row"

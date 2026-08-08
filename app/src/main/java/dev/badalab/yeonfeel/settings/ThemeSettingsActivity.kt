@@ -15,12 +15,14 @@ class ThemeSettingsActivity : Activity() {
         val ui = SettingComponents(this)
         ui.header(getString(R.string.settings_section_theme))
 
-        val darkRadio = ui.radioRow(getString(R.string.settings_theme_dark), settings.darkTheme)
-        val lightRadio = ui.radioRow(getString(R.string.settings_theme_light), !settings.darkTheme)
-        ui.bindRadioGroup(mapOf(true to darkRadio, false to lightRadio)) { dark ->
-            settings.darkTheme = dark
-        }
-        ui.card(darkRadio, lightRadio)
+        val mode = settings.themeMode
+        val radios = linkedMapOf(
+            ThemeMode.SYSTEM to ui.radioRow(getString(R.string.settings_theme_system), mode == ThemeMode.SYSTEM),
+            ThemeMode.DARK to ui.radioRow(getString(R.string.settings_theme_dark), mode == ThemeMode.DARK),
+            ThemeMode.LIGHT to ui.radioRow(getString(R.string.settings_theme_light), mode == ThemeMode.LIGHT),
+        )
+        ui.bindRadioGroup(radios) { selected -> settings.themeMode = selected }
+        ui.card(*radios.values.toTypedArray())
 
         ui.card(
             ui.switchRow(getString(R.string.settings_high_contrast), settings.highContrast) { checked, _ ->
