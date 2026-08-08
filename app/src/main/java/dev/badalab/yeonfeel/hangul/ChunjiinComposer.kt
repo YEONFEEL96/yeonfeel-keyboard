@@ -40,7 +40,8 @@ class ChunjiinComposer : KoreanComposer {
     }
 
     private fun inputConsonantKey(key: Char, cycle: Boolean): HangulComposer.Result {
-        val group = GROUPS.getValue(key)
+        // 롱프레스 쌍자음 등 그룹 밖의 자음은 자기 자신만으로 이루어진 그룹으로 처리한다.
+        val group = GROUPS[key] ?: key.toString()
         if (cycle) {
             // 같은 키 연타: 마지막 자음을 그룹 안에서 다음 후보로 교체
             if (jungTokens.isEmpty() && jong.isEmpty() && cho != null) {

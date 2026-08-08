@@ -98,6 +98,13 @@ class TenKeyComposerTest {
     }
 
     @Test
+    fun `롱프레스 쌍자음 직접 입력`() {
+        // 그룹 밖의 자음(ㄲ 등)이 들어와도 안전하게 조합돼야 한다
+        assertEquals("까", typeSlow(ChunjiinComposer(), "ㄲㅣㆍ"))
+        assertEquals("까", typeSlow(NaratgulComposer(), "ㄲㅏ"))
+    }
+
+    @Test
     fun `나랏글 - 받침과 도깨비불`() {
         assertEquals("간", typeSlow(NaratgulComposer(), "ㄱㅏㄴ"))
         assertEquals("가나", typeSlow(NaratgulComposer(), "ㄱㅏㄴㅏ"))

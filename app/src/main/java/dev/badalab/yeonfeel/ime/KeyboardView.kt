@@ -756,8 +756,20 @@ class KeyboardView(
             'z' to "žźż",
         )
 
+        /** 한글 키 롱프레스: 쌍자음·이중모음. */
+        private val KOREAN_VARIANTS = mapOf(
+            'ㄱ' to "ㄲ",
+            'ㄷ' to "ㄸ",
+            'ㅂ' to "ㅃ",
+            'ㅅ' to "ㅆ",
+            'ㅈ' to "ㅉ",
+            'ㅐ' to "ㅒ",
+            'ㅔ' to "ㅖ",
+        )
+
         private val KEY_VARIANTS: Map<Char, String> = buildMap {
             putAll(NUMBER_VARIANTS)
+            putAll(KOREAN_VARIANTS)
             LETTER_VARIANTS.forEach { (base, variants) ->
                 put(base, variants)
                 put(

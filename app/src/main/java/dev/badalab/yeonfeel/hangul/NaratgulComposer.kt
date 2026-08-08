@@ -30,10 +30,11 @@ class NaratgulComposer : KoreanComposer {
 
     override fun input(jamo: Char, now: Long): HangulComposer.Result {
         val withinTap = jamo == lastKey && now - lastTime < multiTapTimeoutMs
-        val result = when (jamo) {
-            KEY_ADD_STROKE -> applyTransform(STROKE_MAP)
-            KEY_DOUBLE -> applyTransform(DOUBLE_MAP)
-            in CONSONANT_KEYS -> inputConsonant(jamo, withinTap)
+        val result = when {
+            jamo == KEY_ADD_STROKE -> applyTransform(STROKE_MAP)
+            jamo == KEY_DOUBLE -> applyTransform(DOUBLE_MAP)
+            // 롱프레스 쌍자음처럼 기본 키 밖의 자음도 자음으로 처리한다.
+            !HangulTables.isVowel(jamo) -> inputConsonant(jamo, withinTap)
             else -> inputVowelKey(jamo, withinTap)
         }
         lastKey = jamo
