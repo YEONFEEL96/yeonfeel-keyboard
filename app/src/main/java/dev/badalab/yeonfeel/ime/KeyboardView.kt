@@ -726,8 +726,8 @@ class KeyboardView(
         /** 꾹 누르면 반복 입력되는 문자. */
         private val REPEATABLE_CHARS = setOf('ㅋ')
 
-        /** 롱프레스 변형 문자: 위첨자(첫 후보, 기본 선택) + 유니코드 분수. */
-        private val KEY_VARIANTS = mapOf(
+        /** 숫자 키 롱프레스: 위첨자(첫 후보, 기본 선택) + 유니코드 분수. */
+        private val NUMBER_VARIANTS = mapOf(
             '1' to "¹½⅓¼⅕⅙⅐⅛⅑",
             '2' to "²⅔⅖",
             '3' to "³¾⅗⅜",
@@ -739,5 +739,32 @@ class KeyboardView(
             '9' to "⁹",
             '0' to "⁰",
         )
+
+        /** 영문 키 롱프레스: 악센트(다이어크리틱) 문자. 대문자는 자동 생성된다. */
+        private val LETTER_VARIANTS = mapOf(
+            'a' to "àáâäæãåā",
+            'c' to "çćč",
+            'e' to "èéêëēėę",
+            'g' to "ğ",
+            'i' to "îïíīįì",
+            'l' to "ł",
+            'n' to "ñń",
+            'o' to "ôöòóœøōõ",
+            's' to "ßśš",
+            'u' to "ûüùúū",
+            'y' to "ÿ",
+            'z' to "žźż",
+        )
+
+        private val KEY_VARIANTS: Map<Char, String> = buildMap {
+            putAll(NUMBER_VARIANTS)
+            LETTER_VARIANTS.forEach { (base, variants) ->
+                put(base, variants)
+                put(
+                    base.uppercaseChar(),
+                    variants.map { if (it == 'ß') 'ẞ' else it.uppercaseChar() }.joinToString(""),
+                )
+            }
+        }
     }
 }

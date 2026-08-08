@@ -62,9 +62,9 @@ class KeyboardContainerView(
     private var marginSideDp = 0
     private var keyboardHeightDp = KeyboardSettings.HEIGHT_DEFAULT
 
-    private lateinit var settingsButton: GlyphIconView
-    private lateinit var layoutButton: GlyphIconView
-    private lateinit var clipboardButton: GlyphIconView
+    private lateinit var settingsButton: android.widget.ImageView
+    private lateinit var layoutButton: android.widget.ImageView
+    private lateinit var clipboardButton: android.widget.ImageView
 
     init {
         orientation = VERTICAL
@@ -76,15 +76,15 @@ class KeyboardContainerView(
             bottomMargin = dp(6)
         }
         settingsButton = toolbarIcon(
-            GlyphIconView.Type.SETTINGS,
+            R.drawable.ic_toolbar_settings,
             context.getString(R.string.toolbar_settings_desc),
         ) { callbacks.onOpenSettings() }
         layoutButton = toolbarIcon(
-            GlyphIconView.Type.KEYBOARD,
+            R.drawable.ic_toolbar_keyboard,
             context.getString(R.string.toolbar_layout_desc),
         ) { toggleAdjustMode() }
         clipboardButton = toolbarIcon(
-            GlyphIconView.Type.CLIPBOARD,
+            R.drawable.ic_toolbar_clipboard,
             context.getString(R.string.toolbar_clipboard_desc),
         ) { toggleClipboardPanel() }
         toolbar.addView(settingsButton)
@@ -135,7 +135,9 @@ class KeyboardContainerView(
         setBackgroundColor(theme.background)
         keyboardWrapper.setBackgroundColor(theme.background)
         toolbar.setBackgroundColor(theme.specialKey)
-        listOf(settingsButton, layoutButton, clipboardButton).forEach { it.color = theme.text }
+        listOf(settingsButton, layoutButton, clipboardButton).forEach {
+            it.imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
+        }
         showKeyboard()
     }
 
@@ -403,13 +405,16 @@ class KeyboardContainerView(
     }
 
     private fun toolbarIcon(
-        type: GlyphIconView.Type,
+        drawableRes: Int,
         description: String,
         onClick: () -> Unit,
-    ): GlyphIconView = GlyphIconView(context, type, theme.text).apply {
+    ): android.widget.ImageView = android.widget.ImageView(context).apply {
+        setImageResource(drawableRes)
         contentDescription = description
+        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+        setPadding(dp(8), dp(6), dp(8), dp(6))
         setOnClickListener { onClick() }
-        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+        layoutParams = LayoutParams(dp(40), dp(36)).apply {
             marginStart = dp(10)
             marginEnd = dp(10)
         }

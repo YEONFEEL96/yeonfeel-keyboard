@@ -12,6 +12,11 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 설치 후 "연필키보드" 앱을 열어 안내에 따라 키보드를 활성화한다.
 
+## 서드파티 라이선스
+
+- 툴바 아이콘(설정·레이아웃·클립보드): [Lucide](https://lucide.dev) — ISC License.
+  Copyright (c) Lucide Contributors. 세벌식 390 배열 데이터는 [libhangul](https://github.com/libhangul/libhangul) 프로젝트 자료를 참고했다.
+
 ## 구조
 
 ```
