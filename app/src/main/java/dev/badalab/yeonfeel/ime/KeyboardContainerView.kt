@@ -181,12 +181,13 @@ class KeyboardContainerView(
         toolbarButtons.forEach { (id, view) ->
             view.tag = id
             view.setOnLongClickListener { v ->
-                v.startDragAndDrop(
-                    android.content.ClipData.newPlainText("toolbar", id),
-                    View.DragShadowBuilder(v),
-                    v,
-                    0,
-                )
+                val clip = android.content.ClipData.newPlainText("toolbar", id)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    v.startDragAndDrop(clip, View.DragShadowBuilder(v), v, 0)
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.startDrag(clip, View.DragShadowBuilder(v), v, 0)
+                }
                 true
             }
         }

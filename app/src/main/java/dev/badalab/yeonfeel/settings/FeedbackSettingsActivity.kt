@@ -46,7 +46,14 @@ class FeedbackSettingsActivity : Activity() {
 
     private fun previewHaptic(strength: Int) {
         if (strength <= 0) return
-        val amplitude = (1 + strength * 2.54).toInt().coerceIn(1, 255)
-        runCatching { vibrator?.vibrate(VibrationEffect.createOneShot(12L, amplitude)) }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val amplitude = (1 + strength * 2.54).toInt().coerceIn(1, 255)
+                vibrator?.vibrate(VibrationEffect.createOneShot(12L, amplitude))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(12L)
+            }
+        }
     }
 }

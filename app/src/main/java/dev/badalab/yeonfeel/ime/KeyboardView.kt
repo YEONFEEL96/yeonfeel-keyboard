@@ -99,7 +99,9 @@ class KeyboardView(
         private val bgPath = Path()
 
         override fun onDraw(canvas: Canvas) {
-            buildSmoothRoundRect(bgPath, 0f, 0f, width.toFloat(), height.toFloat(), dp(24f))
+            // 테두리 선이 뷰 경계에서 잘리지 않도록 선 두께의 절반만큼 안쪽에 그린다.
+            val inset = previewBorderPaint.strokeWidth / 2f + 0.5f
+            buildSmoothRoundRect(bgPath, inset, inset, width - inset, height - inset, dp(24f))
             canvas.drawPath(bgPath, previewBgPaint)
             canvas.drawPath(bgPath, previewBorderPaint)
 
@@ -128,9 +130,8 @@ class KeyboardView(
      */
     private fun buildSmoothRoundRect(path: Path, l: Float, t: Float, r: Float, b: Float, radius: Float) {
         val len = minOf(radius, (r - l) / 2f - 1f, (b - t) / 2f - 1f)
-        // 제어점을 변 위 len*k 지점에 둔다. 원호(≈0.45)보다 크게 잡아
-        // 곡률이 코너에 몰리지 않고 완만하게 퍼진다.
-        val k = 0.55f
+        // 제어점을 변 위 len*k 지점에 둔다 (0.45 ≈ 원호와 같은 곡률).
+        val k = 0.45f
         path.reset()
         path.moveTo(l + len, t)
         path.lineTo(r - len, t)
@@ -219,9 +220,14 @@ class KeyboardView(
     private fun performKeyHaptic() {
         if (!hapticEnabled || hapticStrength <= 0) return
         val vib = vibrator ?: return
-        val amplitude = (1 + hapticStrength * 2.54).toInt().coerceIn(1, 255)
         runCatching {
-            vib.vibrate(VibrationEffect.createOneShot(HAPTIC_DURATION_MS, amplitude))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val amplitude = (1 + hapticStrength * 2.54).toInt().coerceIn(1, 255)
+                vib.vibrate(VibrationEffect.createOneShot(HAPTIC_DURATION_MS, amplitude))
+            } else {
+                @Suppress("DEPRECATION")
+                vib.vibrate(HAPTIC_DURATION_MS)
+            }
         }
     }
 
@@ -447,8 +453,11 @@ class KeyboardView(
 
     private fun drawVariantPopup(canvas: Canvas, popup: VariantPopupState) {
         val radius = dp(12f)
-        canvas.drawRoundRect(popup.panel, radius, radius, previewBgPaint)
-        canvas.drawRoundRect(popup.panel, radius, radius, previewBorderPaint)
+        // 테두리 선이 팝업 창 경계에서 잘려 모서리가 뭉쳐 보이지 않게 안쪽에 그린다.
+        val inset = previewBorderPaint.strokeWidth / 2f + 0.5f
+        val panelRect = RectF(popup.panel).apply { inset(inset, inset) }
+        canvas.drawRoundRect(panelRect, radius, radius, previewBgPaint)
+        canvas.drawRoundRect(panelRect, radius, radius, previewBorderPaint)
         popup.cells.forEachIndexed { index, cell ->
             if (index == popup.selected) {
                 canvas.drawRoundRect(cell, dp(8f), dp(8f), iconFillPaint)

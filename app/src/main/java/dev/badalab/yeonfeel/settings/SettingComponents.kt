@@ -247,18 +247,19 @@ class SettingComponents(private val activity: Activity) {
                 valueView?.let { addView(it) }
             },
         )
+        // SeekBar.min은 API 26+라서 오프셋으로 최소값을 흉내 낸다 (구형 기기 호환).
         row.addView(android.widget.SeekBar(activity).apply {
-            this.min = min
-            this.max = max
-            progress = initial
+            this.max = max - min
+            progress = initial - min
             progressTintList = ColorStateList.valueOf(ACCENT)
             thumbTintList = ColorStateList.valueOf(ACCENT)
             // 좌우 패딩이 썸(원) 반지름보다 작으면 양 끝에서 썸이 잘린다.
             setPadding(dp(16), dp(10), dp(16), dp(4))
             setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: android.widget.SeekBar?, value: Int, fromUser: Boolean) {
-                    valueView?.text = valueFormatter?.invoke(value)
-                    if (fromUser) onChange(value)
+                    val actual = value + min
+                    valueView?.text = valueFormatter?.invoke(actual)
+                    if (fromUser) onChange(actual)
                 }
 
                 override fun onStartTrackingTouch(bar: android.widget.SeekBar?) = Unit
