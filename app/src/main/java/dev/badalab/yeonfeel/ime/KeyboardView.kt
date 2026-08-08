@@ -128,7 +128,9 @@ class KeyboardView(
      */
     private fun buildSmoothRoundRect(path: Path, l: Float, t: Float, r: Float, b: Float, radius: Float) {
         val len = minOf(radius, (r - l) / 2f - 1f, (b - t) / 2f - 1f)
-        val k = 0.3f
+        // 제어점을 변 위 len*k 지점에 둔다. 원호(≈0.45)보다 크게 잡아
+        // 곡률이 코너에 몰리지 않고 완만하게 퍼진다.
+        val k = 0.55f
         path.reset()
         path.moveTo(l + len, t)
         path.lineTo(r - len, t)
