@@ -141,6 +141,39 @@ class HangulComposerTest {
     }
 
     @Test
+    fun `단모음 - 받침에서 승급 불가면 새 글자 쌍자음 초성으로`() {
+        val composer = HangulComposer().apply {
+            doubleTapIotation = true
+            doubleTapDoubling = true
+            multiTapTimeoutMs = 300
+        }
+        // 진짜: ㅈㅣㄴ + ㅈㅈ(→ㅉ) + ㅏ — 겹받침 ㄵ에서 ㅈ을 빼내 ㅉ 초성으로
+        val committed = StringBuilder()
+        var composing = ""
+        "ㅈㅣㄴㅈㅈㅏ".forEachIndexed { index, jamo ->
+            val result = composer.input(jamo, index * 100L)
+            committed.append(result.commit)
+            composing = result.composing
+        }
+        assertEquals("진짜", committed.toString() + composing)
+
+        // 아찌: 홑받침 ㅈ에서도 동일하게 동작
+        val composer2 = HangulComposer().apply {
+            doubleTapIotation = true
+            doubleTapDoubling = true
+            multiTapTimeoutMs = 300
+        }
+        val committed2 = StringBuilder()
+        var composing2 = ""
+        "ㅇㅏㅈㅈㅣ".forEachIndexed { index, jamo ->
+            val result = composer2.input(jamo, index * 100L)
+            committed2.append(result.commit)
+            composing2 = result.composing
+        }
+        assertEquals("아찌", committed2.toString() + composing2)
+    }
+
+    @Test
     fun `단모음 - 세 번째 연타는 새 자음 (ㄷㄷㄷ→ㄸㄷ)`() {
         val composer = HangulComposer().apply {
             doubleTapIotation = true

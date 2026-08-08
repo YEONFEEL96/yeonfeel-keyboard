@@ -108,6 +108,9 @@ class KeyboardView(
     /** 누른 키를 크게 보여주는 미리보기 팝업. */
     var keyPreviewEnabled: Boolean = true
 
+    /** 변형 팝업이 뷰 위쪽(툴바 영역)으로 나갈 수 있는 여유 공간(px). 컨테이너가 설정한다. */
+    var popupHeadroomPx: Int = 0
+
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java)?.defaultVibrator
@@ -601,8 +604,10 @@ class KeyboardView(
         val panelWidth = pad * 2 + columns * cellWidth
         val panelHeight = pad * 2 + rows * cellHeight
         val left = anchor.left.coerceIn(dp(2f), maxOf(dp(2f), width - panelWidth - dp(2f)))
-        var bottom = anchor.top + anchor.height() * 0.35f
-        if (bottom - panelHeight < dp(2f)) bottom = panelHeight + dp(2f)
+        // 손가락(키) 수직 위에 띄운다. 공간이 모자라면 뷰 위쪽 여유(툴바 영역)까지 올린다.
+        var bottom = anchor.top - dp(4f)
+        val minTop = -popupHeadroomPx + dp(2f)
+        if (bottom - panelHeight < minTop) bottom = minTop + panelHeight
         val panel = RectF(left, bottom - panelHeight, left + panelWidth, bottom)
         // 셀은 아랫줄부터 채운다 (원래 키가 왼쪽 아래, 참고 디자인과 동일)
         val cells = options.indices.map { index ->

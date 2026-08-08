@@ -53,6 +53,8 @@ class HangulComposer : KoreanComposer {
     /**
      * 연타된 자음을 제자리에서 쌍자음으로 승급한다 (ㄷㄷ→ㄸ).
      * 이미 쌍자음이면 null을 돌려 세 번째 연타가 새 자음으로 시작되게 한다 (ㄷㄷㄷ→ㄸㄷ).
+     * 받침 자리에서 승급이 불가능하면(ㄵ의 ㅈ→ㅉ 등) 그 자음을 받침에서 빼내
+     * 새 글자의 쌍자음 초성으로 만든다 (짅+ㅈ→진ㅉ → "진짜" 입력).
      */
     private fun tryToggleDouble(base: Char): Result? {
         val doubled = DOUBLE_CONSONANT[base] ?: return null
@@ -61,12 +63,19 @@ class HangulComposer : KoreanComposer {
             return Result("", composed())
         }
         if (jong.isNotEmpty() && jong.last() == base) {
-            val valid =
+            val canUpgradeInPlace =
                 if (jong.length == 1) canBeJong(doubled)
                 else JONG_COMBINE.containsKey(jong[0] to doubled)
-            if (!valid) return null
-            jong = jong.dropLast(1) + doubled
-            return Result("", composed())
+            if (canUpgradeInPlace) {
+                jong = jong.dropLast(1) + doubled
+                return Result("", composed())
+            }
+            // 받침에서 승급 불가 → 마지막 받침을 빼내 새 글자 초성 쌍자음으로
+            jong = jong.dropLast(1)
+            val committed = composed()
+            reset()
+            cho = doubled
+            return Result(committed, composed())
         }
         return null
     }
