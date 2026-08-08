@@ -141,6 +141,20 @@ class HangulComposerTest {
     }
 
     @Test
+    fun `단모음 - 세 번째 연타는 새 자음 (ㄷㄷㄷ→ㄸㄷ)`() {
+        val composer = HangulComposer().apply {
+            doubleTapIotation = true
+            doubleTapDoubling = true
+            multiTapTimeoutMs = 300
+        }
+        composer.input('ㄷ', 0)
+        assertEquals("ㄸ", composer.input('ㄷ', 100).composing)
+        val third = composer.input('ㄷ', 200)
+        assertEquals("ㄸ", third.commit)
+        assertEquals("ㄷ", third.composing)
+    }
+
+    @Test
     fun `단모음 - 판정 시간 초과 연타는 별개 자음`() {
         val composer = HangulComposer().apply {
             doubleTapIotation = true

@@ -156,6 +156,11 @@ class KeyboardView(
         textAlign = Paint.Align.CENTER
         textSize = sp(30f)
     }
+    private val previewSelectedTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(20f)
+        color = 0xFFFFFFFF.toInt()
+    }
 
     init {
         applyTheme()
@@ -201,6 +206,21 @@ class KeyboardView(
     private var spacePointerId = -1
     private var spaceSwiped = false
     private var deletePointerId = -1
+
+    // 롱프레스 변형 문자(분수 등) 팝업 상태
+    private class VariantPopupState(
+        val pointerId: Int,
+        val options: List<String>,
+        val panel: RectF,
+        val cells: List<RectF>,
+        var selected: Int = 0,
+    )
+
+    private data class PendingVariant(val pointerId: Int, val key: Key, val rect: RectF)
+
+    private var pendingVariant: PendingVariant? = null
+    private var variantPopup: VariantPopupState? = null
+    private val longPressRunnable = Runnable { showVariantPopup() }
 
     private val repeatHandler = Handler(Looper.getMainLooper())
     private val repeatDelete = object : Runnable {
@@ -287,12 +307,29 @@ class KeyboardView(
             }
             drawKeyContent(canvas, key, rect)
         }
-        if (keyPreviewEnabled) {
+        if (keyPreviewEnabled && variantPopup == null) {
             for (pressed in pressedByPointer.values) {
                 if (pressed.type != KeyType.CHAR) continue
                 val bound = keyBounds.firstOrNull { it.key == pressed } ?: continue
                 drawKeyPreview(canvas, pressed, bound.rect)
             }
+        }
+        variantPopup?.let { drawVariantPopup(canvas, it) }
+    }
+
+    private fun drawVariantPopup(canvas: Canvas, popup: VariantPopupState) {
+        val radius = dp(12f)
+        canvas.drawRoundRect(popup.panel, radius, radius, previewBgPaint)
+        canvas.drawRoundRect(popup.panel, radius, radius, previewBorderPaint)
+        popup.cells.forEachIndexed { index, cell ->
+            if (index == popup.selected) {
+                canvas.drawRoundRect(cell, dp(8f), dp(8f), iconFillPaint)
+            } else if (index == 0) {
+                canvas.drawRoundRect(cell, dp(8f), dp(8f), specialKeyPaint)
+            }
+            val paint = if (index == popup.selected) previewSelectedTextPaint else textPaint
+            val y = cell.centerY() - (paint.ascent() + paint.descent()) / 2
+            canvas.drawText(popup.options[index], cell.centerX(), y, paint)
         }
     }
 
@@ -421,25 +458,47 @@ class KeyboardView(
                     pressedByPointer[spacePointerId]?.let { onKeyListener(it) }
                     spaceSwiped = true // UP에서 중복 입력 방지
                 }
+                // 변형 키 롤오버: 팝업이 뜨기 전에 다른 키가 눌리면 원래 문자를 먼저 확정
+                pendingVariant?.let { pending ->
+                    if (pending.pointerId != pointerId && variantPopup == null) {
+                        onKeyListener(pending.key)
+                        cancelPendingVariant()
+                    }
+                }
                 pressedByPointer[pointerId] = key
                 downXByPointer[pointerId] = x
                 performKeyHaptic()
-                when (key.type) {
+                when {
                     // 스페이스는 좌우 스와이프(언어 변경)와 구분해야 하므로 UP에서 입력한다.
-                    KeyType.SPACE -> {
+                    key.type == KeyType.SPACE -> {
                         spacePointerId = pointerId
                         spaceSwiped = false
                     }
-                    KeyType.DELETE -> {
+                    key.type == KeyType.DELETE -> {
                         onKeyListener(key)
                         deletePointerId = pointerId
                         repeatHandler.postDelayed(repeatDelete, 400L)
+                    }
+                    // 변형 문자(분수 등)가 있는 키는 롱프레스와 구분하기 위해 UP에서 입력한다.
+                    key.type == KeyType.CHAR && KEY_VARIANTS.containsKey(key.char) -> {
+                        pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
+                        repeatHandler.postDelayed(longPressRunnable, LONG_PRESS_MS)
                     }
                     else -> onKeyListener(key)
                 }
                 invalidate()
             }
             MotionEvent.ACTION_MOVE -> {
+                variantPopup?.let { popup ->
+                    val idx = event.findPointerIndex(popup.pointerId)
+                    if (idx >= 0) {
+                        val selected = nearestVariantCell(popup, event.getX(idx), event.getY(idx))
+                        if (selected != popup.selected) {
+                            popup.selected = selected
+                            invalidate()
+                        }
+                    }
+                }
                 if (spacePointerId != -1 && languageSwipeEnabled && !spaceSwiped) {
                     val index = event.findPointerIndex(spacePointerId)
                     val startX = downXByPointer[spacePointerId]
@@ -456,6 +515,18 @@ class KeyboardView(
                 val pointerId = event.getPointerId(event.actionIndex)
                 val key = pressedByPointer.remove(pointerId)
                 downXByPointer.remove(pointerId)
+                pendingVariant?.let { pending ->
+                    if (pending.pointerId == pointerId) {
+                        val popup = variantPopup
+                        if (popup != null && popup.pointerId == pointerId) {
+                            val choice = popup.options[popup.selected]
+                            onKeyListener(Key(KeyType.CHAR, choice, choice.first()))
+                        } else {
+                            onKeyListener(pending.key)
+                        }
+                        cancelPendingVariant()
+                    }
+                }
                 if (key?.type == KeyType.SPACE && pointerId == spacePointerId) {
                     if (!spaceSwiped) onKeyListener(key)
                     spacePointerId = -1
@@ -505,6 +576,60 @@ class KeyboardView(
         spacePointerId = -1
         deletePointerId = -1
         repeatHandler.removeCallbacks(repeatDelete)
+        cancelPendingVariant()
+    }
+
+    private fun cancelPendingVariant() {
+        repeatHandler.removeCallbacks(longPressRunnable)
+        pendingVariant = null
+        if (variantPopup != null) {
+            variantPopup = null
+            invalidate()
+        }
+    }
+
+    private fun showVariantPopup() {
+        val pending = pendingVariant ?: return
+        val variants = KEY_VARIANTS[pending.key.char] ?: return
+        val options = listOf(pending.key.label) + variants.map { it.toString() }
+        val anchor = pending.rect
+        val columns = minOf(4, options.size)
+        val rows = (options.size + columns - 1) / columns
+        val cellWidth = maxOf(anchor.width(), dp(44f))
+        val cellHeight = maxOf(anchor.height(), dp(44f))
+        val pad = dp(6f)
+        val panelWidth = pad * 2 + columns * cellWidth
+        val panelHeight = pad * 2 + rows * cellHeight
+        val left = anchor.left.coerceIn(dp(2f), maxOf(dp(2f), width - panelWidth - dp(2f)))
+        var bottom = anchor.top + anchor.height() * 0.35f
+        if (bottom - panelHeight < dp(2f)) bottom = panelHeight + dp(2f)
+        val panel = RectF(left, bottom - panelHeight, left + panelWidth, bottom)
+        // 셀은 아랫줄부터 채운다 (원래 키가 왼쪽 아래, 참고 디자인과 동일)
+        val cells = options.indices.map { index ->
+            val row = index / columns
+            val col = index % columns
+            val x = panel.left + pad + col * cellWidth
+            val y = panel.bottom - pad - (row + 1) * cellHeight
+            RectF(x + dp(2f), y + dp(2f), x + cellWidth - dp(2f), y + cellHeight - dp(2f))
+        }
+        variantPopup = VariantPopupState(pending.pointerId, options, panel, cells)
+        performKeyHaptic()
+        invalidate()
+    }
+
+    private fun nearestVariantCell(popup: VariantPopupState, x: Float, y: Float): Int {
+        var nearest = popup.selected
+        var nearestDistance = Float.MAX_VALUE
+        popup.cells.forEachIndexed { index, cell ->
+            val dx = x - cell.centerX()
+            val dy = y - cell.centerY()
+            val distance = dx * dx + dy * dy
+            if (distance < nearestDistance) {
+                nearestDistance = distance
+                nearest = index
+            }
+        }
+        return nearest
     }
 
     override fun onDetachedFromWindow() {
@@ -516,5 +641,16 @@ class KeyboardView(
         private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val HAPTIC_DURATION_MS = 12L
+        private const val LONG_PRESS_MS = 350L
+
+        /** 롱프레스 변형 문자: 숫자 키의 유니코드 분수. */
+        private val KEY_VARIANTS = mapOf(
+            '1' to "½⅓¼⅕⅙⅐⅛⅑",
+            '2' to "⅔⅖",
+            '3' to "¾⅗⅜",
+            '4' to "⅘",
+            '5' to "⅚⅝",
+            '7' to "⅞",
+        )
     }
 }

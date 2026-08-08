@@ -50,28 +50,22 @@ class HangulComposer : KoreanComposer {
         return result
     }
 
-    /** 연타된 자음을 제자리에서 쌍자음↔홑자음으로 토글한다. 불가능하면 null. */
+    /**
+     * 연타된 자음을 제자리에서 쌍자음으로 승급한다 (ㄷㄷ→ㄸ).
+     * 이미 쌍자음이면 null을 돌려 세 번째 연타가 새 자음으로 시작되게 한다 (ㄷㄷㄷ→ㄸㄷ).
+     */
     private fun tryToggleDouble(base: Char): Result? {
         val doubled = DOUBLE_CONSONANT[base] ?: return null
-        if (jung.isEmpty() && jong.isEmpty() && cho != null) {
-            cho = when (cho) {
-                base -> doubled
-                doubled -> base
-                else -> return null
-            }
+        if (jung.isEmpty() && jong.isEmpty() && cho == base) {
+            cho = doubled
             return Result("", composed())
         }
-        if (jong.isNotEmpty()) {
-            val replacement = when (jong.last()) {
-                base -> doubled
-                doubled -> base
-                else -> return null
-            }
+        if (jong.isNotEmpty() && jong.last() == base) {
             val valid =
-                if (jong.length == 1) canBeJong(replacement)
-                else JONG_COMBINE.containsKey(jong[0] to replacement)
+                if (jong.length == 1) canBeJong(doubled)
+                else JONG_COMBINE.containsKey(jong[0] to doubled)
             if (!valid) return null
-            jong = jong.dropLast(1) + replacement
+            jong = jong.dropLast(1) + doubled
             return Result("", composed())
         }
         return null
