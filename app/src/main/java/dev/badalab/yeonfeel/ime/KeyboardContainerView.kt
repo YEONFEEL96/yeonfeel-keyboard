@@ -225,6 +225,11 @@ class KeyboardContainerView(
         keyboardHeightDp = heightDp
         keyboardView.heightDp = heightDp
         keyboardWrapper.setPadding(dp(sideDp), dp(topDp), dp(sideDp), dp(bottomDp))
+        // 콘텐츠 영역 높이를 키보드 높이로 고정 — 패널(클립보드·이모지) 내용이
+        // 길어도 창이 위로 자라지 않고 패널 안에서 스크롤된다.
+        contentFrame.layoutParams = (contentFrame.layoutParams as LayoutParams).apply {
+            height = dp(heightDp + topDp + bottomDp)
+        }
     }
 
     private fun toggleAdjustMode() {
@@ -296,42 +301,47 @@ class KeyboardContainerView(
         return header
     }
 
+    /** 이모지 패널: 키보드 높이를 유지하고 카테고리 블록을 가로로 스크롤한다. */
     private fun buildEmojiPanel(): View {
-        val column = LinearLayout(context).apply {
-            orientation = VERTICAL
-            setBackgroundColor(theme.background)
-            setPadding(dp(8), dp(2), dp(8), dp(4))
+        val rowCount = ((keyboardHeightDp - 28) / 46).coerceIn(3, 6)
+        val content = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            setPadding(dp(8), dp(2), dp(8), dp(2))
         }
         EmojiData.categories.forEach { category ->
-            column.addView(TextView(context).apply {
+            val block = LinearLayout(context).apply {
+                orientation = VERTICAL
+                setPadding(0, 0, dp(10), 0)
+            }
+            block.addView(TextView(context).apply {
                 text = category.title
                 setTextColor(theme.subText)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setPadding(dp(6), dp(8), 0, dp(2))
+                setPadding(dp(4), dp(4), 0, dp(2))
             })
-            category.emojis.chunked(8).forEach { rowEmojis ->
-                val row = LinearLayout(context).apply { orientation = HORIZONTAL }
-                rowEmojis.forEach { emoji ->
-                    row.addView(
+            val grid = LinearLayout(context).apply { orientation = HORIZONTAL }
+            category.emojis.chunked(rowCount).forEach { columnEmojis ->
+                val columnView = LinearLayout(context).apply { orientation = VERTICAL }
+                columnEmojis.forEach { emoji ->
+                    columnView.addView(
                         TextView(context).apply {
                             text = emoji
                             gravity = Gravity.CENTER
                             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
                             setOnClickListener { callbacks.onEmoji(emoji) }
                         },
-                        LayoutParams(0, dp(44), 1f),
+                        LayoutParams(dp(46), dp(46)),
                     )
                 }
-                // 마지막 줄이 8개 미만이면 빈 칸으로 채워 정렬을 유지한다.
-                repeat(8 - rowEmojis.size) {
-                    row.addView(View(context), LayoutParams(0, dp(44), 1f))
-                }
-                column.addView(row)
+                grid.addView(columnView)
             }
+            block.addView(grid)
+            content.addView(block)
         }
-        return ScrollView(context).apply {
+        return android.widget.HorizontalScrollView(context).apply {
             setBackgroundColor(theme.background)
-            addView(column)
+            isHorizontalScrollBarEnabled = false
+            addView(content)
         }
     }
 
