@@ -564,18 +564,25 @@ class KeyboardView(
     }
 
     /**
-     * 터치 지점의 키를 찾는다. 키 사이 틈에 떨어진 터치도 버리지 않고
-     * 가장 가까운 키로 스냅한다 — 빠른 타이핑에서 가장자리 터치가 씹히는 것을 막는다.
+     * 터치 지점의 키를 찾는다. 키 사이 틈에 떨어진 터치는 키 간격만큼 확장한
+     * 영역 안에서만 가장 가까운 키로 스냅한다 — 빠른 타이핑 씹힘은 막되,
+     * 스페이서 같은 진짜 빈 공간을 누르면 아무 키도 눌리지 않는다.
      * 터치마다 호출되므로 할당 없이 순회한다.
      */
     private fun boundsAt(x: Float, y: Float): KeyBounds? {
+        val slopX = dp(6f)
+        val slopY = dp(9f)
         var nearest: KeyBounds? = null
         var nearestDistance = Float.MAX_VALUE
         for (bound in keyBounds) {
             if (bound.key.type == KeyType.SPACER) continue
             if (bound.rect.contains(x, y)) return bound
-            val dx = x - bound.rect.centerX()
-            val dy = y - bound.rect.centerY()
+            val rect = bound.rect
+            val inSlop = x >= rect.left - slopX && x <= rect.right + slopX &&
+                y >= rect.top - slopY && y <= rect.bottom + slopY
+            if (!inSlop) continue
+            val dx = x - rect.centerX()
+            val dy = y - rect.centerY()
             val distance = dx * dx + dy * dy
             if (distance < nearestDistance) {
                 nearestDistance = distance
