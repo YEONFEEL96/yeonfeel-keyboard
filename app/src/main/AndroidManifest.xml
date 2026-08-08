@@ -39,6 +39,11 @@
             android:label="@string/settings_section_theme" />
 
         <activity
+            android:name=".settings.HighContrastSettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_high_contrast_short" />
+
+        <activity
             android:name=".settings.SymbolSettingsActivity"
             android:exported="false"
             android:label="@string/symbol_menu" />
