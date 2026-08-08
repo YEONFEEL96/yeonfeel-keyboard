@@ -22,7 +22,7 @@ class GlyphIconView(
     private val sizeScale: Float = 1f,
 ) : View(context) {
 
-    enum class Type { KEYBOARD, PIN, DELETE, CANCEL }
+    enum class Type { KEYBOARD, PIN, DELETE, CANCEL, SETTINGS, CLIPBOARD }
 
     var color: Int = color
         set(value) {
@@ -66,6 +66,8 @@ class GlyphIconView(
             Type.PIN -> drawPin(canvas, u)
             Type.DELETE -> drawTrash(canvas, u)
             Type.CANCEL -> drawCancel(canvas, u)
+            Type.SETTINGS -> drawGear(canvas, u)
+            Type.CLIPBOARD -> drawClipboard(canvas, u)
         }
         canvas.restoreToCount(save)
     }
@@ -116,5 +118,33 @@ class GlyphIconView(
     private fun drawCancel(canvas: Canvas, u: Float) {
         canvas.drawLine(-6f * u, -6f * u, 6f * u, 6f * u, paint)
         canvas.drawLine(-6f * u, 6f * u, 6f * u, -6f * u, paint)
+    }
+
+    /** 설정: 원 + 중심 구멍 + 8개 톱니 기어. */
+    private fun drawGear(canvas: Canvas, u: Float) {
+        canvas.drawCircle(0f, 0f, 6f * u, paint)
+        canvas.drawCircle(0f, 0f, 2.4f * u, paint)
+        for (i in 0 until 8) {
+            val angle = Math.toRadians(i * 45.0 + 22.5)
+            val cos = kotlin.math.cos(angle).toFloat()
+            val sin = kotlin.math.sin(angle).toFloat()
+            canvas.drawLine(cos * 6.4f * u, sin * 6.4f * u, cos * 8.6f * u, sin * 8.6f * u, paint)
+        }
+    }
+
+    /** 클립보드: 위에 클립 탭이 달린 라운드 사각형. */
+    private fun drawClipboard(canvas: Canvas, u: Float) {
+        canvas.drawRoundRect(
+            RectF(-7f * u, -6f * u, 7f * u, 8.5f * u),
+            3.5f * u,
+            3.5f * u,
+            paint,
+        )
+        canvas.drawRoundRect(
+            RectF(-3.2f * u, -8.5f * u, 3.2f * u, -3.8f * u),
+            2f * u,
+            2f * u,
+            paint,
+        )
     }
 }

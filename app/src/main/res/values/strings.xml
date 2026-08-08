@@ -10,9 +10,6 @@
     <string name="open_settings">3. 키보드 설정</string>
     <string name="test_field_hint">여기에 입력해 보세요</string>
 
-    <string name="toolbar_settings">⚙&#xFE0E;</string>
-    <string name="toolbar_layout">⌨&#xFE0E;</string>
-    <string name="toolbar_clipboard">⧉</string>
     <string name="toolbar_settings_desc">설정</string>
     <string name="toolbar_layout_desc">레이아웃 조정</string>
     <string name="toolbar_clipboard_desc">클립보드</string>

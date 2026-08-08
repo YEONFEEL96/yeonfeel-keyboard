@@ -62,28 +62,29 @@ class KeyboardContainerView(
     private var marginSideDp = 0
     private var keyboardHeightDp = KeyboardSettings.HEIGHT_DEFAULT
 
-    private lateinit var settingsButton: TextView
-    private lateinit var layoutButton: TextView
-    private lateinit var clipboardButton: TextView
+    private lateinit var settingsButton: GlyphIconView
+    private lateinit var layoutButton: GlyphIconView
+    private lateinit var clipboardButton: GlyphIconView
 
     init {
         orientation = VERTICAL
 
         toolbar.orientation = HORIZONTAL
+        toolbar.gravity = Gravity.CENTER_VERTICAL
         toolbar.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply {
             // 툴바와 키 영역 사이 여백
             bottomMargin = dp(6)
         }
-        settingsButton = toolbarButton(
-            context.getString(R.string.toolbar_settings),
+        settingsButton = toolbarIcon(
+            GlyphIconView.Type.SETTINGS,
             context.getString(R.string.toolbar_settings_desc),
         ) { callbacks.onOpenSettings() }
-        layoutButton = toolbarButton(
-            context.getString(R.string.toolbar_layout),
+        layoutButton = toolbarIcon(
+            GlyphIconView.Type.KEYBOARD,
             context.getString(R.string.toolbar_layout_desc),
         ) { toggleAdjustMode() }
-        clipboardButton = toolbarButton(
-            context.getString(R.string.toolbar_clipboard),
+        clipboardButton = toolbarIcon(
+            GlyphIconView.Type.CLIPBOARD,
             context.getString(R.string.toolbar_clipboard_desc),
         ) { toggleClipboardPanel() }
         toolbar.addView(settingsButton)
@@ -134,7 +135,7 @@ class KeyboardContainerView(
         setBackgroundColor(theme.background)
         keyboardWrapper.setBackgroundColor(theme.background)
         toolbar.setBackgroundColor(theme.specialKey)
-        listOf(settingsButton, layoutButton, clipboardButton).forEach { it.setTextColor(theme.text) }
+        listOf(settingsButton, layoutButton, clipboardButton).forEach { it.color = theme.text }
         showKeyboard()
     }
 
@@ -401,16 +402,18 @@ class KeyboardContainerView(
         attachClipboardHeader()
     }
 
-    private fun toolbarButton(label: String, description: String, onClick: () -> Unit): TextView =
-        TextView(context).apply {
-            text = label
-            contentDescription = description
-            gravity = Gravity.CENTER
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
-            setPadding(dp(20), 0, dp(20), 0)
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
-            setOnClickListener { onClick() }
+    private fun toolbarIcon(
+        type: GlyphIconView.Type,
+        description: String,
+        onClick: () -> Unit,
+    ): GlyphIconView = GlyphIconView(context, type, theme.text).apply {
+        contentDescription = description
+        setOnClickListener { onClick() }
+        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = dp(10)
+            marginEnd = dp(10)
         }
+    }
 
     private fun dp(v: Int): Int =
         TypedValue.applyDimension(
