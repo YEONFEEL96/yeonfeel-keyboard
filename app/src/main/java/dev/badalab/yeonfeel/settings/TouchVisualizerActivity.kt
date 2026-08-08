@@ -25,7 +25,20 @@ class TouchVisualizerActivity : Activity() {
         val ui = SettingComponents(this)
         ui.header(getString(R.string.debug_touch_visualizer))
         ui.caption(getString(R.string.debug_touch_count, store.totalCount()))
-        ui.card(VisualizerView(this, settings, store.all()))
+        // 카드 라운드 모서리 안쪽에 들어오도록 여백을 두고 그린다.
+        val pad = ui.dp(14)
+        ui.card(
+            android.widget.LinearLayout(this).apply {
+                setPadding(pad, pad, pad, pad)
+                addView(
+                    VisualizerView(this@TouchVisualizerActivity, settings, store.all()),
+                    android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+            },
+        )
         setContentView(ui.root())
     }
 
