@@ -183,6 +183,17 @@ class KeyboardContainerView(
         }
         toolbar.setOnDragListener { _, event ->
             when (event.action) {
+                android.view.DragEvent.ACTION_DRAG_STARTED -> {
+                    // 드래그 중엔 원래 칸의 아이콘을 숨기고, 슬롯 그리드를 연하게 보여준다.
+                    (event.localState as? android.widget.ImageView)?.imageAlpha = 0
+                    toolbarButtons.values.forEach { button ->
+                        button.background = android.graphics.drawable.GradientDrawable().apply {
+                            cornerRadius = dp(8).toFloat()
+                            setStroke(dp(1), theme.subText and 0x50FFFFFF.toInt())
+                        }
+                    }
+                    true
+                }
                 android.view.DragEvent.ACTION_DROP -> {
                     val dragged = event.localState as? View ?: return@setOnDragListener false
                     toolbar.removeView(dragged)
@@ -196,6 +207,11 @@ class KeyboardContainerView(
                         .mapNotNull { toolbar.getChildAt(it).tag as? String }
                         .joinToString(",")
                     callbacks.onToolbarOrderChanged(order)
+                    true
+                }
+                android.view.DragEvent.ACTION_DRAG_ENDED -> {
+                    (event.localState as? android.widget.ImageView)?.imageAlpha = 255
+                    toolbarButtons.values.forEach { it.background = null }
                     true
                 }
                 else -> true
