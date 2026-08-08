@@ -93,7 +93,7 @@ class TouchVisualizerActivity : Activity() {
                 var x = 0f
                 row.forEach { key ->
                     val keyWidth = width * (key.widthWeight / totalWeight)
-                    if (key.type != KeyType.SPACER) {
+                    if (key.type != KeyType.SPACER && key.type != KeyType.GHOST) {
                         val rect = RectF(x + gap, top + gap, x + keyWidth - gap, top + rowHeight - gap)
                         canvas.drawRoundRect(rect, 8f, 8f, keyPaint)
                         if (key.label.isNotEmpty()) {
