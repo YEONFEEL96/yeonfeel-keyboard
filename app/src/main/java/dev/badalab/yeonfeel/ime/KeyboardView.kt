@@ -204,6 +204,23 @@ class KeyboardView(
     var hapticEnabled: Boolean = true
     var hapticStrength: Int = 50
 
+    /** 키 입력 소리 (시스템 키 클릭음). */
+    var soundEnabled: Boolean = false
+
+    private val audioManager: android.media.AudioManager? =
+        context.getSystemService(android.media.AudioManager::class.java)
+
+    private fun performKeySound(key: Key) {
+        if (!soundEnabled) return
+        val effect = when (key.type) {
+            KeyType.DELETE -> android.media.AudioManager.FX_KEYPRESS_DELETE
+            KeyType.SPACE -> android.media.AudioManager.FX_KEYPRESS_SPACEBAR
+            KeyType.ENTER -> android.media.AudioManager.FX_KEYPRESS_RETURN
+            else -> android.media.AudioManager.FX_KEYPRESS_STANDARD
+        }
+        runCatching { audioManager?.playSoundEffect(effect, KEY_SOUND_VOLUME) }
+    }
+
     /** 누른 키를 크게 보여주는 미리보기 팝업. */
     var keyPreviewEnabled: Boolean = true
 
@@ -609,6 +626,7 @@ class KeyboardView(
                 pressedByPointer[pointerId] = key
                 downXByPointer[pointerId] = x
                 performKeyHaptic()
+                performKeySound(key)
                 when {
                     // 스페이스는 좌우 스와이프(언어 변경)와 구분해야 하므로 UP에서 입력한다.
                     key.type == KeyType.SPACE -> {
@@ -871,6 +889,7 @@ class KeyboardView(
         private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val HAPTIC_DURATION_MS = 12L
+        private const val KEY_SOUND_VOLUME = 0.5f
         private const val LONG_PRESS_MS = 350L
         private const val LANG_POPUP_DELAY_MS = 300L
         private const val SPACE_SWIPE_THRESHOLD_DP = 30f

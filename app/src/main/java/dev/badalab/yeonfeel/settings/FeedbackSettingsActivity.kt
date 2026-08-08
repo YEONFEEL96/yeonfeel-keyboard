@@ -8,7 +8,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import dev.badalab.yeonfeel.R
 
-/** 피드백: 햅틱 온오프 + 강도 슬라이더. 슬라이더를 움직이면 그 세기로 미리 진동한다. */
+/** 터치 피드백: 소리 / 진동(강도 포함) / 누른 키 보여주기. */
 class FeedbackSettingsActivity : Activity() {
 
     private val vibrator: Vibrator? by lazy {
@@ -23,21 +23,24 @@ class FeedbackSettingsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val settings = KeyboardSettings(this)
-        title = getString(R.string.feedback_menu)
+        title = getString(R.string.touch_feedback_menu)
 
         val ui = SettingComponents(this)
-        ui.header(getString(R.string.feedback_menu))
+        ui.header(getString(R.string.touch_feedback_menu))
 
         ui.card(
-            ui.switchRow(getString(R.string.feedback_key_preview), settings.keyPreviewEnabled) { checked, _ ->
-                settings.keyPreviewEnabled = checked
+            ui.switchRow(getString(R.string.feedback_sound), settings.soundEnabled) { checked, _ ->
+                settings.soundEnabled = checked
             },
-            ui.switchRow(getString(R.string.feedback_haptic), settings.hapticEnabled) { checked, _ ->
+            ui.switchRow(getString(R.string.feedback_vibration), settings.hapticEnabled) { checked, _ ->
                 settings.hapticEnabled = checked
             },
             ui.sliderRow(getString(R.string.feedback_haptic_strength), 100, settings.hapticStrength) { value ->
                 settings.hapticStrength = value
                 previewHaptic(value)
+            },
+            ui.switchRow(getString(R.string.feedback_key_preview), settings.keyPreviewEnabled) { checked, _ ->
+                settings.keyPreviewEnabled = checked
             },
         )
 

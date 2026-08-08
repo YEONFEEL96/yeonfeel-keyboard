@@ -65,7 +65,10 @@
     <string name="debug_touch_count">수집된 타점: %1$d개</string>
     <string name="debug_touch_clear">타점 데이터 초기화</string>
     <string name="feedback_menu">피드백</string>
-    <string name="feedback_key_preview">누른 키 미리보기</string>
+    <string name="touch_feedback_menu">터치 피드백</string>
+    <string name="feedback_sound">소리</string>
+    <string name="feedback_vibration">진동</string>
+    <string name="feedback_key_preview">누른 키 보여주기</string>
     <string name="feedback_haptic">햅틱 피드백</string>
     <string name="feedback_haptic_strength">햅틱 강도</string>
     <string name="gesture_backspace_speed">백스페이스 속도</string>

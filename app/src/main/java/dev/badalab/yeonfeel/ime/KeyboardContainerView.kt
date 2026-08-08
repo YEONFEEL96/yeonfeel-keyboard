@@ -142,6 +142,7 @@ class KeyboardContainerView(
         keyboardView.showKeyBackground = settings.showKeyBackground
         keyboardView.keyPreviewEnabled = settings.keyPreviewEnabled
         keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
+        keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
         keyboardView.hapticStrength = settings.hapticStrength
         KeyboardLayouts.favoriteSymbol = settings.favoriteSymbol.first()

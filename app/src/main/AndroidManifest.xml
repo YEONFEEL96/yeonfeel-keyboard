@@ -61,7 +61,12 @@
         <activity
             android:name=".settings.FeedbackSettingsActivity"
             android:exported="false"
-            android:label="@string/feedback_menu" />
+            android:label="@string/touch_feedback_menu" />
+
+        <activity
+            android:name=".settings.BackspaceSpeedActivity"
+            android:exported="false"
+            android:label="@string/gesture_backspace_speed" />
 
         <activity
             android:name=".settings.ExtraInputSettingsActivity"
