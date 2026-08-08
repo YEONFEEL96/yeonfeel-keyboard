@@ -353,7 +353,7 @@ class KeyboardView(
         val previewWidth = rect.width() * 1.45f
         val previewHeight = rect.height() * 1.6f
         val cx = rect.centerX().coerceIn(previewWidth / 2 + dp(2f), width - previewWidth / 2 - dp(2f))
-        var top = rect.top + rect.height() * 0.25f - previewHeight
+        var top = rect.top - dp(4f) - previewHeight
         if (top < dp(2f)) top = dp(2f)
         val popup = RectF(cx - previewWidth / 2, top, cx + previewWidth / 2, top + previewHeight)
         val radius = dp(12f)
