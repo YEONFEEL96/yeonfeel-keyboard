@@ -213,7 +213,7 @@ class SettingComponents(private val activity: Activity) {
     }
 
     /** 라벨 + 슬라이더 행. 값이 바뀔 때마다 [onChange]가 호출된다. */
-    fun sliderRow(label: String, max: Int, initial: Int, onChange: (Int) -> Unit): View {
+    fun sliderRow(label: String, max: Int, initial: Int, min: Int = 0, onChange: (Int) -> Unit): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(14), dp(20), dp(14))
@@ -224,6 +224,7 @@ class SettingComponents(private val activity: Activity) {
             setTextColor(TEXT)
         })
         row.addView(android.widget.SeekBar(activity).apply {
+            this.min = min
             this.max = max
             progress = initial
             progressTintList = ColorStateList.valueOf(ACCENT)

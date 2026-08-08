@@ -108,6 +108,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getString(KEY_LEFT_SYMBOL, ",")?.takeIf { it.isNotEmpty() } ?: ","
         set(value) = prefs.edit().putString(KEY_LEFT_SYMBOL, value.take(1)).apply()
 
+    /** 같은 키 연타 판정 시간(ms). 단모음 쌍자음·천지인·나랏글 연타에 공통 적용. */
+    var multiTapDelayMs: Int
+        get() = prefs.getInt(KEY_MULTI_TAP_DELAY, MULTI_TAP_DELAY_DEFAULT)
+        set(value) = prefs.edit().putInt(KEY_MULTI_TAP_DELAY, value.coerceIn(MULTI_TAP_DELAY_MIN, MULTI_TAP_DELAY_MAX)).apply()
+
     /** 키 입력 햅틱 피드백 사용 여부. */
     var hapticEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
@@ -144,6 +149,9 @@ class KeyboardSettings(context: Context) {
         const val MARGIN_TOP_MAX = 60
         const val MARGIN_BOTTOM_MAX = 100
         const val MARGIN_BOTTOM_DEFAULT = 12
+        const val MULTI_TAP_DELAY_MIN = 100
+        const val MULTI_TAP_DELAY_MAX = 600
+        const val MULTI_TAP_DELAY_DEFAULT = 300
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
@@ -161,6 +169,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"
         private const val KEY_LEFT_SYMBOL_ENABLED = "left_symbol_enabled"
         private const val KEY_LEFT_SYMBOL = "left_symbol"
+        private const val KEY_MULTI_TAP_DELAY = "multi_tap_delay_ms"
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
         private const val KEY_HAPTIC_STRENGTH = "haptic_strength"
         private const val KEY_MARGIN_TOP = "margin_top_dp"

@@ -64,6 +64,11 @@ class YeonfeelImeService : InputMethodService() {
             else -> dubeolComposer
         }
         dubeolComposer.doubleTapIotation = settings.koreanLayout == KoreanLayoutType.DANMOEUM
+        dubeolComposer.doubleTapDoubling = settings.koreanLayout == KoreanLayoutType.DANMOEUM
+        val multiTapDelay = settings.multiTapDelayMs.toLong()
+        dubeolComposer.multiTapTimeoutMs = multiTapDelay
+        chunjiinComposer.multiTapTimeoutMs = multiTapDelay
+        naratgulComposer.multiTapTimeoutMs = multiTapDelay
         // 설정에서 꺼진 언어가 현재 모드면 켜진 언어로 강제 전환한다.
         if (mode == LayoutMode.ENGLISH && !settings.englishEnabled) mode = LayoutMode.KOREAN
         if (mode == LayoutMode.KOREAN && !settings.koreanEnabled) mode = LayoutMode.ENGLISH

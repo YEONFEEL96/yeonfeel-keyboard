@@ -11,9 +11,9 @@ import dev.badalab.yeonfeel.hangul.HangulTables.canBeJong
  *   [multiTapTimeoutMs] 안에 같은 키를 다시 눌렀는지로 한다.
  * - 받침 뒤 모음 입력 시 도깨비불(받침 이동)은 두벌식과 동일하다.
  */
-class ChunjiinComposer(
-    private val multiTapTimeoutMs: Long = 600L,
-) : KoreanComposer {
+class ChunjiinComposer : KoreanComposer {
+
+    var multiTapTimeoutMs: Long = 600L
 
     private var cho: Char? = null
     private var jungTokens: String = "" // ㅣㆍㅡ 토큰 열

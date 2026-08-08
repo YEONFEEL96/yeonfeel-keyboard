@@ -22,16 +22,60 @@ class HangulComposer : KoreanComposer {
     private var jung: String = "" // 중성 키 입력 1~2타
     private var jong: String = "" // 종성 키 입력 1~2타
 
-    /**
-     * 단모음 자판용: 같은 모음 연타로 이중모음을 만든다 (ㅏㅏ→ㅑ).
-     * 자음 연타 조합은 의도적으로 없다 — '학교→하꾜' 오조합을 원천 차단.
-     */
+    /** 단모음 자판용: 같은 모음 연타로 이중모음을 만든다 (ㅏㅏ→ㅑ). */
     var doubleTapIotation: Boolean = false
+
+    /**
+     * 단모음 자판용: 같은 자음을 [multiTapTimeoutMs] 안에 연타하면 쌍자음으로 토글한다
+     * (ㄱㄱ→ㄲ). 판정 시간이 짧을수록 '학교→하꾜'류 오조합이 줄어든다.
+     */
+    var doubleTapDoubling: Boolean = false
+    var multiTapTimeoutMs: Long = 300L
+
+    private var lastKey: Char? = null
+    private var lastKeyTime: Long = 0L
 
     override val isComposing: Boolean
         get() = cho != null || jung.isNotEmpty()
 
-    override fun input(jamo: Char, now: Long): Result = input(jamo)
+    override fun input(jamo: Char, now: Long): Result {
+        val result =
+            if (doubleTapDoubling && jamo == lastKey && now - lastKeyTime < multiTapTimeoutMs) {
+                tryToggleDouble(jamo) ?: input(jamo)
+            } else {
+                input(jamo)
+            }
+        lastKey = jamo
+        lastKeyTime = now
+        return result
+    }
+
+    /** 연타된 자음을 제자리에서 쌍자음↔홑자음으로 토글한다. 불가능하면 null. */
+    private fun tryToggleDouble(base: Char): Result? {
+        val doubled = DOUBLE_CONSONANT[base] ?: return null
+        if (jung.isEmpty() && jong.isEmpty() && cho != null) {
+            cho = when (cho) {
+                base -> doubled
+                doubled -> base
+                else -> return null
+            }
+            return Result("", composed())
+        }
+        if (jong.isNotEmpty()) {
+            val replacement = when (jong.last()) {
+                base -> doubled
+                doubled -> base
+                else -> return null
+            }
+            val valid =
+                if (jong.length == 1) canBeJong(replacement)
+                else JONG_COMBINE.containsKey(jong[0] to replacement)
+            if (!valid) return null
+            jong = jong.dropLast(1) + replacement
+            return Result("", composed())
+        }
+        return null
+    }
 
     /**
      * 호환 자모(ㄱ~ㅣ)는 두벌식 규칙(도깨비불 포함)으로,
@@ -211,6 +255,7 @@ class HangulComposer : KoreanComposer {
         cho = null
         jung = ""
         jong = ""
+        lastKey = null
     }
 
     private fun composed(): String {
@@ -236,6 +281,14 @@ class HangulComposer : KoreanComposer {
     }
 
     companion object {
+        private val DOUBLE_CONSONANT = mapOf(
+            'ㄱ' to 'ㄲ',
+            'ㄷ' to 'ㄸ',
+            'ㅂ' to 'ㅃ',
+            'ㅅ' to 'ㅆ',
+            'ㅈ' to 'ㅉ',
+        )
+
         fun isVowel(jamo: Char): Boolean = HangulTables.isVowel(jamo)
 
         fun isHangulJamo(ch: Char): Boolean =

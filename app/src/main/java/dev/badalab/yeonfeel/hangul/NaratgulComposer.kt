@@ -11,9 +11,9 @@ import dev.badalab.yeonfeel.hangul.HangulTables.canBeJong
  * - ㅏㅓ·ㅗㅜ 키는 같은 키 연타로 토글한다.
  * - 받침 뒤 모음 입력 시 도깨비불은 두벌식과 동일하다.
  */
-class NaratgulComposer(
-    private val multiTapTimeoutMs: Long = 600L,
-) : KoreanComposer {
+class NaratgulComposer : KoreanComposer {
+
+    var multiTapTimeoutMs: Long = 600L
 
     private var cho: Char? = null
     private var jung: Char? = null // 표시 모음 하나로 관리 (조합 결과 포함)

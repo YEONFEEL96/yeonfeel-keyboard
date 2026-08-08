@@ -32,6 +32,16 @@ class LayoutSettingsActivity : Activity() {
             )
             ui.bindRadioGroup(radios) { selected -> settings.koreanLayout = selected }
             ui.card(*radios.values.toTypedArray())
+
+            ui.caption(getString(R.string.multi_tap_delay_title))
+            ui.card(
+                ui.sliderRow(
+                    getString(R.string.multi_tap_delay_label),
+                    max = KeyboardSettings.MULTI_TAP_DELAY_MAX,
+                    initial = settings.multiTapDelayMs,
+                    min = KeyboardSettings.MULTI_TAP_DELAY_MIN,
+                ) { value -> settings.multiTapDelayMs = value },
+            )
         } else {
             title = getString(R.string.subtype_english)
             ui.header(getString(R.string.subtype_english))

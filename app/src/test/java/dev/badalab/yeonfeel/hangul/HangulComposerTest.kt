@@ -126,6 +126,34 @@ class HangulComposerTest {
     }
 
     @Test
+    fun `단모음 - 자음 빠른 연타는 쌍자음 토글`() {
+        val composer = HangulComposer().apply {
+            doubleTapIotation = true
+            doubleTapDoubling = true
+            multiTapTimeoutMs = 300
+        }
+        composer.input('ㄱ', 0)
+        assertEquals("ㄲ", composer.input('ㄱ', 100).composing) // 연타 → 쌍자음
+        assertEquals("까", composer.input('ㅏ', 200).composing)
+        // 받침 ㅅ 연타 → ㅆ받침
+        composer.input('ㅅ', 300)
+        assertEquals("깠", composer.input('ㅅ', 400).composing)
+    }
+
+    @Test
+    fun `단모음 - 판정 시간 초과 연타는 별개 자음`() {
+        val composer = HangulComposer().apply {
+            doubleTapIotation = true
+            doubleTapDoubling = true
+            multiTapTimeoutMs = 300
+        }
+        composer.input('ㄱ', 0)
+        val result = composer.input('ㄱ', 1000)
+        assertEquals("ㄱ", result.commit)
+        assertEquals("ㄱ", result.composing)
+    }
+
+    @Test
     fun `세벌식 - 역할 명시 자모 조합`() {
         // 초성ㅎ+ㅏ+종성ㄴ, 초성ㄱ+ㅡ+종성ㄹ → 한글
         assertEquals("한글", type("한글"))
