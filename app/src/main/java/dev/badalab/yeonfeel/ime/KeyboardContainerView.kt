@@ -222,12 +222,15 @@ class KeyboardContainerView(
         val entries = callbacks.clipboardEntries()
 
         fun headerIcon(
-            type: GlyphIconView.Type,
+            drawableRes: Int,
             description: String,
             onClick: () -> Unit,
-        ) = GlyphIconView(context, type, theme.text).apply {
-            contentDescription = description
-            setOnClickListener { onClick() }
+        ) = toolbarIcon(drawableRes, description, onClick).apply {
+            imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
+            (layoutParams as MarginLayoutParams).apply {
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            }
         }
 
         val header = LinearLayout(context).apply {
@@ -238,7 +241,7 @@ class KeyboardContainerView(
         }
         // 좌측: 키보드 아이콘(누르면 키보드로 복귀) + 제목
         header.addView(
-            headerIcon(GlyphIconView.Type.KEYBOARD, context.getString(R.string.clipboard_back_to_keyboard)) {
+            headerIcon(R.drawable.ic_toolbar_keyboard, context.getString(R.string.clipboard_back_to_keyboard)) {
                 showKeyboard()
             },
         )
@@ -253,19 +256,19 @@ class KeyboardContainerView(
         when (clipboardMode) {
             ClipboardMode.NORMAL -> {
                 header.addView(
-                    headerIcon(GlyphIconView.Type.PIN, context.getString(R.string.clipboard_pin)) {
+                    headerIcon(R.drawable.ic_icon_pin, context.getString(R.string.clipboard_pin)) {
                         if (entries.isNotEmpty()) enterClipboardMode(ClipboardMode.PIN)
                     },
                 )
                 header.addView(
-                    headerIcon(GlyphIconView.Type.DELETE, context.getString(R.string.clipboard_delete)) {
+                    headerIcon(R.drawable.ic_icon_trash, context.getString(R.string.clipboard_delete)) {
                         if (entries.isNotEmpty()) enterClipboardMode(ClipboardMode.DELETE)
                     },
                 )
             }
             ClipboardMode.DELETE -> {
                 header.addView(
-                    headerIcon(GlyphIconView.Type.DELETE, context.getString(R.string.clipboard_delete)) {
+                    headerIcon(R.drawable.ic_icon_trash, context.getString(R.string.clipboard_delete)) {
                         if (clipboardSelected.isNotEmpty()) {
                             callbacks.onClipboardDelete(clipboardSelected.toList())
                         }
@@ -273,14 +276,14 @@ class KeyboardContainerView(
                     },
                 )
                 header.addView(
-                    headerIcon(GlyphIconView.Type.CANCEL, context.getString(R.string.clipboard_cancel)) {
+                    headerIcon(R.drawable.ic_icon_close, context.getString(R.string.clipboard_cancel)) {
                         exitClipboardSelection()
                     },
                 )
             }
             ClipboardMode.PIN -> {
                 header.addView(
-                    headerIcon(GlyphIconView.Type.PIN, context.getString(R.string.clipboard_pin)) {
+                    headerIcon(R.drawable.ic_icon_pin, context.getString(R.string.clipboard_pin)) {
                         if (clipboardSelected.isNotEmpty()) {
                             val allPinned = entries
                                 .filter { it.text in clipboardSelected }
@@ -291,7 +294,7 @@ class KeyboardContainerView(
                     },
                 )
                 header.addView(
-                    headerIcon(GlyphIconView.Type.CANCEL, context.getString(R.string.clipboard_cancel)) {
+                    headerIcon(R.drawable.ic_icon_close, context.getString(R.string.clipboard_cancel)) {
                         exitClipboardSelection()
                     },
                 )
@@ -346,7 +349,13 @@ class KeyboardContainerView(
             })
         }
         if (entry.pinned) {
-            row.addView(GlyphIconView(context, GlyphIconView.Type.PIN, theme.subText, 0.55f))
+            row.addView(
+                android.widget.ImageView(context).apply {
+                    setImageResource(R.drawable.ic_icon_pin)
+                    imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                    layoutParams = LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(6) }
+                },
+            )
         }
         row.addView(TextView(context).apply {
             text = entry.text
