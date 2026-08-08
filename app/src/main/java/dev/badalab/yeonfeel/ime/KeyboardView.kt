@@ -33,13 +33,13 @@ class KeyboardView(
     var mode: LayoutMode = LayoutMode.KOREAN
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     var shifted: Boolean = false
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     var theme: KeyboardTheme = KeyboardTheme.DARK
@@ -59,21 +59,21 @@ class KeyboardView(
     var showNumberRow: Boolean = true
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     /** 특수문자 페이지 (0 = 1/2, 1 = 2/2). */
     var symbolsPage: Int = 0
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     /** 한/영 키 표시 여부. 숨기면 스페이스바가 넓어진다. */
     var showLangKey: Boolean = true
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     /** 스페이스바 좌우 스와이프로 언어를 바꿀 수 있는지. */
@@ -83,13 +83,13 @@ class KeyboardView(
     var koreanLayout: KoreanLayoutType = KoreanLayoutType.DUBEOLSIK
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     var shiftNumberRowSymbols: Boolean = true
         set(value) {
             field = value
-            invalidate()
+            relayoutKeys()
         }
 
     /** 키캡 배경 표시. 끄면 글자만 그리는 플랫 스타일 (눌린 키만 하이라이트). */
@@ -170,6 +170,13 @@ class KeyboardView(
     private data class KeyBounds(val key: Key, val rect: RectF)
 
     private var keyBounds: List<KeyBounds> = emptyList()
+    private var boundsDirty = true
+
+    /** 키 배치가 바뀌는 설정 변경 시에만 좌표를 다시 계산한다 (매 프레임 재계산 방지). */
+    private fun relayoutKeys() {
+        boundsDirty = true
+        invalidate()
+    }
 
     // 멀티터치: 포인터별로 눌린 키를 추적해야 빠른 타이핑(이전 키를 떼기 전에
     // 다음 키를 누르는 패턴)에서 글자가 씹히지 않는다.
@@ -198,7 +205,9 @@ class KeyboardView(
         setMeasuredDimension(width, dp(heightDp.toFloat()).toInt())
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = rebuildBounds()
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        boundsDirty = true
+    }
 
     /** 숫자 열은 다른 열보다 살짝 낮게 그린다. 기호 페이지의 숫자 열도 포함. */
     private fun hasCompactNumberRow(): Boolean = when {
@@ -240,7 +249,10 @@ class KeyboardView(
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(theme.background)
-        rebuildBounds()
+        if (boundsDirty) {
+            rebuildBounds()
+            boundsDirty = false
+        }
         val radius = dp(8f)
         keyBounds.forEach { (key, rect) ->
             if (key.type == KeyType.SPACER) return@forEach
@@ -347,6 +359,12 @@ class KeyboardView(
                 val index = event.actionIndex
                 val pointerId = event.getPointerId(index)
                 val key = keyAt(event.getX(index), event.getY(index)) ?: return true
+                // 롤오버: 스페이스를 떼기 전에 다음 키가 눌리면 순서 보존을 위해
+                // 대기 중인 스페이스를 먼저 확정한다 (빠른 타이핑에서 어순 역전 방지).
+                if (spacePointerId != -1 && !spaceSwiped && pointerId != spacePointerId) {
+                    pressedByPointer[spacePointerId]?.let { onKeyListener(it) }
+                    spaceSwiped = true // UP에서 중복 입력 방지
+                }
                 pressedByPointer[pointerId] = key
                 downXByPointer[pointerId] = event.getX(index)
                 performKeyHaptic()
@@ -406,15 +424,23 @@ class KeyboardView(
     /**
      * 터치 지점의 키를 찾는다. 키 사이 틈에 떨어진 터치도 버리지 않고
      * 가장 가까운 키로 스냅한다 — 빠른 타이핑에서 가장자리 터치가 씹히는 것을 막는다.
+     * 터치마다 호출되므로 할당 없이 순회한다.
      */
     private fun keyAt(x: Float, y: Float): Key? {
-        val candidates = keyBounds.filter { it.key.type != KeyType.SPACER }
-        candidates.firstOrNull { it.rect.contains(x, y) }?.let { return it.key }
-        return candidates.minByOrNull {
-            val dx = x - it.rect.centerX()
-            val dy = y - it.rect.centerY()
-            dx * dx + dy * dy
-        }?.key
+        var nearest: Key? = null
+        var nearestDistance = Float.MAX_VALUE
+        for (bound in keyBounds) {
+            if (bound.key.type == KeyType.SPACER) continue
+            if (bound.rect.contains(x, y)) return bound.key
+            val dx = x - bound.rect.centerX()
+            val dy = y - bound.rect.centerY()
+            val distance = dx * dx + dy * dy
+            if (distance < nearestDistance) {
+                nearestDistance = distance
+                nearest = bound.key
+            }
+        }
+        return nearest
     }
 
     private fun clearTouchState() {
