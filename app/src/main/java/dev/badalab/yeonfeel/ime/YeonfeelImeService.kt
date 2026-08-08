@@ -65,6 +65,9 @@ class YeonfeelImeService : InputMethodService() {
                 )
             }
         }
+        view.keyboardView.onLanguageSelected = { index ->
+            availableLanguages.getOrNull(index)?.first?.let { selectLanguage(it) }
+        }
         container = view
         view.applySettings(settings)
         return view
@@ -265,22 +268,36 @@ class YeonfeelImeService : InputMethodService() {
         }
     }
 
+    private var availableLanguages: List<Pair<LayoutMode, String>> = emptyList()
+
     private fun switchLanguage() {
         if (!(settings.koreanEnabled && settings.englishEnabled)) return
+        selectLanguage(if (mode == LayoutMode.ENGLISH) LayoutMode.KOREAN else LayoutMode.ENGLISH)
+    }
+
+    private fun selectLanguage(target: LayoutMode) {
         val view = container?.keyboardView ?: return
+        if (target == mode) return
         finishComposition()
-        mode = if (mode == LayoutMode.ENGLISH) LayoutMode.KOREAN else LayoutMode.ENGLISH
-        view.mode = mode
+        mode = target
+        view.mode = target
         view.shifted = false
         updateLanguageNames()
     }
 
-    /** 스페이스 홀드 언어 팝업에 쓸 현재/다음 언어 이름. */
+    /** 언어 팝업·목록에 쓸 현재/다음 언어 이름과 전체 목록. */
     private fun updateLanguageNames() {
         val view = container?.keyboardView ?: return
         val korean = mode != LayoutMode.ENGLISH
         view.languageName = getString(if (korean) R.string.subtype_korean else R.string.subtype_english)
         view.nextLanguageName = getString(if (korean) R.string.subtype_english else R.string.subtype_korean)
+        availableLanguages = buildList {
+            if (settings.koreanEnabled) add(LayoutMode.KOREAN to getString(R.string.subtype_korean))
+            if (settings.englishEnabled) add(LayoutMode.ENGLISH to getString(R.string.subtype_english))
+        }
+        view.languageList = availableLanguages.map { it.second }
+        view.currentLanguageIndex =
+            availableLanguages.indexOfFirst { it.first == mode }.coerceAtLeast(0)
     }
 
     /** 조합기로 보내야 하는 입력인지 — 호환/옛한글 자모, 천지인 ㆍ, 나랏글 변형 키. */

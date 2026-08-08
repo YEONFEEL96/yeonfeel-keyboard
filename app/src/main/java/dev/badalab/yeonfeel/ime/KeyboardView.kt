@@ -85,6 +85,103 @@ class KeyboardView(
     var languageName: String = "한국어"
     var nextLanguageName: String = "English"
 
+    /** 한/영 키 롱프레스 목록용: 전체 언어 이름과 현재 인덱스. 서비스가 갱신한다. */
+    var languageList: List<String> = listOf("한국어", "English")
+    var currentLanguageIndex: Int = 0
+    var onLanguageSelected: ((Int) -> Unit)? = null
+
+    // 한/영 키 롱프레스 언어 목록 팝업
+    private class LangListState(
+        val pointerId: Int,
+        val panel: RectF,
+        val rows: List<RectF>,
+        var selected: Int,
+    )
+
+    private var langKeyPointerId = -1
+    private var langListState: LangListState? = null
+    private var langListPopup: android.widget.PopupWindow? = null
+    private val langListRunnable = Runnable { showLanguageListPopup() }
+
+    private inner class LangListContent : View(context) {
+        private val bgPath = Path()
+
+        override fun onDraw(canvas: Canvas) {
+            val state = langListState ?: return
+            canvas.translate(-state.panel.left, -state.panel.top)
+            val inset = previewBorderPaint.strokeWidth / 2f + 0.5f
+            buildSmoothRoundRect(
+                bgPath,
+                state.panel.left + inset,
+                state.panel.top + inset,
+                state.panel.right - inset,
+                state.panel.bottom - inset,
+                dp(18f),
+            )
+            canvas.drawPath(bgPath, previewBgPaint)
+            canvas.drawPath(bgPath, previewBorderPaint)
+            state.rows.forEachIndexed { index, row ->
+                if (index == state.selected) {
+                    canvas.drawRoundRect(row, dp(10f), dp(10f), iconFillPaint)
+                }
+                langTextPaint.color = if (index == state.selected) 0xFFFFFFFF.toInt() else theme.text
+                val y = row.centerY() - (langTextPaint.ascent() + langTextPaint.descent()) / 2
+                canvas.drawText(languageList[index], row.centerX(), y, langTextPaint)
+            }
+            langTextPaint.color = theme.text
+        }
+    }
+
+    private fun showLanguageListPopup() {
+        if (langKeyPointerId == -1 || languageList.size < 2) return
+        val key = pressedByPointer[langKeyPointerId] ?: return
+        val bound = keyBounds.firstOrNull { it.key == key } ?: return
+        val rowHeight = dp(42f)
+        val panelWidth = dp(136f)
+        val pad = dp(6f)
+        val panelHeight = rowHeight * languageList.size + pad * 2
+        val left = (bound.rect.centerX() - panelWidth / 2)
+            .coerceIn(dp(2f), maxOf(dp(2f), width - panelWidth - dp(2f)))
+        val bottom = bound.rect.top - dp(6f)
+        val panel = RectF(left, bottom - panelHeight, left + panelWidth, bottom)
+        val rows = languageList.indices.map { index ->
+            RectF(
+                panel.left + pad,
+                panel.top + pad + index * rowHeight + dp(2f),
+                panel.right - pad,
+                panel.top + pad + (index + 1) * rowHeight - dp(2f),
+            )
+        }
+        langListState = LangListState(langKeyPointerId, panel, rows, currentLanguageIndex)
+        val location = IntArray(2)
+        getLocationInWindow(location)
+        val window = android.widget.PopupWindow(
+            LangListContent(),
+            panelWidth.toInt(),
+            panelHeight.toInt(),
+        ).apply {
+            isClippingEnabled = false
+            isTouchable = false
+            isFocusable = false
+        }
+        window.showAtLocation(
+            this,
+            Gravity.NO_GRAVITY,
+            location[0] + panel.left.toInt(),
+            location[1] + panel.top.toInt(),
+        )
+        langListPopup = window
+        performKeyHaptic()
+    }
+
+    private fun dismissLanguageListPopup() {
+        repeatHandler.removeCallbacks(langListRunnable)
+        langListPopup?.dismiss()
+        langListPopup = null
+        langListState = null
+        langKeyPointerId = -1
+    }
+
     // 스페이스 홀드 시 언어 팝업
     private var langPopupWindow: android.widget.PopupWindow? = null
     private var langDragOffset = 0f
@@ -647,6 +744,11 @@ class KeyboardView(
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(longPressRunnable, LONG_PRESS_MS)
                     }
+                    // 한/영 키: 짧게 누르면 토글, 길게 누르면 언어 목록
+                    key.type == KeyType.LANG -> {
+                        langKeyPointerId = pointerId
+                        repeatHandler.postDelayed(langListRunnable, LONG_PRESS_MS)
+                    }
                     // ㅋ 등은 꾹 누르면 반복 입력된다.
                     (key.type == KeyType.CHAR || key.type == KeyType.GHOST) &&
                         key.char in REPEATABLE_CHARS -> {
@@ -660,6 +762,29 @@ class KeyboardView(
                 invalidate()
             }
             MotionEvent.ACTION_MOVE -> {
+                langListState?.let { state ->
+                    val idx = event.findPointerIndex(state.pointerId)
+                    if (idx >= 0) {
+                        val y = event.getY(idx)
+                        // 아직 키 위(팝업 아래)에 있으면 유지, 팝업 쪽으로 올라오면 가장 가까운 행 선택
+                        if (y <= state.panel.bottom + dp(10f)) {
+                            var nearest = state.selected
+                            var best = Float.MAX_VALUE
+                            state.rows.forEachIndexed { index, row ->
+                                val dy = kotlin.math.abs(y - row.centerY())
+                                if (dy < best) {
+                                    best = dy
+                                    nearest = index
+                                }
+                            }
+                            if (nearest != state.selected) {
+                                state.selected = nearest
+                                performKeyHaptic()
+                                langListPopup?.contentView?.invalidate()
+                            }
+                        }
+                    }
+                }
                 variantPopup?.let { popup ->
                     val idx = event.findPointerIndex(popup.pointerId)
                     if (idx >= 0) {
@@ -696,6 +821,15 @@ class KeyboardView(
                         }
                         cancelPendingVariant()
                     }
+                }
+                if (key?.type == KeyType.LANG && pointerId == langKeyPointerId) {
+                    val state = langListState
+                    if (state != null) {
+                        onLanguageSelected?.invoke(state.selected)
+                    } else {
+                        onKeyListener(key) // 짧게 누름 → 기존 토글
+                    }
+                    dismissLanguageListPopup()
                 }
                 if (key?.type == KeyType.SPACE && pointerId == spacePointerId) {
                     val swiped = languageSwipeEnabled &&
@@ -773,6 +907,7 @@ class KeyboardView(
         repeatCharPointerId = -1
         cancelPendingVariant()
         dismissLanguagePopup()
+        dismissLanguageListPopup()
     }
 
     private fun cancelPendingVariant() {
