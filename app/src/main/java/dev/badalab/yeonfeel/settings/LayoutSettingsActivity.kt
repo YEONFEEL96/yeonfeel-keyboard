@@ -40,6 +40,7 @@ class LayoutSettingsActivity : Activity() {
                     max = KeyboardSettings.MULTI_TAP_DELAY_MAX,
                     initial = settings.multiTapDelayMs,
                     min = KeyboardSettings.MULTI_TAP_DELAY_MIN,
+                    valueFormatter = { getString(R.string.multi_tap_delay_value, it) },
                 ) { value -> settings.multiTapDelayMs = value },
             )
         } else {

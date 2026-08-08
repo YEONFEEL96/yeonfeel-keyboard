@@ -212,17 +212,41 @@ class SettingComponents(private val activity: Activity) {
         return row
     }
 
-    /** 라벨 + 슬라이더 행. 값이 바뀔 때마다 [onChange]가 호출된다. */
-    fun sliderRow(label: String, max: Int, initial: Int, min: Int = 0, onChange: (Int) -> Unit): View {
+    /**
+     * 라벨 + 슬라이더 행. 값이 바뀔 때마다 [onChange]가 호출되고,
+     * [valueFormatter]를 주면 현재 값이 우측에 표시된다 (예: "300ms").
+     */
+    fun sliderRow(
+        label: String,
+        max: Int,
+        initial: Int,
+        min: Int = 0,
+        valueFormatter: ((Int) -> String)? = null,
+        onChange: (Int) -> Unit,
+    ): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(14), dp(20), dp(14))
         }
-        row.addView(TextView(activity).apply {
-            text = label
-            textSize = 17f
-            setTextColor(TEXT)
-        })
+        val valueView = valueFormatter?.let { formatter ->
+            TextView(activity).apply {
+                text = formatter(initial)
+                textSize = 14f
+                setTextColor(ACCENT)
+            }
+        }
+        row.addView(
+            LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(TextView(activity).apply {
+                    text = label
+                    textSize = 17f
+                    setTextColor(TEXT)
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                valueView?.let { addView(it) }
+            },
+        )
         row.addView(android.widget.SeekBar(activity).apply {
             this.min = min
             this.max = max
@@ -233,6 +257,7 @@ class SettingComponents(private val activity: Activity) {
             setPadding(dp(16), dp(10), dp(16), dp(4))
             setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: android.widget.SeekBar?, value: Int, fromUser: Boolean) {
+                    valueView?.text = valueFormatter?.invoke(value)
                     if (fromUser) onChange(value)
                 }
 
