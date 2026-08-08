@@ -59,6 +59,12 @@ class SettingsActivity : Activity() {
             ),
         )
 
+        ui.card(
+            ui.textRow(getString(R.string.debug_menu)) {
+                startActivity(Intent(this, DebugSettingsActivity::class.java))
+            },
+        )
+
         setContentView(ui.root())
     }
 

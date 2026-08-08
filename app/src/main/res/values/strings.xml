@@ -54,6 +54,11 @@
     <string name="number_symbol_title">숫자 및 기호</string>
     <string name="symbol_menu">기호</string>
     <string name="gesture_feedback_menu">제스처 및 피드백</string>
+    <string name="debug_menu">디버그</string>
+    <string name="debug_touch_collect">타점 수집</string>
+    <string name="debug_touch_visualizer">타점 시각화</string>
+    <string name="debug_touch_count">수집된 타점: %1$d개</string>
+    <string name="debug_touch_clear">타점 데이터 초기화</string>
     <string name="feedback_menu">피드백</string>
     <string name="feedback_haptic">햅틱 피드백</string>
     <string name="feedback_haptic_strength">햅틱 강도</string>

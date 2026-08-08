@@ -57,6 +57,16 @@
             android:exported="false"
             android:label="@string/feedback_menu" />
 
+        <activity
+            android:name=".settings.DebugSettingsActivity"
+            android:exported="false"
+            android:label="@string/debug_menu" />
+
+        <activity
+            android:name=".settings.TouchVisualizerActivity"
+            android:exported="false"
+            android:label="@string/debug_touch_visualizer" />
+
         <service
             android:name=".ime.YeonfeelImeService"
             android:exported="true"

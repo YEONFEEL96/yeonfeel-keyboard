@@ -26,6 +26,7 @@ class YeonfeelImeService : InputMethodService() {
     private var composer: KoreanComposer = dubeolComposer
     private val clipboardHistory = ClipboardHistory()
     private lateinit var clipboardStore: SecureClipboardStore
+    private lateinit var touchStats: dev.badalab.yeonfeel.debug.TouchStatsStore
     private var container: KeyboardContainerView? = null
     private var mode = LayoutMode.KOREAN
     private lateinit var settings: KeyboardSettings
@@ -37,6 +38,7 @@ class YeonfeelImeService : InputMethodService() {
         super.onCreate()
         settings = KeyboardSettings(this)
         clipboardStore = SecureClipboardStore(this)
+        touchStats = dev.badalab.yeonfeel.debug.TouchStatsStore(this)
         clipboardHistory.restore(clipboardStore.load())
         clipboardManager = getSystemService(ClipboardManager::class.java)
         clipboardManager.addPrimaryClipChangedListener(clipListener)
@@ -50,6 +52,13 @@ class YeonfeelImeService : InputMethodService() {
     override fun onCreateInputView(): View {
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
+        view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
+            if (settings.touchStatsEnabled && key.type == KeyType.CHAR) {
+                touchStats.add(
+                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(key.label, ax, ay, rx, ry),
+                )
+            }
+        }
         container = view
         view.applySettings(settings)
         return view
@@ -81,6 +90,7 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         finishComposition()
+        touchStats.flush()
         super.onFinishInputView(finishingInput)
     }
 

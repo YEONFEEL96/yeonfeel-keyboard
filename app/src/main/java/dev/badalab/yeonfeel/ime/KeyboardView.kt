@@ -80,6 +80,9 @@ class KeyboardView(
     var languageSwipeEnabled: Boolean = false
     var onLanguageSwipe: (() -> Unit)? = null
 
+    /** 타점 수집 콜백: (키, 키보드 정규화 x·y, 키 중심 대비 상대 x·y). */
+    var onTapRecorded: ((Key, Float, Float, Float, Float) -> Unit)? = null
+
     var koreanLayout: KoreanLayoutType = KoreanLayoutType.DUBEOLSIK
         set(value) {
             field = value
@@ -358,7 +361,19 @@ class KeyboardView(
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val index = event.actionIndex
                 val pointerId = event.getPointerId(index)
-                val key = keyAt(event.getX(index), event.getY(index)) ?: return true
+                val x = event.getX(index)
+                val y = event.getY(index)
+                val hit = boundsAt(x, y) ?: return true
+                val key = hit.key
+                if (width > 0 && height > 0) {
+                    onTapRecorded?.invoke(
+                        key,
+                        x / width,
+                        y / height,
+                        (x - hit.rect.centerX()) / hit.rect.width(),
+                        (y - hit.rect.centerY()) / hit.rect.height(),
+                    )
+                }
                 // 롤오버: 스페이스를 떼기 전에 다음 키가 눌리면 순서 보존을 위해
                 // 대기 중인 스페이스를 먼저 확정한다 (빠른 타이핑에서 어순 역전 방지).
                 if (spacePointerId != -1 && !spaceSwiped && pointerId != spacePointerId) {
@@ -366,7 +381,7 @@ class KeyboardView(
                     spaceSwiped = true // UP에서 중복 입력 방지
                 }
                 pressedByPointer[pointerId] = key
-                downXByPointer[pointerId] = event.getX(index)
+                downXByPointer[pointerId] = x
                 performKeyHaptic()
                 when (key.type) {
                     // 스페이스는 좌우 스와이프(언어 변경)와 구분해야 하므로 UP에서 입력한다.
@@ -426,18 +441,18 @@ class KeyboardView(
      * 가장 가까운 키로 스냅한다 — 빠른 타이핑에서 가장자리 터치가 씹히는 것을 막는다.
      * 터치마다 호출되므로 할당 없이 순회한다.
      */
-    private fun keyAt(x: Float, y: Float): Key? {
-        var nearest: Key? = null
+    private fun boundsAt(x: Float, y: Float): KeyBounds? {
+        var nearest: KeyBounds? = null
         var nearestDistance = Float.MAX_VALUE
         for (bound in keyBounds) {
             if (bound.key.type == KeyType.SPACER) continue
-            if (bound.rect.contains(x, y)) return bound.key
+            if (bound.rect.contains(x, y)) return bound
             val dx = x - bound.rect.centerX()
             val dy = y - bound.rect.centerY()
             val distance = dx * dx + dy * dy
             if (distance < nearestDistance) {
                 nearestDistance = distance
-                nearest = bound.key
+                nearest = bound
             }
         }
         return nearest

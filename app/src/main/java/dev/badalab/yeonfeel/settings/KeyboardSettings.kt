@@ -118,6 +118,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_MULTI_TAP_DELAY, MULTI_TAP_DELAY_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_MULTI_TAP_DELAY, value.coerceIn(MULTI_TAP_DELAY_MIN, MULTI_TAP_DELAY_MAX)).apply()
 
+    /** 타점 수집 여부 (디버그 — 오타 보정 기초 데이터). */
+    var touchStatsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TOUCH_STATS, true)
+        set(value) = prefs.edit().putBoolean(KEY_TOUCH_STATS, value).apply()
+
     /** 키 입력 햅틱 피드백 사용 여부. */
     var hapticEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
@@ -175,6 +180,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"
         private const val KEY_LEFT_SYMBOL_ENABLED = "left_symbol_enabled"
         private const val KEY_LEFT_SYMBOL = "left_symbol"
+        private const val KEY_TOUCH_STATS = "touch_stats_enabled"
         private const val KEY_MULTI_TAP_DELAY = "multi_tap_delay_ms"
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
         private const val KEY_HAPTIC_STRENGTH = "haptic_strength"
