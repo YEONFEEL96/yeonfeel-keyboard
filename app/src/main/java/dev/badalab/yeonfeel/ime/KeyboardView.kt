@@ -646,7 +646,12 @@ class KeyboardView(
     private fun showVariantPopup() {
         val pending = pendingVariant ?: return
         val variants = KEY_VARIANTS[pending.key.char] ?: return
-        val options = listOf(pending.key.label) + variants.map { it.toString() }
+        // 한글 쌍자음 팝업은 원래 자음을 빼고 변형만 보여준다 (ㅂ 롱프레스 → ㅃ만).
+        val includeOriginal = pending.key.char !in KOREAN_VARIANTS
+        val options = buildList {
+            if (includeOriginal) add(pending.key.label)
+            variants.forEach { add(it.toString()) }
+        }
         val anchor = pending.rect
         val columns = minOf(4, options.size)
         val rows = (options.size + columns - 1) / columns
@@ -667,8 +672,14 @@ class KeyboardView(
             val y = panel.bottom - pad - (row + 1) * cellHeight
             RectF(x + dp(2f), y + dp(2f), x + cellWidth - dp(2f), y + cellHeight - dp(2f))
         }
-        // 첫 변형(위첨자)을 기본 선택으로 — 길게 눌렀다 그대로 떼면 위첨자가 입력된다.
-        variantPopup = VariantPopupState(pending.pointerId, options, panel, cells, selected = 1)
+        // 첫 변형을 기본 선택으로 — 길게 눌렀다 그대로 떼면 첫 변형이 입력된다.
+        variantPopup = VariantPopupState(
+            pending.pointerId,
+            options,
+            panel,
+            cells,
+            selected = if (includeOriginal) 1 else 0,
+        )
         val location = IntArray(2)
         getLocationInWindow(location)
         val window = android.widget.PopupWindow(
