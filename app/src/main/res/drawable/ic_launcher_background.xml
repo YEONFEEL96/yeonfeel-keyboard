@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 파스텔 그라디언트 배경 (연보라 → 연분홍) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="#C7D2FE"
+        android:centerColor="#E3D4F7"
+        android:endColor="#FBD5E5"
+        android:type="linear" />
+</shape>
