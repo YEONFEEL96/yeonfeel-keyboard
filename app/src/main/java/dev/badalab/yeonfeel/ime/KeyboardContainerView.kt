@@ -156,8 +156,9 @@ class KeyboardContainerView(
         setBackgroundColor(theme.background)
         keyboardWrapper.setBackgroundColor(theme.background)
         toolbar.setBackgroundColor(theme.specialKey)
+        // 툴바 아이콘은 본문 텍스트보다 연한 보조색으로
         toolbarButtons.values.forEach {
-            it.imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
+            it.imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
         }
         applyToolbarOrder(settings.toolbarOrder)
         showKeyboard()
