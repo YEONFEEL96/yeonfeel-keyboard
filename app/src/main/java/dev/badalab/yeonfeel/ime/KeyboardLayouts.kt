@@ -125,9 +125,10 @@ object KeyboardLayouts {
         charRow("ㅂㅈㄷㄱㅅㅗㅐㅔ"),
         charRow("ㅁㄴㅇㄹㅎㅓㅏㅣ"),
         buildList {
-            add(spacer(1f))
+            // 셋째 열은 윗열 격자보다 살짝 왼쪽(ㅁ 방향)으로 어긋난 배열이 통용된다.
+            add(spacer(0.85f))
             addAll(charRow("ㅋㅌㅊㅍㅜㅡ"))
-            add(Key(KeyType.DELETE, "⌫"))
+            add(Key(KeyType.DELETE, "⌫", widthWeight = 1.15f))
         },
         bottomRow(showLangKey),
     )
