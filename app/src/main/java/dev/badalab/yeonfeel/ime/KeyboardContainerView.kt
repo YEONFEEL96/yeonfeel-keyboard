@@ -112,7 +112,7 @@ class KeyboardContainerView(
                 resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
                     android.content.res.Configuration.UI_MODE_NIGHT_YES
         }
-        theme = KeyboardTheme.of(dark, settings.highContrast)
+        theme = KeyboardTheme.of(dark, settings.highContrast, settings.highContrastStyle)
         keyboardView.theme = theme
         keyboardView.showNumberRow = settings.showNumberRow
         keyboardView.koreanLayout = settings.koreanLayout

@@ -11,6 +11,21 @@ enum class ThemeMode {
     LIGHT,
 }
 
+/** 고대비 색상 스타일. */
+enum class HighContrastStyle {
+    /** 기본: 다크/라이트에 따라 흑백 + 테두리 */
+    DEFAULT,
+
+    /** 노란 키패드에 검은 글자 */
+    YELLOW_BLACK,
+
+    /** 검은 키패드에 흰 글자 */
+    BLACK_WHITE,
+
+    /** 검은 키패드에 노란 글자 */
+    BLACK_YELLOW,
+}
+
 /** 언어 변경 방법. */
 enum class LanguageSwitchMethod {
     /** 한/영 버튼으로만 변경 */
@@ -61,6 +76,12 @@ class KeyboardSettings(context: Context) {
     var highContrast: Boolean
         get() = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
         set(value) = prefs.edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+
+    var highContrastStyle: HighContrastStyle
+        get() = runCatching {
+            HighContrastStyle.valueOf(prefs.getString(KEY_HIGH_CONTRAST_STYLE, null) ?: "")
+        }.getOrDefault(HighContrastStyle.DEFAULT)
+        set(value) = prefs.edit().putString(KEY_HIGH_CONTRAST_STYLE, value.name).apply()
 
     /** 키캡 배경 표시 여부. 끄면 글자만 보이는 플랫 스타일. */
     var showKeyBackground: Boolean
@@ -175,6 +196,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_SHOW_TOOLBAR = "show_toolbar"
         private const val KEY_HIGH_CONTRAST = "high_contrast"
         private const val KEY_SHOW_KEY_BACKGROUND = "show_key_background"
+        private const val KEY_HIGH_CONTRAST_STYLE = "high_contrast_style"
         private const val KEY_SHOW_NUMBER_ROW = "show_number_row"
         private const val KEY_KOREAN_ENABLED = "korean_enabled"
         private const val KEY_ENGLISH_ENABLED = "english_enabled"

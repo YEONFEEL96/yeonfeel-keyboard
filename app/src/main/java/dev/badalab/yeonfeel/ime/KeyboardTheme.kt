@@ -49,10 +49,49 @@ data class KeyboardTheme(
             keyBorder = 0xFF000000.toInt(),
         )
 
-        fun of(dark: Boolean, highContrast: Boolean): KeyboardTheme = when {
-            dark && highContrast -> DARK_HIGH_CONTRAST
+        val HC_YELLOW_BLACK = KeyboardTheme(
+            background = 0xFF000000.toInt(),
+            key = 0xFFFFD600.toInt(),
+            specialKey = 0xFFE0BC00.toInt(),
+            pressed = 0xFFFFFFFF.toInt(),
+            text = 0xFF000000.toInt(),
+            subText = 0xFF000000.toInt(),
+        )
+
+        val HC_BLACK_WHITE = KeyboardTheme(
+            background = 0xFF000000.toInt(),
+            key = 0xFF000000.toInt(),
+            specialKey = 0xFF000000.toInt(),
+            pressed = 0xFF666666.toInt(),
+            text = 0xFFFFFFFF.toInt(),
+            subText = 0xFFFFFFFF.toInt(),
+            keyBorder = 0xFFFFFFFF.toInt(),
+        )
+
+        val HC_BLACK_YELLOW = KeyboardTheme(
+            background = 0xFF000000.toInt(),
+            key = 0xFF000000.toInt(),
+            specialKey = 0xFF000000.toInt(),
+            pressed = 0xFF5C4D00.toInt(),
+            text = 0xFFFFD600.toInt(),
+            subText = 0xFFFFD600.toInt(),
+            keyBorder = 0xFFFFD600.toInt(),
+        )
+
+        fun of(
+            dark: Boolean,
+            highContrast: Boolean,
+            style: dev.badalab.yeonfeel.settings.HighContrastStyle =
+                dev.badalab.yeonfeel.settings.HighContrastStyle.DEFAULT,
+        ): KeyboardTheme = when {
+            highContrast -> when (style) {
+                dev.badalab.yeonfeel.settings.HighContrastStyle.YELLOW_BLACK -> HC_YELLOW_BLACK
+                dev.badalab.yeonfeel.settings.HighContrastStyle.BLACK_WHITE -> HC_BLACK_WHITE
+                dev.badalab.yeonfeel.settings.HighContrastStyle.BLACK_YELLOW -> HC_BLACK_YELLOW
+                dev.badalab.yeonfeel.settings.HighContrastStyle.DEFAULT ->
+                    if (dark) DARK_HIGH_CONTRAST else LIGHT_HIGH_CONTRAST
+            }
             dark -> DARK
-            highContrast -> LIGHT_HIGH_CONTRAST
             else -> LIGHT
         }
     }

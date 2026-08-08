@@ -34,6 +34,11 @@
     <string name="settings_high_contrast">고대비 (접근성)</string>
     <string name="settings_high_contrast_short">고대비</string>
     <string name="theme_show_keycap">키캡 배경 표시</string>
+    <string name="theme_hc_style_title">고대비 색상</string>
+    <string name="hc_style_default">기본</string>
+    <string name="hc_style_yellow_black">노랑 · 검은 글자</string>
+    <string name="hc_style_black_white">검정 · 흰 글자</string>
+    <string name="hc_style_black_yellow">검정 · 노란 글자</string>
     <string name="settings_section_input">입력</string>
     <string name="settings_language_section">언어 및 키보드 형식</string>
     <string name="language_manage_title">키보드 입력 언어 관리</string>
