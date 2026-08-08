@@ -113,6 +113,12 @@ class YeonfeelImeService : InputMethodService() {
             currentInputConnection?.commitText(emoji, 1)
         }
 
+        override fun onEmojiSearchStateChanged(open: Boolean) {
+            emojiSearchBuffer.clear()
+            emojiSearchComposing = ""
+            emojiSearchComposer.reset()
+        }
+
         override fun onToolbarOrderChanged(order: String) {
             settings.toolbarOrder = order
         }
@@ -171,7 +177,55 @@ class YeonfeelImeService : InputMethodService() {
         clipboardStore.save(clipboardHistory.entries(System.currentTimeMillis()))
     }
 
+    // 이모지 검색 모드: 키 입력을 앱이 아니라 검색어 버퍼로 보낸다.
+    private val emojiSearchComposer = HangulComposer()
+    private val emojiSearchBuffer = StringBuilder()
+    private var emojiSearchComposing = ""
+
+    private fun handleEmojiSearchKey(key: Key) {
+        val view = container?.keyboardView ?: return
+        when (key.type) {
+            KeyType.CHAR, KeyType.GHOST -> {
+                val c = key.char
+                if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
+                    val result = emojiSearchComposer.input(c, System.currentTimeMillis())
+                    emojiSearchBuffer.append(result.commit)
+                    emojiSearchComposing = result.composing
+                } else {
+                    flushEmojiSearchComposer()
+                    emojiSearchBuffer.append(c)
+                }
+                if (view.shifted) view.shifted = false
+            }
+            KeyType.DELETE -> {
+                val result = emojiSearchComposer.backspace()
+                if (result != null) {
+                    emojiSearchComposing = result.composing
+                } else if (emojiSearchBuffer.isNotEmpty()) {
+                    emojiSearchBuffer.deleteCharAt(emojiSearchBuffer.length - 1)
+                }
+            }
+            KeyType.SPACE -> {
+                flushEmojiSearchComposer()
+                emojiSearchBuffer.append(' ')
+            }
+            KeyType.SHIFT -> view.shifted = !view.shifted
+            KeyType.LANG -> switchLanguage()
+            else -> Unit
+        }
+        container?.updateEmojiSearch(emojiSearchBuffer.toString() + emojiSearchComposing)
+    }
+
+    private fun flushEmojiSearchComposer() {
+        emojiSearchBuffer.append(emojiSearchComposer.flush())
+        emojiSearchComposing = ""
+    }
+
     private fun handleKey(key: Key) {
+        if (container?.isEmojiSearchOpen() == true) {
+            handleEmojiSearchKey(key)
+            return
+        }
         val view = container?.keyboardView ?: return
         when (key.type) {
             KeyType.CHAR, KeyType.GHOST -> {

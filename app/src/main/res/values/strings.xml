@@ -14,6 +14,7 @@
     <string name="toolbar_layout_desc">레이아웃 조정</string>
     <string name="toolbar_clipboard_desc">클립보드</string>
     <string name="toolbar_emoji_desc">이모지</string>
+    <string name="emoji_search_hint">이모지 검색</string>
 
     <string name="clipboard_back_to_keyboard">키보드로 돌아가기</string>
     <string name="clipboard_delete">삭제</string>

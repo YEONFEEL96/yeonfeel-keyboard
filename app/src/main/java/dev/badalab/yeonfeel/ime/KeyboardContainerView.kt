@@ -31,6 +31,7 @@ class KeyboardContainerView(
         fun onKey(key: Key)
         fun onPaste(text: String)
         fun onEmoji(emoji: String)
+        fun onEmojiSearchStateChanged(open: Boolean)
         fun onOpenSettings()
         fun onLanguageSwipe()
         fun onToolbarOrderChanged(order: String)
@@ -52,6 +53,14 @@ class KeyboardContainerView(
     private var emojiPanel: View? = null
     private var clipboardHeader: View? = null
     private var adjustOverlay: MarginAdjustOverlay? = null
+
+    // 이모지 검색 모드 상태
+    private var emojiSearchOpen = false
+    private var emojiSearchResultsRow: View? = null
+    private var emojiSearchQueryView: TextView? = null
+    private var emojiSearchResultsList: LinearLayout? = null
+
+    fun isEmojiSearchOpen(): Boolean = emojiSearchOpen
 
     // 클립보드 다중 선택 모드: 목적(삭제/고정)에 따라 헤더가 달라진다.
     private enum class ClipboardMode { NORMAL, DELETE, PIN }
@@ -231,6 +240,14 @@ class KeyboardContainerView(
         adjustOverlay = null
         clipboardMode = ClipboardMode.NORMAL
         clipboardSelected.clear()
+        emojiSearchResultsRow?.let { removeView(it) }
+        emojiSearchResultsRow = null
+        emojiSearchQueryView = null
+        emojiSearchResultsList = null
+        if (emojiSearchOpen) {
+            emojiSearchOpen = false
+            callbacks.onEmojiSearchStateChanged(false)
+        }
         keyboardView.visibility = VISIBLE
     }
 
@@ -413,19 +430,122 @@ class KeyboardContainerView(
             highlightTab(active)
         }
 
+        // 맨 왼쪽 검색 아이콘
+        tabRow.addView(
+            headerImage(R.drawable.ic_icon_search, context.getString(R.string.emoji_search_hint)) {
+                openEmojiSearch()
+            },
+            0,
+        )
+
         val panel = LinearLayout(context).apply {
             orientation = VERTICAL
             setBackgroundColor(theme.background)
+            // 시스템 하단바(제스처 영역)와 겹치지 않게 탭 바를 위로 띄운다.
+            setPadding(0, 0, 0, navBarInset())
         }
         panel.addView(emojiScroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         panel.addView(
             android.widget.HorizontalScrollView(context).apply {
                 isHorizontalScrollBarEnabled = false
+                // 탭 바 섹션은 배경색으로 구분한다.
+                setBackgroundColor(theme.specialKey)
                 addView(tabRow)
             },
             LayoutParams(LayoutParams.MATCH_PARENT, dp(tabBarHeightDp)),
         )
         return panel
+    }
+
+    private fun navBarInset(): Int =
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            rootWindowInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom ?: 0
+        } else {
+            @Suppress("DEPRECATION")
+            rootWindowInsets?.systemWindowInsetBottom ?: 0
+        }
+
+    /** 이모지 검색 모드: 헤더가 검색창이 되고, 그 아래 결과 스트립 + 일반 키보드로 입력한다. */
+    private fun openEmojiSearch() {
+        showKeyboard()
+        emojiSearchOpen = true
+        attachHeader(buildEmojiSearchHeader())
+        val results = buildEmojiSearchResultsRow()
+        emojiSearchResultsRow = results
+        addView(results, 1, LayoutParams(LayoutParams.MATCH_PARENT, dp(46)).apply { bottomMargin = dp(4) })
+        callbacks.onEmojiSearchStateChanged(true)
+        updateEmojiSearch("")
+    }
+
+    fun updateEmojiSearch(text: String) {
+        val queryView = emojiSearchQueryView ?: return
+        if (text.isEmpty()) {
+            queryView.text = context.getString(R.string.emoji_search_hint)
+            queryView.setTextColor(theme.subText)
+        } else {
+            queryView.text = text
+            queryView.setTextColor(theme.text)
+        }
+        val list = emojiSearchResultsList ?: return
+        list.removeAllViews()
+        EmojiData.search(text).forEach { emoji ->
+            list.addView(
+                TextView(context).apply {
+                    this.text = emoji
+                    gravity = Gravity.CENTER
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                    setOnClickListener { callbacks.onEmoji(emoji) }
+                },
+                LayoutParams(dp(46), LayoutParams.MATCH_PARENT),
+            )
+        }
+    }
+
+    private fun buildEmojiSearchHeader(): View {
+        val header = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(theme.specialKey)
+            setPadding(dp(8), 0, dp(8), 0)
+        }
+        header.addView(
+            android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_icon_search)
+                imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                layoutParams = LayoutParams(dp(24), dp(24)).apply { marginStart = dp(8) }
+            },
+        )
+        emojiSearchQueryView = TextView(context).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setPadding(dp(8), 0, 0, 0)
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        }
+        header.addView(emojiSearchQueryView)
+        header.addView(
+            headerImage(R.drawable.ic_icon_close, context.getString(R.string.clipboard_cancel)) {
+                showKeyboard()
+                toggleEmojiPanel()
+            },
+        )
+        return header
+    }
+
+    private fun buildEmojiSearchResultsRow(): View {
+        emojiSearchResultsList = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            setPadding(dp(8), 0, dp(8), 0)
+        }
+        return android.widget.HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            setBackgroundColor(theme.background)
+            addView(
+                emojiSearchResultsList,
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
     }
 
     private fun headerImage(drawableRes: Int, description: String, onClick: () -> Unit) =
