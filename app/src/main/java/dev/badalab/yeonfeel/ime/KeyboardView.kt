@@ -92,25 +92,54 @@ class KeyboardView(
     private val langPopupRunnable = Runnable { showLanguagePopup() }
 
     /**
-     * 현재 언어가 중앙, 다음 언어가 양옆에서 드래그를 따라 들어오는 팝업 내용.
-     * 임계값을 넘으면 다음 언어가 강조된다 — 손을 떼면 그 언어로 바뀐다는 예고.
+     * 스페이스 홀드 언어 팝업 내용. 좌우 화살표와 G2 연속 곡률 모서리를 쓰고,
+     * 임계값을 넘으면 다음 언어가 중앙에 온전히 표시된다 — 떼면 그 언어로 전환.
      */
     private inner class LangPopupContent : View(context) {
+        private val bgPath = Path()
+
         override fun onDraw(canvas: Canvas) {
-            val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
-            val radius = dp(12f)
-            canvas.drawRoundRect(rect, radius, radius, previewBgPaint)
-            canvas.drawRoundRect(rect, radius, radius, previewBorderPaint)
-            val willSwitch = kotlin.math.abs(spaceLastDx) > dp(48f)
-            val cx = width / 2f + langDragOffset
-            val y = height / 2f - (langTextPaint.ascent() + langTextPaint.descent()) / 2
-            langTextPaint.color = if (willSwitch) theme.subText else theme.text
-            canvas.drawText(languageName, cx, y, langTextPaint)
-            langTextPaint.color = if (willSwitch) theme.text else theme.subText
-            canvas.drawText(nextLanguageName, cx - width, y, langTextPaint)
-            canvas.drawText(nextLanguageName, cx + width, y, langTextPaint)
+            buildSmoothRoundRect(bgPath, 0f, 0f, width.toFloat(), height.toFloat(), dp(24f))
+            canvas.drawPath(bgPath, previewBgPaint)
+            canvas.drawPath(bgPath, previewBorderPaint)
+
+            // 임계값을 넘으면 다음 언어를 온전히 중앙에 보여준다
+            val willSwitch = kotlin.math.abs(spaceLastDx) > dp(SPACE_SWIPE_THRESHOLD_DP)
+            val label = if (willSwitch) nextLanguageName else languageName
             langTextPaint.color = theme.text
+            val y = height / 2f - (langTextPaint.ascent() + langTextPaint.descent()) / 2
+            canvas.drawText(label, width / 2f, y, langTextPaint)
+
+            // 좌우 스와이프 방향 화살표
+            val cy = height / 2f
+            val arrow = dp(5f)
+            val leftX = dp(16f)
+            val rightX = width - dp(16f)
+            canvas.drawLine(leftX + arrow, cy - arrow, leftX, cy, spaceGlyphPaint)
+            canvas.drawLine(leftX, cy, leftX + arrow, cy + arrow, spaceGlyphPaint)
+            canvas.drawLine(rightX - arrow, cy - arrow, rightX, cy, spaceGlyphPaint)
+            canvas.drawLine(rightX, cy, rightX - arrow, cy + arrow, spaceGlyphPaint)
         }
+    }
+
+    /**
+     * G2 연속 곡률 라운드 사각형: 코너 곡선의 제어점을 직선 변 위에 두어
+     * 접선·곡률이 연속으로 이어진다 (원호 라운드의 '뭉친' 모서리 방지).
+     */
+    private fun buildSmoothRoundRect(path: Path, l: Float, t: Float, r: Float, b: Float, radius: Float) {
+        val len = minOf(radius, (r - l) / 2f - 1f, (b - t) / 2f - 1f)
+        val k = 0.3f
+        path.reset()
+        path.moveTo(l + len, t)
+        path.lineTo(r - len, t)
+        path.cubicTo(r - len * k, t, r, t + len * k, r, t + len)
+        path.lineTo(r, b - len)
+        path.cubicTo(r, b - len * k, r - len * k, b, r - len, b)
+        path.lineTo(l + len, b)
+        path.cubicTo(l + len * k, b, l, b - len * k, l, b - len)
+        path.lineTo(l, t + len)
+        path.cubicTo(l, t + len * k, l + len * k, t, l + len, t)
+        path.close()
     }
 
     private val langTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -637,7 +666,8 @@ class KeyboardView(
                     }
                 }
                 if (key?.type == KeyType.SPACE && pointerId == spacePointerId) {
-                    val swiped = languageSwipeEnabled && kotlin.math.abs(spaceLastDx) > dp(48f)
+                    val swiped = languageSwipeEnabled &&
+                        kotlin.math.abs(spaceLastDx) > dp(SPACE_SWIPE_THRESHOLD_DP)
                     when {
                         swiped -> {
                             performKeyHaptic()
@@ -829,6 +859,7 @@ class KeyboardView(
         private const val HAPTIC_DURATION_MS = 12L
         private const val LONG_PRESS_MS = 350L
         private const val LANG_POPUP_DELAY_MS = 300L
+        private const val SPACE_SWIPE_THRESHOLD_DP = 30f
         private const val CHAR_REPEAT_START_MS = 400L
         private const val CHAR_REPEAT_INTERVAL_MS = 60L
 
