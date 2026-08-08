@@ -3,6 +3,13 @@ package dev.badalab.yeonfeel.settings
 import android.content.Context
 import android.content.SharedPreferences
 
+/** 백스페이스 길게 누를 때 반복 속도. */
+enum class BackspaceSpeed(val intervalMs: Long) {
+    SLOW(80),
+    NORMAL(50),
+    FAST(30),
+}
+
 /** 테마 모드. */
 enum class ThemeMode {
     /** 시스템 다크 모드 설정을 따른다 */
@@ -169,6 +176,12 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_KEY_PREVIEW, true)
         set(value) = prefs.edit().putBoolean(KEY_KEY_PREVIEW, value).apply()
 
+    var backspaceSpeed: BackspaceSpeed
+        get() = runCatching {
+            BackspaceSpeed.valueOf(prefs.getString(KEY_BACKSPACE_SPEED, null) ?: "")
+        }.getOrDefault(BackspaceSpeed.NORMAL)
+        set(value) = prefs.edit().putString(KEY_BACKSPACE_SPEED, value.name).apply()
+
     /** 키 입력 햅틱 피드백 사용 여부. */
     var hapticEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
@@ -235,6 +248,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_TOUCH_STATS = "touch_stats_enabled"
         private const val KEY_MULTI_TAP_DELAY = "multi_tap_delay_ms"
         private const val KEY_KEY_PREVIEW = "key_preview_enabled"
+        private const val KEY_BACKSPACE_SPEED = "backspace_speed"
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
         private const val KEY_HAPTIC_STRENGTH = "haptic_strength"
         private const val KEY_MARGIN_TOP = "margin_top_dp"

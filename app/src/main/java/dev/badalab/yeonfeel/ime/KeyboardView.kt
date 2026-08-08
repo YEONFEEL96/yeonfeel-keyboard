@@ -338,11 +338,14 @@ class KeyboardView(
         }
     }
 
+    /** 백스페이스 반복 간격(ms). 설정에서 조절한다. */
+    var deleteRepeatIntervalMs: Long = 50L
+
     private val repeatHandler = Handler(Looper.getMainLooper())
     private val repeatDelete = object : Runnable {
         override fun run() {
             onKeyListener(Key(KeyType.DELETE, "⌫"))
-            repeatHandler.postDelayed(this, 50L)
+            repeatHandler.postDelayed(this, deleteRepeatIntervalMs)
         }
     }
 

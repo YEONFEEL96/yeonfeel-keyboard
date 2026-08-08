@@ -141,6 +141,7 @@ class KeyboardContainerView(
         keyboardView.shiftNumberRowSymbols = settings.shiftNumberRowSymbols
         keyboardView.showKeyBackground = settings.showKeyBackground
         keyboardView.keyPreviewEnabled = settings.keyPreviewEnabled
+        keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
         keyboardView.hapticEnabled = settings.hapticEnabled
         keyboardView.hapticStrength = settings.hapticStrength
         KeyboardLayouts.favoriteSymbol = settings.favoriteSymbol.first()

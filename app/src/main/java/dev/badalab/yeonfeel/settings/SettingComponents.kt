@@ -269,7 +269,7 @@ class SettingComponents(private val activity: Activity) {
         return row
     }
 
-    fun radioRow(label: String, checked: Boolean): RadioButton = RadioButton(activity).apply {
+    fun radioRow(label: CharSequence, checked: Boolean): RadioButton = RadioButton(activity).apply {
         text = label
         textSize = 17f
         setTextColor(TEXT)
