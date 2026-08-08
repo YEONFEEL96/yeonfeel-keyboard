@@ -50,6 +50,9 @@ class SettingsActivity : Activity() {
             ui.switchRow(getString(R.string.settings_show_toolbar), settings.showToolbar) { checked, _ ->
                 settings.showToolbar = checked
             },
+            ui.switchRow(getString(R.string.settings_mz_mode), settings.mzModeEnabled) { checked, _ ->
+                settings.mzModeEnabled = checked
+            },
         )
 
         ui.card(

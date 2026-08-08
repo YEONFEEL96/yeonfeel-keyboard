@@ -197,7 +197,23 @@ class YeonfeelImeService : InputMethodService() {
         HangulComposer.isHangulJamo(c) || c == ChunjiinComposer.KEY_ARAEA ||
             c == NaratgulComposer.KEY_ADD_STROKE || c == NaratgulComposer.KEY_DOUBLE
 
-    private fun onChar(c: Char) {
+    // MZ 모드: ㅋ 연타 카운트
+    private var kiekStreak = 0
+
+    /** MZ 모드가 켜져 있으면 ㅋ 3연타부터 30% 확률로 ㅎ을 대신 입력한다. */
+    private fun applyMzMode(c: Char): Char {
+        if (!settings.mzModeEnabled) return c
+        if (c == 'ㅋ') {
+            kiekStreak++
+            if (kiekStreak >= 3 && kotlin.random.Random.nextFloat() < 0.3f) return 'ㅎ'
+        } else {
+            kiekStreak = 0
+        }
+        return c
+    }
+
+    private fun onChar(rawChar: Char) {
+        val c = if (mode == LayoutMode.KOREAN) applyMzMode(rawChar) else rawChar
         val ic = currentInputConnection ?: return
         if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
             val result = composer.input(c, System.currentTimeMillis())

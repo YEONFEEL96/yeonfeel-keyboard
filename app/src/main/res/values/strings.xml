@@ -85,6 +85,7 @@
     <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경 (언어 버튼 숨김)</string>
     <string name="settings_number_row">숫자 열 표시</string>
     <string name="settings_show_toolbar">키보드 툴바 표시</string>
+    <string name="settings_mz_mode">MZ 모드 (ㅋ 연타에 ㅎ 랜덤 섞기)</string>
     <string name="settings_section_margins">키보드 여백</string>
     <string name="settings_margin_hint">키보드 툴바의 \'레이아웃\' 메뉴에서 키보드 가장자리의 화살표를 드래그해 조정합니다. 좌우는 중앙 정렬을 유지하며 함께 움직이고, 상하는 따로 조정됩니다.</string>
 </resources>
