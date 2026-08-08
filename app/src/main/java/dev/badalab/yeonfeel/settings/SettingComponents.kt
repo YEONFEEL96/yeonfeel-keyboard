@@ -215,6 +215,8 @@ class SettingComponents(private val activity: Activity) {
     /**
      * 라벨 + 슬라이더 행. 값이 바뀔 때마다 [onChange]가 호출되고,
      * [valueFormatter]를 주면 현재 값이 우측에 표시된다 (예: "300ms").
+     * 트랙은 라벨과 같은 지점(카드 안 20dp)에서 시작·종료하고,
+     * 썸(원)은 끝까지 가도 잘리지 않도록 여백을 썸 반지름으로 확보한다.
      */
     fun sliderRow(
         label: String,
@@ -224,9 +226,10 @@ class SettingComponents(private val activity: Activity) {
         valueFormatter: ((Int) -> String)? = null,
         onChange: (Int) -> Unit,
     ): View {
+        val thumbRadius = dp(11)
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(14), dp(20), dp(14))
+            setPadding(dp(20) - thumbRadius, dp(14), dp(20) - thumbRadius, dp(14))
         }
         val valueView = valueFormatter?.let { formatter ->
             TextView(activity).apply {
@@ -238,6 +241,7 @@ class SettingComponents(private val activity: Activity) {
         row.addView(
             LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
+                setPadding(thumbRadius, 0, thumbRadius, 0)
                 addView(TextView(activity).apply {
                     text = label
                     textSize = 17f
@@ -252,9 +256,14 @@ class SettingComponents(private val activity: Activity) {
             this.max = max - min
             progress = initial - min
             progressTintList = ColorStateList.valueOf(ACCENT)
-            thumbTintList = ColorStateList.valueOf(ACCENT)
-            // 좌우 패딩이 썸(원) 반지름보다 작으면 양 끝에서 썸이 잘린다.
-            setPadding(dp(16), dp(10), dp(16), dp(4))
+            thumb = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(ACCENT)
+                setSize(thumbRadius * 2, thumbRadius * 2)
+            }
+            thumbOffset = 0
+            // 트랙 시작점이 라벨과 정렬되도록 패딩 = 썸 반지름
+            setPadding(thumbRadius, dp(10), thumbRadius, dp(4))
             setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: android.widget.SeekBar?, value: Int, fromUser: Boolean) {
                     val actual = value + min

@@ -6,10 +6,13 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.view.View
 import dev.badalab.yeonfeel.R
 
-/** 터치 피드백: 소리 / 진동(강도 포함) / 누른 키 보여주기. */
+/** 터치 피드백: 소리 / 진동(켜져 있을 때만 강도 표시) / 누른 키 보여주기. */
 class FeedbackSettingsActivity : Activity() {
+
+    private lateinit var settings: KeyboardSettings
 
     private val vibrator: Vibrator? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -22,27 +25,41 @@ class FeedbackSettingsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val settings = KeyboardSettings(this)
+        settings = KeyboardSettings(this)
         title = getString(R.string.touch_feedback_menu)
+        buildUi()
+    }
 
+    private fun buildUi() {
         val ui = SettingComponents(this)
         ui.header(getString(R.string.touch_feedback_menu))
 
-        ui.card(
+        val rows = mutableListOf<View>()
+        rows.add(
             ui.switchRow(getString(R.string.feedback_sound), settings.soundEnabled) { checked, _ ->
                 settings.soundEnabled = checked
             },
+        )
+        rows.add(
             ui.switchRow(getString(R.string.feedback_vibration), settings.hapticEnabled) { checked, _ ->
                 settings.hapticEnabled = checked
+                buildUi() // 진동이 꺼지면 강도 슬라이더를 숨긴다
             },
-            ui.sliderRow(getString(R.string.feedback_haptic_strength), 100, settings.hapticStrength) { value ->
-                settings.hapticStrength = value
-                previewHaptic(value)
-            },
+        )
+        if (settings.hapticEnabled) {
+            rows.add(
+                ui.sliderRow(getString(R.string.feedback_haptic_strength), 100, settings.hapticStrength) { value ->
+                    settings.hapticStrength = value
+                    previewHaptic(value)
+                },
+            )
+        }
+        rows.add(
             ui.switchRow(getString(R.string.feedback_key_preview), settings.keyPreviewEnabled) { checked, _ ->
                 settings.keyPreviewEnabled = checked
             },
         )
+        ui.card(*rows.toTypedArray())
 
         setContentView(ui.root())
     }
