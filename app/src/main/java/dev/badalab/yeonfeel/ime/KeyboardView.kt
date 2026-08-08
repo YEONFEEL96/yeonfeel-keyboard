@@ -307,7 +307,7 @@ class KeyboardView(
         }
         val radius = dp(8f)
         keyBounds.forEach { (key, rect) ->
-            if (key.type == KeyType.SPACER) return@forEach
+            if (key.type == KeyType.SPACER || key.type == KeyType.GHOST) return@forEach
             val pressed = pressedByPointer.containsValue(key)
             if (showKeyBackground || pressed) {
                 val paint = when {
@@ -325,7 +325,7 @@ class KeyboardView(
         }
         if (keyPreviewEnabled && variantPopup == null) {
             for (pressed in pressedByPointer.values) {
-                if (pressed.type != KeyType.CHAR) continue
+                if (pressed.type != KeyType.CHAR && pressed.type != KeyType.GHOST) continue
                 val bound = keyBounds.firstOrNull { it.key == pressed } ?: continue
                 drawKeyPreview(canvas, pressed, bound.rect)
             }

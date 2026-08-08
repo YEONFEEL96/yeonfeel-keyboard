@@ -160,7 +160,7 @@ class YeonfeelImeService : InputMethodService() {
     private fun handleKey(key: Key) {
         val view = container?.keyboardView ?: return
         when (key.type) {
-            KeyType.CHAR -> {
+            KeyType.CHAR, KeyType.GHOST -> {
                 onChar(key.char)
                 if (view.shifted) view.shifted = false
             }

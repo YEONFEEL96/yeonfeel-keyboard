@@ -5,9 +5,10 @@ import dev.badalab.yeonfeel.settings.KoreanLayoutType
 
 /**
  * 키의 동작 종류. [CHAR]는 [Key.char]를 입력하고, [SPACER]는 그리지 않는 빈 자리,
+ * [GHOST]는 그리지 않지만 누르면 [Key.char]가 입력되는 투명 확장 히트 영역,
  * [PAGE]는 특수문자 1/2 페이지 전환이다.
  */
-enum class KeyType { CHAR, SHIFT, DELETE, SPACE, ENTER, LANG, SYMBOLS, SPACER, PAGE }
+enum class KeyType { CHAR, SHIFT, DELETE, SPACE, ENTER, LANG, SYMBOLS, SPACER, GHOST, PAGE }
 
 data class Key(
     val type: KeyType,
@@ -126,7 +127,9 @@ object KeyboardLayouts {
         charRow("ㅁㄴㅇㄹㅎㅓㅏㅣ"),
         buildList {
             // 셋째 열은 윗열 격자보다 살짝 왼쪽(ㅁ 방향)으로 어긋난 배열이 통용된다.
-            add(spacer(0.85f))
+            // 빈 공간 오른쪽 절반은 ㅋ의 투명 확장 히트 영역으로 쓴다.
+            add(spacer(0.35f))
+            add(Key(KeyType.GHOST, "ㅋ", 'ㅋ', widthWeight = 0.5f))
             addAll(charRow("ㅋㅌㅊㅍㅜㅡ"))
             add(Key(KeyType.DELETE, "⌫", widthWeight = 1.15f))
         },
