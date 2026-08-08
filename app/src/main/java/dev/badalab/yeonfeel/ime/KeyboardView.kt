@@ -326,8 +326,13 @@ class KeyboardView(
         if (keyPreviewEnabled && variantPopup == null) {
             for (pressed in pressedByPointer.values) {
                 if (pressed.type != KeyType.CHAR && pressed.type != KeyType.GHOST) continue
-                val bound = keyBounds.firstOrNull { it.key == pressed } ?: continue
-                drawKeyPreview(canvas, pressed, bound.rect)
+                // 고스트(투명 보정 영역)는 실제 키 위치에서 미리보기를 띄운다.
+                val bound = if (pressed.type == KeyType.GHOST) {
+                    keyBounds.firstOrNull { it.key.type == KeyType.CHAR && it.key.char == pressed.char }
+                } else {
+                    keyBounds.firstOrNull { it.key == pressed }
+                } ?: continue
+                drawKeyPreview(canvas, bound.key, bound.rect)
             }
         }
     }
