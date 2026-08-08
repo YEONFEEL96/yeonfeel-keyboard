@@ -301,13 +301,18 @@ class KeyboardContainerView(
         return header
     }
 
-    /** 이모지 패널: 키보드 높이를 유지하고 카테고리 블록을 가로로 스크롤한다. */
+    /**
+     * 이모지 패널: 키보드 높이를 유지하고 카테고리 블록을 가로로 스크롤한다.
+     * 하단에는 카테고리 대표 이모지 탭 바 — 누르면 해당 섹션으로 이동한다.
+     */
     private fun buildEmojiPanel(): View {
-        val rowCount = ((keyboardHeightDp - 28) / 46).coerceIn(3, 6)
+        val tabBarHeightDp = 40
+        val rowCount = ((keyboardHeightDp - 28 - tabBarHeightDp) / 46).coerceIn(3, 6)
         val content = LinearLayout(context).apply {
             orientation = HORIZONTAL
             setPadding(dp(8), dp(2), dp(8), dp(2))
         }
+        val blocks = mutableListOf<View>()
         EmojiData.categories.forEach { category ->
             val block = LinearLayout(context).apply {
                 orientation = VERTICAL
@@ -337,12 +342,74 @@ class KeyboardContainerView(
             }
             block.addView(grid)
             content.addView(block)
+            blocks.add(block)
         }
-        return android.widget.HorizontalScrollView(context).apply {
-            setBackgroundColor(theme.background)
+        val emojiScroll = android.widget.HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
             addView(content)
         }
+
+        // 하단 카테고리 탭 바
+        val tabs = mutableListOf<TextView>()
+        fun highlightTab(active: Int) {
+            tabs.forEachIndexed { index, tab ->
+                tab.background = if (index == active) {
+                    android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(theme.specialKey)
+                    }
+                } else {
+                    null
+                }
+            }
+        }
+
+        val tabRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), 0, dp(8), 0)
+        }
+        EmojiData.categories.forEachIndexed { index, category ->
+            val tab = TextView(context).apply {
+                text = category.emojis.first()
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                contentDescription = category.title
+                layoutParams = LayoutParams(dp(38), dp(38)).apply {
+                    marginStart = dp(4)
+                    marginEnd = dp(4)
+                }
+                setOnClickListener {
+                    emojiScroll.smoothScrollTo(blocks[index].left, 0)
+                    highlightTab(index)
+                }
+            }
+            tabs.add(tab)
+            tabRow.addView(tab)
+        }
+        highlightTab(0)
+        // 본문 스크롤 위치에 따라 활성 탭을 갱신한다.
+        emojiScroll.setOnScrollChangeListener { _, scrollX, _, _, _ ->
+            var active = 0
+            blocks.forEachIndexed { index, block ->
+                if (block.left <= scrollX + dp(40)) active = index
+            }
+            highlightTab(active)
+        }
+
+        val panel = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setBackgroundColor(theme.background)
+        }
+        panel.addView(emojiScroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
+        panel.addView(
+            android.widget.HorizontalScrollView(context).apply {
+                isHorizontalScrollBarEnabled = false
+                addView(tabRow)
+            },
+            LayoutParams(LayoutParams.MATCH_PARENT, dp(tabBarHeightDp)),
+        )
+        return panel
     }
 
     private fun headerImage(drawableRes: Int, description: String, onClick: () -> Unit) =
