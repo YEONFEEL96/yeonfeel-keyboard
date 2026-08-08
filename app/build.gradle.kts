@@ -22,6 +22,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // TODO: 스토어 배포 전에 정식 릴리스 키스토어로 교체할 것.
+            // 지금은 기기 테스트용으로 디버그 키 서명을 쓴다.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
