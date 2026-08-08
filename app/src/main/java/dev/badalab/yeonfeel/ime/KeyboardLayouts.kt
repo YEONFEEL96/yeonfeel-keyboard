@@ -90,7 +90,7 @@ object KeyboardLayouts {
     ): List<List<Key>> {
         if (mode == LayoutMode.SYMBOLS) {
             return if (symbolsPage == 1) {
-                symbolsPage("2/2", "`~\\|{}€£¥¢", "°•©®™§¿¡«»", "…—–·※★♥", showLangKey)
+                symbolsPage("2/2", "`~\\|{}€£¥$", "°•○●□■♤♡◇♧", "☆▪¤《》¡¿", showLangKey)
             } else {
                 symbolsPage("1/2", "+×÷=/_<>[]", "!@#₩%^&*()", "-'\":;,?", showLangKey)
             }
