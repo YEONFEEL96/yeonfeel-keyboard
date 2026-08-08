@@ -692,6 +692,9 @@ class KeyboardView(
     }
 
     private fun nearestVariantCell(popup: VariantPopupState, x: Float, y: Float): Int {
+        // 손가락이 아직 팝업 아래(원래 키 위)에 있으면 선택을 바꾸지 않는다 —
+        // 기본 선택(위첨자)이 미세 떨림으로 원래 숫자 셀로 넘어가는 것을 막는다.
+        if (y > popup.panel.bottom + dp(6f)) return popup.selected
         var nearest = popup.selected
         var nearestDistance = Float.MAX_VALUE
         popup.cells.forEachIndexed { index, cell ->
