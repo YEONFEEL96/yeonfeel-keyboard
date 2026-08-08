@@ -64,6 +64,11 @@
             android:label="@string/feedback_menu" />
 
         <activity
+            android:name=".settings.ExtraInputSettingsActivity"
+            android:exported="false"
+            android:label="@string/extra_input_menu" />
+
+        <activity
             android:name=".settings.DebugSettingsActivity"
             android:exported="false"
             android:label="@string/debug_menu" />

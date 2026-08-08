@@ -93,6 +93,8 @@ class YeonfeelImeService : InputMethodService() {
             it.keyboardView.shifted = false
         }
         updateLanguageNames()
+        lastSpaceTime = 0
+        updateAutoCapitalize()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -233,14 +235,21 @@ class YeonfeelImeService : InputMethodService() {
             KeyType.CHAR, KeyType.GHOST -> {
                 onChar(key.char)
                 if (view.shifted) view.shifted = false
+                updateAutoCapitalize()
             }
             KeyType.SHIFT -> view.shifted = !view.shifted
-            KeyType.DELETE -> onDelete()
-            KeyType.SPACE -> {
-                finishComposition()
-                currentInputConnection?.commitText(" ", 1)
+            KeyType.DELETE -> {
+                onDelete()
+                updateAutoCapitalize()
             }
-            KeyType.ENTER -> onEnter()
+            KeyType.SPACE -> {
+                onSpace()
+                updateAutoCapitalize()
+            }
+            KeyType.ENTER -> {
+                onEnter()
+                updateAutoCapitalize()
+            }
             KeyType.LANG -> switchLanguage()
             KeyType.SYMBOLS -> {
                 finishComposition()
@@ -304,6 +313,41 @@ class YeonfeelImeService : InputMethodService() {
             finishComposition()
             ic.commitText(c.toString(), 1)
         }
+    }
+
+    private var lastSpaceTime = 0L
+    private val doubleSpaceMs = 500L
+
+    private fun onSpace() {
+        val ic = currentInputConnection ?: return
+        val now = System.currentTimeMillis()
+        if (settings.doubleSpacePeriod && now - lastSpaceTime < doubleSpaceMs && canDoubleSpacePeriod(ic)) {
+            // 스페이스 두 번 → 마침표+공백
+            ic.deleteSurroundingText(1, 0)
+            ic.commitText(". ", 1)
+            lastSpaceTime = 0
+            return
+        }
+        finishComposition()
+        ic.commitText(" ", 1)
+        lastSpaceTime = now
+    }
+
+    /** 직전이 "글자 + 공백"일 때만 마침표 축약을 적용한다. */
+    private fun canDoubleSpacePeriod(ic: android.view.inputmethod.InputConnection): Boolean {
+        val before = ic.getTextBeforeCursor(2, 0) ?: return false
+        return before.length == 2 && before[1] == ' ' && before[0].isLetterOrDigit()
+    }
+
+    /** 영문 모드에서 문장 시작이면 Shift를 자동으로 켠다. */
+    private fun updateAutoCapitalize() {
+        if (!settings.autoCapitalize || mode != LayoutMode.ENGLISH) return
+        val view = container?.keyboardView ?: return
+        if (view.mode != LayoutMode.ENGLISH) return
+        val ic = currentInputConnection ?: return
+        val inputType = currentInputEditorInfo?.inputType ?: 0
+        val caps = ic.getCursorCapsMode(inputType or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
+        view.shifted = caps != 0
     }
 
     private fun onDelete() {

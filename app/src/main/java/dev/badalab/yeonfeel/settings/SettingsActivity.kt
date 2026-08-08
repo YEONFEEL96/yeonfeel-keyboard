@@ -53,6 +53,9 @@ class SettingsActivity : Activity() {
             ui.switchRow(getString(R.string.settings_mz_mode), settings.mzModeEnabled) { checked, _ ->
                 settings.mzModeEnabled = checked
             },
+            ui.textRow(getString(R.string.extra_input_menu)) {
+                startActivity(Intent(this, ExtraInputSettingsActivity::class.java))
+            },
         )
 
         ui.card(

@@ -144,6 +144,16 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_MULTI_TAP_DELAY, MULTI_TAP_DELAY_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_MULTI_TAP_DELAY, value.coerceIn(MULTI_TAP_DELAY_MIN, MULTI_TAP_DELAY_MAX)).apply()
 
+    /** 영문 문장 시작에서 자동으로 Shift를 켠다. */
+    var autoCapitalize: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_CAPITALIZE, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_CAPITALIZE, value).apply()
+
+    /** 스페이스를 빠르게 두 번 누르면 마침표+공백을 입력한다. */
+    var doubleSpacePeriod: Boolean
+        get() = prefs.getBoolean(KEY_DOUBLE_SPACE_PERIOD, true)
+        set(value) = prefs.edit().putBoolean(KEY_DOUBLE_SPACE_PERIOD, value).apply()
+
     /** MZ 모드 (유머): ㅋ 연타에 ㅎ을 랜덤으로 섞는다. */
     var mzModeEnabled: Boolean
         get() = prefs.getBoolean(KEY_MZ_MODE, false)
@@ -219,6 +229,8 @@ class KeyboardSettings(context: Context) {
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"
         private const val KEY_LEFT_SYMBOL_ENABLED = "left_symbol_enabled"
         private const val KEY_LEFT_SYMBOL = "left_symbol"
+        private const val KEY_AUTO_CAPITALIZE = "auto_capitalize"
+        private const val KEY_DOUBLE_SPACE_PERIOD = "double_space_period"
         private const val KEY_MZ_MODE = "mz_mode_enabled"
         private const val KEY_TOUCH_STATS = "touch_stats_enabled"
         private const val KEY_MULTI_TAP_DELAY = "multi_tap_delay_ms"
