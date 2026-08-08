@@ -275,6 +275,7 @@ class KeyboardView(
         val options: List<String>,
         val panel: RectF,
         val cells: List<RectF>,
+        val startX: Float,
         var selected: Int = 0,
     )
 
@@ -750,6 +751,7 @@ class KeyboardView(
             options,
             panel,
             cells,
+            startX = downXByPointer[pending.pointerId] ?: anchor.centerX(),
             selected = if (includeOriginal) 1 else 0,
         )
         val location = IntArray(2)
@@ -775,9 +777,24 @@ class KeyboardView(
     }
 
     private fun nearestVariantCell(popup: VariantPopupState, x: Float, y: Float): Int {
-        // 손가락이 아직 팝업 아래(원래 키 위)에 있으면 선택을 바꾸지 않는다 —
-        // 기본 선택(위첨자)이 미세 떨림으로 원래 숫자 셀로 넘어가는 것을 막는다.
-        if (y > popup.panel.bottom + dp(6f)) return popup.selected
+        if (y > popup.panel.bottom + dp(6f)) {
+            // 손가락이 아직 키 위(팝업 아래)에 있는 경우: 팝업으로 올리지 않아도
+            // 좌우로 밀면 아랫줄 후보 사이에서 포커스가 움직인다.
+            // 미세 떨림으로 기본 선택이 튀지 않게 시작점에서 12dp 이상 움직여야 반응한다.
+            if (kotlin.math.abs(x - popup.startX) < dp(12f)) return popup.selected
+            val bottomRow = popup.cells.maxOf { it.bottom }
+            var nearest = popup.selected
+            var best = Float.MAX_VALUE
+            popup.cells.forEachIndexed { index, cell ->
+                if (cell.bottom < bottomRow - 1f) return@forEachIndexed
+                val dx = kotlin.math.abs(x - cell.centerX())
+                if (dx < best) {
+                    best = dx
+                    nearest = index
+                }
+            }
+            return nearest
+        }
         var nearest = popup.selected
         var nearestDistance = Float.MAX_VALUE
         popup.cells.forEachIndexed { index, cell ->
