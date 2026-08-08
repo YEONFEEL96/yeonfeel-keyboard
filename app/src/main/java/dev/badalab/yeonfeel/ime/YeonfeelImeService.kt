@@ -53,9 +53,14 @@ class YeonfeelImeService : InputMethodService() {
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
         view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
-            if (settings.touchStatsEnabled && key.type == KeyType.CHAR) {
+            if (settings.touchStatsEnabled && key.type != KeyType.SPACER) {
+                // 글자·고스트 키는 문자로, 기능 키는 타입 이름으로 식별한다.
+                val keyId = when (key.type) {
+                    KeyType.CHAR, KeyType.GHOST -> key.char.toString()
+                    else -> key.type.name
+                }
                 touchStats.add(
-                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(key.label, ax, ay, rx, ry),
+                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(keyId, ax, ay, rx, ry),
                 )
             }
         }
