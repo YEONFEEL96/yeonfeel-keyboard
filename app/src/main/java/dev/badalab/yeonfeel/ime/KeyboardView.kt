@@ -105,6 +105,9 @@ class KeyboardView(
     var hapticEnabled: Boolean = true
     var hapticStrength: Int = 50
 
+    /** 누른 키를 크게 보여주는 미리보기 팝업. */
+    var keyPreviewEnabled: Boolean = true
+
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java)?.defaultVibrator
@@ -147,6 +150,12 @@ class KeyboardView(
         textAlign = Paint.Align.CENTER
         textSize = sp(13f)
     }
+    private val previewBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val previewBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val previewTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(30f)
+    }
 
     init {
         applyTheme()
@@ -163,6 +172,10 @@ class KeyboardView(
         iconPaint.strokeWidth = dp(1.8f)
         iconPaint.pathEffect = CornerPathEffect(dp(1.5f))
         iconFillPaint.color = ACCENT
+        previewBgPaint.color = theme.key
+        previewBorderPaint.color = theme.subText and 0x60FFFFFF.toInt()
+        previewBorderPaint.strokeWidth = dp(1f)
+        previewTextPaint.color = theme.text
         spaceGlyphPaint.strokeWidth = dp(2f)
         theme.keyBorder?.let {
             borderPaint.color = it
@@ -272,6 +285,34 @@ class KeyboardView(
                     canvas.drawRoundRect(rect, radius, radius, borderPaint)
                 }
             }
+            drawKeyContent(canvas, key, rect)
+        }
+        if (keyPreviewEnabled) {
+            for (pressed in pressedByPointer.values) {
+                if (pressed.type != KeyType.CHAR) continue
+                val bound = keyBounds.firstOrNull { it.key == pressed } ?: continue
+                drawKeyPreview(canvas, pressed, bound.rect)
+            }
+        }
+    }
+
+    /** 누른 키 위에 확대 키캡을 그린다 (뷰 안쪽으로 클램프). */
+    private fun drawKeyPreview(canvas: Canvas, key: Key, rect: RectF) {
+        val previewWidth = rect.width() * 1.45f
+        val previewHeight = rect.height() * 1.6f
+        val cx = rect.centerX().coerceIn(previewWidth / 2 + dp(2f), width - previewWidth / 2 - dp(2f))
+        var top = rect.top + rect.height() * 0.25f - previewHeight
+        if (top < dp(2f)) top = dp(2f)
+        val popup = RectF(cx - previewWidth / 2, top, cx + previewWidth / 2, top + previewHeight)
+        val radius = dp(12f)
+        canvas.drawRoundRect(popup, radius, radius, previewBgPaint)
+        canvas.drawRoundRect(popup, radius, radius, previewBorderPaint)
+        val y = popup.centerY() - (previewTextPaint.ascent() + previewTextPaint.descent()) / 2
+        canvas.drawText(key.label, popup.centerX(), y, previewTextPaint)
+    }
+
+    private fun drawKeyContent(canvas: Canvas, key: Key, rect: RectF) {
+        run {
             when (key.type) {
                 KeyType.SPACE -> {
                     // 스페이스바 중앙에 ⎵ 기호를 직접 그린다 (폰트 글리프 의존 없이).

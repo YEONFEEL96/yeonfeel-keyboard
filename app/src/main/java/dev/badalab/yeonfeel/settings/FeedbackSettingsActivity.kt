@@ -29,6 +29,9 @@ class FeedbackSettingsActivity : Activity() {
         ui.header(getString(R.string.feedback_menu))
 
         ui.card(
+            ui.switchRow(getString(R.string.feedback_key_preview), settings.keyPreviewEnabled) { checked, _ ->
+                settings.keyPreviewEnabled = checked
+            },
             ui.switchRow(getString(R.string.feedback_haptic), settings.hapticEnabled) { checked, _ ->
                 settings.hapticEnabled = checked
             },

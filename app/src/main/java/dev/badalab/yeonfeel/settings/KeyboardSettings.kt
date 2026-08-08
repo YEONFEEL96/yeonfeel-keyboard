@@ -123,6 +123,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_TOUCH_STATS, true)
         set(value) = prefs.edit().putBoolean(KEY_TOUCH_STATS, value).apply()
 
+    /** 누른 키를 크게 보여주는 미리보기 팝업. */
+    var keyPreviewEnabled: Boolean
+        get() = prefs.getBoolean(KEY_KEY_PREVIEW, true)
+        set(value) = prefs.edit().putBoolean(KEY_KEY_PREVIEW, value).apply()
+
     /** 키 입력 햅틱 피드백 사용 여부. */
     var hapticEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
@@ -182,6 +187,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_LEFT_SYMBOL = "left_symbol"
         private const val KEY_TOUCH_STATS = "touch_stats_enabled"
         private const val KEY_MULTI_TAP_DELAY = "multi_tap_delay_ms"
+        private const val KEY_KEY_PREVIEW = "key_preview_enabled"
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
         private const val KEY_HAPTIC_STRENGTH = "haptic_strength"
         private const val KEY_MARGIN_TOP = "margin_top_dp"
