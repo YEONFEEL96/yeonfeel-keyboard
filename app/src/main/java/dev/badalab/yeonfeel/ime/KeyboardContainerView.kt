@@ -361,6 +361,7 @@ class KeyboardContainerView(
             text = entry.text
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setTextColor(theme.text)
             setPadding(0, dp(6), 0, dp(6))
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
