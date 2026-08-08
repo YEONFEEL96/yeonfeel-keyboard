@@ -66,6 +66,9 @@ class SettingsActivity : Activity() {
         )
 
         ui.card(
+            ui.textRow(getString(R.string.reset_menu)) {
+                startActivity(Intent(this, ResetSettingsActivity::class.java))
+            },
             ui.textRow(getString(R.string.debug_menu)) {
                 startActivity(Intent(this, DebugSettingsActivity::class.java))
             },

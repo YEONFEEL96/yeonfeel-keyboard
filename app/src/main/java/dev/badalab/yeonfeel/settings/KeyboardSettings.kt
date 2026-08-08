@@ -219,6 +219,9 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_KEYBOARD_HEIGHT, HEIGHT_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_KEYBOARD_HEIGHT, value).apply()
 
+    /** 모든 키보드 설정을 기본값으로 되돌린다. */
+    fun resetAll() = prefs.edit().clear().apply()
+
     companion object {
         const val MARGIN_TOP_MAX = 60
         const val MARGIN_BOTTOM_MAX = 100

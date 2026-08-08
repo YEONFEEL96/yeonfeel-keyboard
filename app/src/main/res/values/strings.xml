@@ -59,6 +59,17 @@
     <string name="number_symbol_title">숫자 및 기호</string>
     <string name="symbol_menu">기호</string>
     <string name="gesture_feedback_menu">제스처 및 피드백</string>
+    <string name="reset_menu">초기화</string>
+    <string name="reset_personal">개인 입력 데이터 삭제</string>
+    <string name="reset_personal_sub">암호화 보관된 클립보드 이력을 지웁니다</string>
+    <string name="reset_touch">터치 입력 데이터 삭제</string>
+    <string name="reset_touch_sub">오타 보정용 타점 기록을 지웁니다</string>
+    <string name="reset_cache">키보드 캐시 삭제</string>
+    <string name="reset_settings">키보드 설정 초기화</string>
+    <string name="reset_settings_sub">모든 설정을 기본값으로 되돌립니다</string>
+    <string name="reset_confirm_message">되돌릴 수 없습니다. 진행할까요?</string>
+    <string name="reset_confirm_yes">삭제</string>
+    <string name="reset_done">완료되었습니다</string>
     <string name="debug_menu">디버그</string>
     <string name="debug_touch_collect">타점 수집</string>
     <string name="debug_touch_visualizer">타점 시각화</string>

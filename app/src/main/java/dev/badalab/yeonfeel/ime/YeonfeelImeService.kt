@@ -95,6 +95,9 @@ class YeonfeelImeService : InputMethodService() {
         updateLanguageNames()
         lastSpaceTime = 0
         updateAutoCapitalize()
+        // 설정 화면에서 데이터를 삭제한 경우를 반영한다
+        clipboardHistory.restore(clipboardStore.load())
+        touchStats.reload()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

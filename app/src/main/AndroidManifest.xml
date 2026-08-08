@@ -74,6 +74,11 @@
             android:label="@string/extra_input_menu" />
 
         <activity
+            android:name=".settings.ResetSettingsActivity"
+            android:exported="false"
+            android:label="@string/reset_menu" />
+
+        <activity
             android:name=".settings.DebugSettingsActivity"
             android:exported="false"
             android:label="@string/debug_menu" />

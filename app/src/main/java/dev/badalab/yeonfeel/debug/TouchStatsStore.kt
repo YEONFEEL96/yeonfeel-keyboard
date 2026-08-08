@@ -70,6 +70,30 @@ class TouchStatsStore(context: Context) {
         file.delete()
     }
 
+    /** 외부(설정 화면)에서 파일이 지워진 경우를 반영해 다시 읽는다. */
+    @Synchronized
+    fun reload() {
+        samples.clear()
+        unsavedCount = 0
+        runCatching {
+            if (file.exists()) {
+                val array = JSONArray(file.readText())
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    insert(
+                        Sample(
+                            obj.getString("k"),
+                            obj.getDouble("ax").toFloat(),
+                            obj.getDouble("ay").toFloat(),
+                            obj.getDouble("rx").toFloat(),
+                            obj.getDouble("ry").toFloat(),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     private fun insert(sample: Sample) {
         val list = samples.getOrPut(sample.key) { mutableListOf() }
         list.add(sample)
