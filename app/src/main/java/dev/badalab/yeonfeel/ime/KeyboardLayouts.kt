@@ -99,7 +99,7 @@ object KeyboardLayouts {
                 KoreanLayoutType.DUBEOLSIK ->
                     if (shifted) letterRows("ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ", showLangKey)
                     else letterRows("ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ", showLangKey)
-                KoreanLayoutType.DANMOEUM -> danmoeumRows(shifted, showLangKey)
+                KoreanLayoutType.DANMOEUM -> danmoeumRows(showLangKey)
                 // 세벌식은 맨 윗줄이 자모 열이므로 숫자 열 옵션과 무관하게 자체 4열을 쓴다.
                 KoreanLayoutType.SEBEOLSIK_390 -> return sebeol390Rows(shifted, showLangKey)
                 KoreanLayoutType.CHUNJIIN -> chunjiinRows(showLangKey)
@@ -118,22 +118,19 @@ object KeyboardLayouts {
 
     /**
      * 단모음 자판 (10키 단모음 배열):
-     * 복모음 키를 빼고 같은 모음 연타로 입력한다 (ㅏㅏ→ㅑ, ㅗㅗ→ㅛ).
-     * 쌍자음·ㅒㅖ는 Shift — 자음 연타 조합('하꾜' 문제)은 쓰지 않는다.
+     * 복모음 키를 빼고 같은 모음·자음 연타로 입력한다 (ㅏㅏ→ㅑ, ㄱㄱ→ㄲ, ㅐㅐ→ㅒ).
+     * Shift 키가 없으며 셋째 열 왼쪽은 빈 칸이다.
      */
-    private fun danmoeumRows(shifted: Boolean, showLangKey: Boolean): List<List<Key>> {
-        val r1 = if (shifted) "ㅃㅉㄸㄲㅆㅗㅒㅖ" else "ㅂㅈㄷㄱㅅㅗㅐㅔ"
-        return listOf(
-            charRow(r1),
-            charRow("ㅁㄴㅇㄹㅎㅓㅏㅣ"),
-            buildList {
-                add(Key(KeyType.SHIFT, "⇧"))
-                addAll(charRow("ㅋㅌㅊㅍㅜㅡ"))
-                add(Key(KeyType.DELETE, "⌫"))
-            },
-            bottomRow(showLangKey),
-        )
-    }
+    private fun danmoeumRows(showLangKey: Boolean): List<List<Key>> = listOf(
+        charRow("ㅂㅈㄷㄱㅅㅗㅐㅔ"),
+        charRow("ㅁㄴㅇㄹㅎㅓㅏㅣ"),
+        buildList {
+            add(spacer(1f))
+            addAll(charRow("ㅋㅌㅊㅍㅜㅡ"))
+            add(Key(KeyType.DELETE, "⌫"))
+        },
+        bottomRow(showLangKey),
+    )
 
     /**
      * 세벌식 390. Key.char는 역할이 구분되는 한글 자모 블록 코드포인트
