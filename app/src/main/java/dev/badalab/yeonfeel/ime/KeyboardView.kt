@@ -184,7 +184,7 @@ class KeyboardView(
     private val langPopupRunnable = Runnable { showLanguagePopup() }
 
     /**
-     * 스페이스 홀드 언어 팝업 내용. 좌우 화살표와 G2 연속 곡률 모서리를 쓰고,
+     * 스페이스바 홀드 언어 팝업 내용. 좌우 화살표와 G2 연속 곡률 모서리를 쓰고,
      * 임계값을 넘으면 다음 언어가 중앙에 온전히 표시된다 — 떼면 그 언어로 전환.
      */
     private inner class LangPopupContent : View(context) {
@@ -763,8 +763,8 @@ class KeyboardView(
                         (y - hit.rect.centerY()) / hit.rect.height(),
                     )
                 }
-                // 롤오버: 스페이스를 떼기 전에 다음 키가 눌리면 순서 보존을 위해
-                // 대기 중인 스페이스를 먼저 확정한다 (빠른 타이핑에서 어순 역전 방지).
+                // 롤오버: 스페이스바를 떼기 전에 다음 키가 눌리면 순서 보존을 위해
+                // 대기 중인 스페이스바를 먼저 확정한다 (빠른 타이핑에서 어순 역전 방지).
                 if (spacePointerId != -1 && !spaceSwiped && pointerId != spacePointerId) {
                     pressedByPointer[spacePointerId]?.let { onKeyListener(it) }
                     spaceSwiped = true // UP에서 중복 입력 방지
@@ -782,7 +782,7 @@ class KeyboardView(
                 performKeyHaptic()
                 performKeySound(key)
                 when {
-                    // 스페이스는 좌우 스와이프(언어 변경)와 구분해야 하므로 UP에서 입력한다.
+                    // 스페이스바는 좌우 스와이프(언어 변경)와 구분해야 하므로 UP에서 입력한다.
                     key.type == KeyType.SPACE -> {
                         spacePointerId = pointerId
                         spaceSwiped = false

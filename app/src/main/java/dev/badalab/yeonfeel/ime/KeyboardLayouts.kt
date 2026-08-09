@@ -288,7 +288,7 @@ object KeyboardLayouts {
 
     /**
      * 나랏글 (국가표준 3x4 배치): 글자 3열 + 오른쪽 기능 열의 4x4 그리드.
-     * 하단 열 없이 기능 키(⌫·스페이스·엔터·기호·한/영)가 그리드에 통합된다.
+     * 하단 열 없이 기능 키(⌫·스페이스바·엔터·기호·한/영)가 그리드에 통합된다.
      * 글자 키를 길게 누르면 우상단 숫자가 입력된다 (KeyboardView에서 처리).
      */
     private fun naratgulRows(showLangKey: Boolean): List<List<Key>> = listOf(
@@ -326,7 +326,7 @@ object KeyboardLayouts {
 
     /**
      * 나랏글 중앙 배치: 글자 3열을 가운데 두고
-     * 왼쪽에 문장부호·한/영·기호, 오른쪽에 ⌫·스페이스·엔터·마침표를 둔다.
+     * 왼쪽에 문장부호·한/영·기호, 오른쪽에 ⌫·스페이스바·엔터·마침표를 둔다.
      */
     private fun naratgulCenterRows(showLangKey: Boolean): List<List<Key>> {
         val side = 0.75f

@@ -4,7 +4,7 @@ import android.app.Activity
 import android.os.Bundle
 import dev.badalab.yeonfeel.R
 
-/** 기타 입력 옵션: 자동 대문자 전환, 스페이스 두 번 → 마침표. */
+/** 기타 입력 옵션: 자동 대문자 전환, 스페이스바 두 번 → 마침표. */
 class ExtraInputSettingsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

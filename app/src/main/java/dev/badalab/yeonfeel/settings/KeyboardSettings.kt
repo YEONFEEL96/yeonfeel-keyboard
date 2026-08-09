@@ -161,7 +161,7 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_CAPITALIZE, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_CAPITALIZE, value).apply()
 
-    /** 스페이스를 빠르게 두 번 누르면 마침표+공백을 입력한다. */
+    /** 스페이스바를 빠르게 두 번 누르면 마침표+공백을 입력한다. */
     var doubleSpacePeriod: Boolean
         get() = prefs.getBoolean(KEY_DOUBLE_SPACE_PERIOD, true)
         set(value) = prefs.edit().putBoolean(KEY_DOUBLE_SPACE_PERIOD, value).apply()

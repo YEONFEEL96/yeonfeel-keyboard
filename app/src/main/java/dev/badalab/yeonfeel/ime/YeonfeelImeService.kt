@@ -133,8 +133,10 @@ class YeonfeelImeService : InputMethodService() {
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
         )
-        if (composer.isComposing &&
-            (candidatesStart == -1 || newSelStart < candidatesStart || newSelStart > candidatesEnd)
+        // candidatesStart == -1은 앱의 지연·역순 콜백에서 일시적으로 나타날 수 있어
+        // (연타 조합이 끊기는 오동작) 조합 영역이 유효할 때만 판정한다.
+        if (composer.isComposing && candidatesStart >= 0 &&
+            (newSelStart < candidatesStart || newSelStart > candidatesEnd)
         ) {
             composer.reset()
             currentInputConnection?.finishComposingText()

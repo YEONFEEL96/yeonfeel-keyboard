@@ -116,7 +116,7 @@
     <string name="settings_mz_mode">MZ 모드 (ㅋㅋㅎㅋㅋㅎㅋ)</string>
     <string name="extra_input_menu">기타 입력 옵션</string>
     <string name="extra_auto_capitalize">자동 대문자 전환 (영문 문장 시작)</string>
-    <string name="extra_double_space_period">스페이스 두 번 눌러 마침표 입력</string>
+    <string name="extra_double_space_period">스페이스바 두 번 눌러 마침표 입력</string>
     <string name="settings_section_margins">키보드 여백</string>
     <string name="settings_margin_hint">키보드 툴바의 \'레이아웃\' 메뉴에서 키보드 가장자리의 화살표를 드래그해 조정합니다. 좌우는 중앙 정렬을 유지하며 함께 움직이고, 상하는 따로 조정됩니다.</string>
 </resources>
