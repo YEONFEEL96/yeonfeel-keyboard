@@ -25,6 +25,7 @@ key rollover during fast typing.
 Smaller input options include an auto-replacement of the common misspelling
 됬 with 됐, double-tap shift for caps lock, spacebar language switching,
 configurable multi-tap timing, and backspace undo for auto-corrections.
+Holding down ㅋ repeats it until the key is released.
 
 Two humor options ship as well, both off by default and disabled in password
 fields. One retypes ㅋㅋㅋ bursts as ㅋㅋㅎㅋ so the typist reads as a younger
