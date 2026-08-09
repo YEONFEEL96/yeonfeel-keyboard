@@ -127,6 +127,10 @@
     <string name="english_layout_title">영어 자판</string>
     <string name="english_layout_qwerty">QWERTY</string>
     <string name="english_layout_dvorak">드보락</string>
+    <string name="symbol_style_title">숫자 및 기호</string>
+    <string name="symbol_style_auto">입력 언어 키보드 연동</string>
+    <string name="symbol_style_qwerty">QWERTY</string>
+    <string name="symbol_style_grid">3 x 4</string>
     <string name="language_switch_method_title">언어 변경 방법</string>
     <string name="switch_method_button">언어 버튼으로 변경</string>
     <string name="switch_method_button_swipe">언어 버튼 + 스페이스바 좌우로 밀어서 변경</string>

@@ -63,6 +63,19 @@ class LanguageSettingsActivity : Activity() {
             ),
         )
 
+        ui.caption(getString(R.string.symbol_style_title))
+        val symbolStyle = settings.symbolBoardStyle
+        val symbolRadios = linkedMapOf(
+            SymbolBoardStyle.AUTO to
+                ui.radioRow(getString(R.string.symbol_style_auto), symbolStyle == SymbolBoardStyle.AUTO),
+            SymbolBoardStyle.QWERTY to
+                ui.radioRow(getString(R.string.symbol_style_qwerty), symbolStyle == SymbolBoardStyle.QWERTY),
+            SymbolBoardStyle.GRID_3X4 to
+                ui.radioRow(getString(R.string.symbol_style_grid), symbolStyle == SymbolBoardStyle.GRID_3X4),
+        )
+        ui.bindRadioGroup(symbolRadios) { selected -> settings.symbolBoardStyle = selected }
+        ui.card(*symbolRadios.values.toTypedArray())
+
         ui.caption(getString(R.string.language_switch_method_title))
         val method = settings.languageSwitchMethod
         val radios = linkedMapOf(

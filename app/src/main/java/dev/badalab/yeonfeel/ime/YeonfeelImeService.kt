@@ -17,6 +17,7 @@ import dev.badalab.yeonfeel.hangul.KoreanComposer
 import dev.badalab.yeonfeel.hangul.NaratgulComposer
 import dev.badalab.yeonfeel.settings.KeyboardSettings
 import dev.badalab.yeonfeel.settings.KoreanLayoutType
+import dev.badalab.yeonfeel.settings.SymbolBoardStyle
 import dev.badalab.yeonfeel.settings.SettingsActivity
 
 class YeonfeelImeService : InputMethodService() {
@@ -103,6 +104,13 @@ class YeonfeelImeService : InputMethodService() {
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
         view.keyboardView.touchStatsProvider = { board -> touchModel.statsFor(board) }
+        view.keyboardView.hasTextToDelete = {
+            composer.isComposing ||
+                currentInputConnection?.let { ic ->
+                    ic.getSelectedText(0)?.isNotEmpty() == true ||
+                        ic.getTextBeforeCursor(1, 0)?.isNotEmpty() == true
+                } == true
+        }
         view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
             if (settings.touchStatsEnabled && !sensitiveField && key.type != KeyType.SPACER) {
                 val keyId = when (key.type) {
@@ -411,13 +419,17 @@ class YeonfeelImeService : InputMethodService() {
                 finishComposition()
                 view.symbolsPage = 0
                 if (view.mode != LayoutMode.SYMBOLS) {
-                    // 3x4 나랏글 계열에서 들어온 기호 키보드는 컴팩트 배치를 쓴다.
-                    view.compactSymbols = mode == LayoutMode.KOREAN &&
-                        settings.koreanLayout in setOf(
-                            KoreanLayoutType.NARATGUL,
-                            KoreanLayoutType.NARATGUL_CENTER,
-                            KoreanLayoutType.CHUNJIIN,
-                        )
+                    view.compactSymbols = when (settings.symbolBoardStyle) {
+                        SymbolBoardStyle.QWERTY -> false
+                        SymbolBoardStyle.GRID_3X4 -> true
+                        // 연동: 3x4 나랏글 계열에서 들어왔을 때만 컴팩트 배치.
+                        SymbolBoardStyle.AUTO -> mode == LayoutMode.KOREAN &&
+                            settings.koreanLayout in setOf(
+                                KoreanLayoutType.NARATGUL,
+                                KoreanLayoutType.NARATGUL_CENTER,
+                                KoreanLayoutType.CHUNJIIN,
+                            )
+                    }
                 }
                 view.mode = if (view.mode == LayoutMode.SYMBOLS) mode else LayoutMode.SYMBOLS
                 view.shifted = false

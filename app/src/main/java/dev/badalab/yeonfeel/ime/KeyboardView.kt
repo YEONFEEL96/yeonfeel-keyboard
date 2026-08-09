@@ -567,12 +567,16 @@ class KeyboardView(
 
     var deleteRepeatIntervalMs: Long = 50L
 
+    /** 지울 내용이 남았는지 — 반복 삭제 진동을 빈 입력창에서 울리지 않게 한다. */
+    var hasTextToDelete: (() -> Boolean)? = null
+
     private val repeatHandler = Handler(Looper.getMainLooper())
     private val repeatDelete = object : Runnable {
         override fun run() {
+            val hadText = hasTextToDelete?.invoke() != false
             onKeyListener(Key(KeyType.DELETE, "⌫"))
             // 반복 삭제마다 짧은 진동을 줘 지워지는 리듬이 손에 전달되게 한다.
-            performKeyHaptic()
+            if (hadText) performKeyHaptic()
             repeatHandler.postDelayed(this, deleteRepeatIntervalMs)
         }
     }

@@ -25,6 +25,16 @@ enum class HighContrastStyle {
     BLACK_YELLOW,
 }
 
+/** 기호·숫자 키보드의 표시 형식. */
+enum class SymbolBoardStyle {
+    /** 현재 입력 언어의 자판 형태를 따른다 (3x4 한글 자판이면 3x4 기호판). */
+    AUTO,
+
+    QWERTY,
+
+    GRID_3X4,
+}
+
 enum class LanguageSwitchMethod {
     BUTTON,
 
@@ -303,6 +313,12 @@ class KeyboardSettings(context: Context) {
         }.getOrDefault(EnglishLayoutType.QWERTY)
         set(value) = prefs.edit().putString(KEY_ENGLISH_LAYOUT, value.name).apply()
 
+    var symbolBoardStyle: SymbolBoardStyle
+        get() = runCatching {
+            SymbolBoardStyle.valueOf(prefs.getString(KEY_SYMBOL_BOARD_STYLE, null) ?: "")
+        }.getOrDefault(SymbolBoardStyle.AUTO)
+        set(value) = prefs.edit().putString(KEY_SYMBOL_BOARD_STYLE, value.name).apply()
+
     var languageSwitchMethod: LanguageSwitchMethod
         get() = runCatching {
             LanguageSwitchMethod.valueOf(prefs.getString(KEY_SWITCH_METHOD, null) ?: "")
@@ -345,6 +361,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_KOREAN_ENABLED = "korean_enabled"
         private const val KEY_ENGLISH_ENABLED = "english_enabled"
         private const val KEY_SWITCH_METHOD = "language_switch_method"
+        private const val KEY_SYMBOL_BOARD_STYLE = "symbol_board_style"
         private const val KEY_KOREAN_LAYOUT = "korean_layout"
         private const val KEY_ENGLISH_LAYOUT = "english_layout"
         private const val KEY_FONT_SIZE = "key_font_size"
