@@ -81,6 +81,7 @@
     <string name="symbol_menu">기호</string>
     <string name="gesture_feedback_menu">제스처 및 피드백</string>
     <string name="reset_menu">초기화</string>
+    <string name="licenses_menu">오픈소스 라이선스</string>
     <string name="reset_personal">개인 입력 데이터 삭제</string>
     <string name="reset_personal_sub">암호화 보관된 클립보드 이력을 지웁니다</string>
     <string name="reset_touch">터치 입력 데이터 삭제</string>

@@ -89,6 +89,11 @@
             android:label="@string/reset_menu" />
 
         <activity
+            android:name=".settings.LicensesActivity"
+            android:exported="false"
+            android:label="@string/licenses_menu" />
+
+        <activity
             android:name=".settings.DebugSettingsActivity"
             android:exported="false"
             android:label="@string/debug_menu" />

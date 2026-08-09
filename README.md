@@ -12,10 +12,13 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 설치 후 "연필키보드" 앱을 열어 안내에 따라 키보드를 활성화한다.
 
-## 서드파티 라이선스
+## 라이선스
 
-- 툴바 아이콘(설정·레이아웃·클립보드): [Lucide](https://lucide.dev) — ISC License.
-  Copyright (c) Lucide Contributors. 세벌식 390 배열 데이터는 [libhangul](https://github.com/libhangul/libhangul) 프로젝트 자료를 참고했다.
+- 앱 코드: [Apache License 2.0](LICENSE)
+- 서드파티 자산(Lucide 아이콘 — ISC, 한국어 빈도 데이터 — CC BY-SA 4.0):
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 참고. 특히
+  `app/src/main/assets/ko_freq.txt`·`ko_known.bloom`은 ShareAlike 조건에 따라
+  코드와 별도로 CC BY-SA 4.0이 적용된다.
 
 ## 구조
 
@@ -28,4 +31,5 @@ app/src/main/java/dev/badalab/yeonfeel/
 └── MainActivity.kt            # 키보드 활성화 도우미
 ```
 
-- 한국어 빈도 사전: [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (OpenSubtitles 2018, CC-BY-SA 4.0)
+- 한국어 빈도 사전: [FrequencyWords](https://github.com/hermitdave/FrequencyWords)
+  (OpenSubtitles 2018, CC BY-SA 4.0 — 위 라이선스 절 참고)

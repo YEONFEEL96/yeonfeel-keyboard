@@ -89,6 +89,9 @@ class SettingsActivity : Activity() {
             ui.textRow(getString(R.string.debug_menu)) {
                 startActivity(Intent(this, DebugSettingsActivity::class.java))
             },
+            ui.textRow(getString(R.string.licenses_menu)) {
+                startActivity(Intent(this, LicensesActivity::class.java))
+            },
         )
 
         ui.show()

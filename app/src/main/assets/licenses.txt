@@ -1,0 +1,42 @@
+연필키보드 (YEONFEEL Keyboard)
+Copyright 2026 badalab.link
+
+앱 코드는 Apache License 2.0을 따릅니다.
+https://www.apache.org/licenses/LICENSE-2.0
+
+이 앱은 아래 서드파티 자산을 포함합니다.
+
+
+■ Lucide Icons — ISC License
+
+일부 아이콘은 Lucide(https://lucide.dev)에서 가져왔습니다.
+
+ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as
+part of Feather (MIT). All other copyright (c) for Lucide are held by
+Lucide Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+■ 한국어 빈도 데이터 — CC BY-SA 4.0
+
+AI 어절 교정에 쓰이는 빈도 사전과 어절 보호 필터는
+FrequencyWords(https://github.com/hermitdave/FrequencyWords)의
+한국어 빈도 목록(OpenSubtitles 2018 말뭉치 기반, © Hermit Dave)을
+가공한 파생물이며, Creative Commons Attribution-ShareAlike 4.0
+International 라이선스로 배포됩니다.
+https://creativecommons.org/licenses/by-sa/4.0/
+
+변경 내용: 빈도 하한 필터링, 어절 목록의 블룸 필터 해시화.

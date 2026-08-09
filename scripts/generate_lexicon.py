@@ -4,6 +4,8 @@
 - assets/ko_known.bloom: 알려진 어절 보호용 블룸 필터 (오탐은 '교정 안 함' 방향)"""
 import re, math, sys
 
+# 원본: https://github.com/hermitdave/FrequencyWords
+#   content/2018/ko/ko_full.txt (CC BY-SA 4.0)
 SRC = sys.argv[1] if len(sys.argv) > 1 else "/tmp/ko_full.txt"
 MIN_CANDIDATE = 20
 BITS_PER_ELEM = 8.2  # ~2% 오탐
