@@ -11,7 +11,6 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 
 /**
@@ -23,11 +22,21 @@ class SettingComponents(private val activity: Activity) {
     private val density = activity.resources.displayMetrics.density
 
     init {
+        val dark = when (KeyboardSettings(activity).themeMode) {
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+            ThemeMode.SYSTEM ->
+                activity.resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        applyPalette(dark)
         // 시스템 액션바 없이 커스텀 헤더만 쓰므로 상태 바를 배경색에 맞춘다.
         @Suppress("DEPRECATION")
         activity.window.statusBarColor = BG
         @Suppress("DEPRECATION")
-        activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        activity.window.decorView.systemUiVisibility =
+            if (dark) 0 else View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
     }
 
     fun dp(v: Int): Int = (v * density).toInt()
@@ -41,7 +50,7 @@ class SettingComponents(private val activity: Activity) {
     private fun addPressEffect(view: View, cornerDp: Int = 0, visualTarget: View = view) {
         // 시스템 pressed 상태는 스크롤 판정 때문에 지연되므로 터치 즉시 직접 씌운다.
         val overlay = GradientDrawable().apply {
-            setColor(0x26000000)
+            setColor(PRESS_OVERLAY)
             if (cornerDp > 0) cornerRadius = dp(cornerDp).toFloat()
         }
         var fadeOut: android.animation.ValueAnimator? = null
@@ -108,6 +117,8 @@ class SettingComponents(private val activity: Activity) {
             activity.setContentView(root().apply { tag = ROOT_TAG })
             return
         }
+        // 테마가 바뀌었을 수 있으므로 재사용하는 루트의 배경도 현재 팔레트로 갱신한다.
+        existing.setBackgroundColor(BG)
         existing.removeAllViews()
         existing.addView(column)
         column.alpha = 0f
@@ -254,8 +265,73 @@ class SettingComponents(private val activity: Activity) {
         return row
     }
 
-    @SuppressLint("UseSwitchCompatOrMaterialCode")
-    fun switchRow(label: String, checked: Boolean, onChange: (Boolean, Switch) -> Unit): View {
+    /**
+     * 커스텀 토글: 표준 Switch는 드로어블 크기를 내부 규칙으로 재계산해
+     * 온/오프 시 지오메트리가 흔들리므로, 트랙(52x30)과 원(22dp)을 직접 그린다.
+     */
+    class ToggleView(
+        context: android.content.Context,
+        initialChecked: Boolean,
+        private val onChange: (Boolean, ToggleView) -> Unit,
+    ) : View(context) {
+
+        private val density = resources.displayMetrics.density
+        private var fraction = if (initialChecked) 1f else 0f
+        private var animator: android.animation.ValueAnimator? = null
+        private val evaluator = android.animation.ArgbEvaluator()
+        private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        private val thumbPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+        }
+
+        /** 콜백 없이 상태만 바꾼다 (예: 최소 1개 언어 제약으로 되돌릴 때). */
+        var isChecked: Boolean = initialChecked
+            set(value) {
+                if (field == value) return
+                field = value
+                animateTo(value)
+            }
+
+        init {
+            setOnClickListener { toggle() }
+        }
+
+        fun toggle() {
+            isChecked = !isChecked
+            onChange(isChecked, this)
+        }
+
+        private fun animateTo(checked: Boolean) {
+            animator?.cancel()
+            animator = android.animation.ValueAnimator.ofFloat(fraction, if (checked) 1f else 0f).apply {
+                duration = 180
+                interpolator = android.view.animation.DecelerateInterpolator()
+                addUpdateListener {
+                    fraction = it.animatedValue as Float
+                    invalidate()
+                }
+                start()
+            }
+        }
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            setMeasuredDimension((40 * density).toInt(), (23 * density).toInt())
+        }
+
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            val h = height.toFloat()
+            val r = h / 2f
+            trackPaint.color = evaluator.evaluate(fraction, TRACK_OFF, ACCENT) as Int
+            canvas.drawRoundRect(0f, 0f, width.toFloat(), h, r, r, trackPaint)
+            val margin = 3f * density
+            val thumbRadius = r - margin
+            val cx = r + (width - h) * fraction
+            canvas.drawCircle(cx, r, thumbRadius, thumbPaint)
+        }
+
+    }
+
+    fun switchRow(label: String, checked: Boolean, onChange: (Boolean, ToggleView) -> Unit): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -267,15 +343,7 @@ class SettingComponents(private val activity: Activity) {
             setTextColor(TEXT)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
-        val switch = Switch(activity).apply {
-            isChecked = checked
-            thumbTintList = ColorStateList.valueOf(Color.WHITE)
-            trackTintList = ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(ACCENT, 0xFFC6CAD2.toInt()),
-            )
-            setOnCheckedChangeListener { view, isChecked -> onChange(isChecked, view as Switch) }
-        }
+        val switch = ToggleView(activity, checked, onChange)
         row.addView(switch)
         row.setOnClickListener { switch.toggle() }
         addPressEffect(row)
@@ -286,12 +354,11 @@ class SettingComponents(private val activity: Activity) {
      * 텍스트 영역을 누르면 하위 화면으로 이동하고, 오른쪽 스위치로 켜고 끄는 행.
      * 언어 목록처럼 이동과 토글이 함께 필요한 곳에 쓴다.
      */
-    @SuppressLint("UseSwitchCompatOrMaterialCode")
     fun switchNavRow(
         label: String,
         subLabel: String?,
         checked: Boolean,
-        onToggle: (Boolean, Switch) -> Unit,
+        onToggle: (Boolean, ToggleView) -> Unit,
         onOpen: () -> Unit,
     ): View {
         val row = LinearLayout(activity).apply {
@@ -328,15 +395,7 @@ class SettingComponents(private val activity: Activity) {
                 marginEnd = dp(14)
             }
         })
-        row.addView(Switch(activity).apply {
-            isChecked = checked
-            thumbTintList = ColorStateList.valueOf(Color.WHITE)
-            trackTintList = ColorStateList(
-                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(ACCENT, 0xFFC6CAD2.toInt()),
-            )
-            setOnCheckedChangeListener { view, isChecked -> onToggle(isChecked, view as Switch) }
-        })
+        row.addView(ToggleView(activity, checked, onToggle))
         return row
     }
 
@@ -436,7 +495,7 @@ class SettingComponents(private val activity: Activity) {
      */
     private class TrackDrawable(baseThickness: Float) : android.graphics.drawable.Drawable() {
         private val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFFC6CAD2.toInt()
+            color = TRACK_OFF
         }
         private val fgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = ACCENT
@@ -604,12 +663,27 @@ class SettingComponents(private val activity: Activity) {
 
     companion object {
         private const val ROOT_TAG = "setting_root"
-        const val BG = 0xFFF1F2F6.toInt()
-        const val CARD = 0xFFFFFFFF.toInt()
-        const val TEXT = 0xFF1B1D22.toInt()
-        const val SUB_TEXT = 0xFF77808C.toInt()
-        const val DIVIDER = 0xFFEAEBEF.toInt()
-        const val DIVIDER_STRONG = 0xFFDCDEE3.toInt()
         const val ACCENT = 0xFF3D8BFF.toInt()
+
+        // 테마에 따라 빌더 생성 시 교체되는 팔레트 (설정 화면은 항상 빌더를 먼저 만든다)
+        var BG = 0xFFF1F2F6.toInt()
+        var CARD = 0xFFFFFFFF.toInt()
+        var TEXT = 0xFF1B1D22.toInt()
+        var SUB_TEXT = 0xFF77808C.toInt()
+        var DIVIDER = 0xFFEAEBEF.toInt()
+        var DIVIDER_STRONG = 0xFFDCDEE3.toInt()
+        var PRESS_OVERLAY = 0x26000000
+        var TRACK_OFF = 0xFFC6CAD2.toInt()
+
+        private fun applyPalette(dark: Boolean) {
+            BG = if (dark) 0xFF17181C.toInt() else 0xFFF1F2F6.toInt()
+            CARD = if (dark) 0xFF23252B.toInt() else 0xFFFFFFFF.toInt()
+            TEXT = if (dark) 0xFFECEDEF.toInt() else 0xFF1B1D22.toInt()
+            SUB_TEXT = if (dark) 0xFF9AA0AC.toInt() else 0xFF77808C.toInt()
+            DIVIDER = if (dark) 0xFF2E3138.toInt() else 0xFFEAEBEF.toInt()
+            DIVIDER_STRONG = if (dark) 0xFF3B3F48.toInt() else 0xFFDCDEE3.toInt()
+            PRESS_OVERLAY = if (dark) 0x2EFFFFFF else 0x26000000
+            TRACK_OFF = if (dark) 0xFF4A4F59.toInt() else 0xFFC6CAD2.toInt()
+        }
     }
 }

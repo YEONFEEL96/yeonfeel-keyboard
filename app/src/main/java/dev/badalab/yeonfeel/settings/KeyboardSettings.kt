@@ -58,6 +58,13 @@ enum class EnglishLayoutType {
     DVORAK,
 }
 
+/** 한 손 키보드 모드: 키 영역을 한쪽으로 몰아 좁힌다. */
+enum class OneHandedMode {
+    OFF,
+    RIGHT,
+    LEFT,
+}
+
 /** 키보드 글자 크기 (라벨 스케일). */
 enum class KeyFontSize(val scale: Float) {
     SMALL(0.85f),
@@ -223,6 +230,17 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_CHUNJIIN_SPACE_COMMITS, true)
         set(value) = prefs.edit().putBoolean(KEY_CHUNJIIN_SPACE_COMMITS, value).apply()
 
+    /** 설정 화면에서 여백 조정 진입 요청 (1회성 — 키보드가 열리며 소비). */
+    var adjustModeRequested: Boolean
+        get() = prefs.getBoolean(KEY_ADJUST_REQUESTED, false)
+        set(value) = prefs.edit().putBoolean(KEY_ADJUST_REQUESTED, value).apply()
+
+    var oneHandedMode: OneHandedMode
+        get() = runCatching {
+            OneHandedMode.valueOf(prefs.getString(KEY_ONE_HANDED, null) ?: "")
+        }.getOrDefault(OneHandedMode.OFF)
+        set(value) = prefs.edit().putString(KEY_ONE_HANDED, value.name).apply()
+
     var keyFontSize: KeyFontSize
         get() = runCatching {
             KeyFontSize.valueOf(prefs.getString(KEY_FONT_SIZE, null) ?: "")
@@ -261,7 +279,7 @@ class KeyboardSettings(context: Context) {
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
-        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji"
+        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,onehand"
 
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SHOW_TOOLBAR = "show_toolbar"
@@ -279,6 +297,8 @@ class KeyboardSettings(context: Context) {
         private const val KEY_FONT_SIZE = "key_font_size"
         private const val KEY_REMEMBERED_SYMBOL = "remembered_symbol_3x4"
         private const val KEY_CHUNJIIN_SPACE_COMMITS = "chunjiin_space_commits"
+        private const val KEY_ADJUST_REQUESTED = "adjust_mode_requested"
+        private const val KEY_ONE_HANDED = "one_handed_mode"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"

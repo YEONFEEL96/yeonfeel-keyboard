@@ -31,7 +31,7 @@ object KeyboardLayouts {
 
     private val cache = HashMap<String, List<List<Key>>>()
 
-    /** 3x4 자판 우측 하단 기호 키: 마지막으로 사용한 기호를 기억한다. */
+    /** 3x4 자판(천지인·나랏글)의 기호 키: 마지막으로 사용한 기호를 기억한다. */
     var lastSymbol3x4: Char = ','
         set(value) {
             if (field != value) {
@@ -282,7 +282,7 @@ object KeyboardLayouts {
             Key(KeyType.CHAR, "ㅅ", 'ㅅ'),
             Key(KeyType.CHAR, "ㅇ", 'ㅇ'),
             Key(KeyType.CHAR, "ㅣ", 'ㅣ'),
-            Key(KeyType.CHAR, ",", ',', widthWeight = 0.45f),
+            Key(KeyType.CHAR, lastSymbol3x4.toString(), lastSymbol3x4, widthWeight = 0.45f, remember = true),
             Key(KeyType.ENTER, "⏎", widthWeight = 0.55f),
         ),
         buildList {
@@ -335,7 +335,7 @@ object KeyboardLayouts {
                 Key(KeyType.CHAR, "획추가", NaratgulComposer.KEY_ADD_STROKE),
                 Key(KeyType.CHAR, "ㅡ", 'ㅡ'),
                 Key(KeyType.CHAR, "쌍자음", NaratgulComposer.KEY_DOUBLE),
-                Key(KeyType.CHAR, ".", '.', widthWeight = side),
+                Key(KeyType.CHAR, lastSymbol3x4.toString(), lastSymbol3x4, widthWeight = side, remember = true),
             ),
         )
     }

@@ -142,6 +142,11 @@ class YeonfeelImeService : InputMethodService() {
             it.keyboardView.mode = mode
             it.keyboardView.shifted = false
         }
+        // 설정의 '키보드 여백' 화면에서 조정 모드로 열어달라는 1회성 요청.
+        if (settings.adjustModeRequested) {
+            settings.adjustModeRequested = false
+            container?.startAdjustMode()
+        }
         updateLanguageNames()
         lastSpaceTime = 0
         updateAutoCapitalize()
@@ -202,6 +207,18 @@ class YeonfeelImeService : InputMethodService() {
 
         override fun onRememberSymbol(symbol: Char) {
             settings.rememberedSymbol = symbol.toString()
+        }
+
+        override fun onOneHandedCycle() {
+            settings.oneHandedMode = when (settings.oneHandedMode) {
+                dev.badalab.yeonfeel.settings.OneHandedMode.OFF ->
+                    dev.badalab.yeonfeel.settings.OneHandedMode.RIGHT
+                dev.badalab.yeonfeel.settings.OneHandedMode.RIGHT ->
+                    dev.badalab.yeonfeel.settings.OneHandedMode.LEFT
+                dev.badalab.yeonfeel.settings.OneHandedMode.LEFT ->
+                    dev.badalab.yeonfeel.settings.OneHandedMode.OFF
+            }
+            container?.applySettings(settings)
         }
 
         override fun onToolbarOrderChanged(order: String) {

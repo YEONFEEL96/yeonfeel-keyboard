@@ -36,6 +36,7 @@ class KeyboardContainerView(
         fun onLanguageSwipe()
         fun onToolbarOrderChanged(order: String)
         fun onRememberSymbol(symbol: Char)
+        fun onOneHandedCycle()
         fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
@@ -70,6 +71,7 @@ class KeyboardContainerView(
     private val clipboardSelected = mutableSetOf<String>()
 
     private var toolbarEnabled = true
+    private var oneHandedMode = dev.badalab.yeonfeel.settings.OneHandedMode.OFF
     private var marginTopDp = 0
     private var marginBottomDp = 0
     private var marginSideDp = 0
@@ -80,12 +82,14 @@ class KeyboardContainerView(
     private lateinit var clipboardButton: android.widget.ImageView
     private lateinit var emojiButton: android.widget.ImageView
     private lateinit var editButton: android.widget.ImageView
+    private lateinit var oneHandButton: android.widget.ImageView
     private val toolbarButtons = linkedMapOf<String, android.widget.ImageView>()
     private val toolbarItemIcons = linkedMapOf(
         "settings" to R.drawable.ic_toolbar_settings,
         "layout" to R.drawable.ic_toolbar_keyboard,
         "clipboard" to R.drawable.ic_toolbar_clipboard,
         "emoji" to R.drawable.ic_toolbar_emoji,
+        "onehand" to R.drawable.ic_toolbar_onehand,
     )
     private var currentToolbarOrder = KeyboardSettings.TOOLBAR_ORDER_DEFAULT
     private var toolbarEditPanel: View? = null
@@ -118,6 +122,11 @@ class KeyboardContainerView(
         toolbarButtons["layout"] = layoutButton
         toolbarButtons["clipboard"] = clipboardButton
         toolbarButtons["emoji"] = emojiButton
+        oneHandButton = toolbarIcon(
+            R.drawable.ic_toolbar_onehand,
+            context.getString(R.string.toolbar_onehand_desc),
+        ) { callbacks.onOneHandedCycle() }
+        toolbarButtons["onehand"] = oneHandButton
         editButton = toolbarIcon(
             R.drawable.ic_toolbar_chevron_down,
             context.getString(R.string.toolbar_edit_desc),
@@ -160,6 +169,7 @@ class KeyboardContainerView(
         keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
         keyboardView.longPressDelayMs = settings.longPressDelayMs.toLong()
         keyboardView.fontScale = settings.keyFontSize.scale
+        oneHandedMode = settings.oneHandedMode
         KeyboardLayouts.lastSymbol3x4 = settings.rememberedSymbol.first()
         keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
@@ -294,8 +304,21 @@ class KeyboardContainerView(
                 heightDp
             }
         keyboardView.heightDp = effectiveHeightDp
+        // 한 손 모드: 반대쪽에 여백을 몰아 키 영역을 한쪽으로 붙인다.
+        val oneHandDp = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.OFF) {
+            0
+        } else {
+            (config.screenWidthDp * 0.25f).toInt()
+        }
+        val leftExtra = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.RIGHT) oneHandDp else 0
+        val rightExtra = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.LEFT) oneHandDp else 0
         // 하단에는 시스템 내비게이션 바 인셋을 더해 제스처 영역과 겹치지 않게 한다.
-        keyboardWrapper.setPadding(dp(sideDp), dp(topDp), dp(sideDp), dp(bottomDp) + navInsetPx)
+        keyboardWrapper.setPadding(
+            dp(sideDp + leftExtra),
+            dp(topDp),
+            dp(sideDp + rightExtra),
+            dp(bottomDp) + navInsetPx,
+        )
         // 콘텐츠 영역 높이를 키보드 높이로 고정 — 패널(클립보드·이모지) 내용이
         // 길어도 창이 위로 자라지 않고 패널 안에서 스크롤된다.
         contentFrame.layoutParams = (contentFrame.layoutParams as LayoutParams).apply {
@@ -331,6 +354,11 @@ class KeyboardContainerView(
             applyMargins(marginTopDp, marginBottomDp, marginSideDp, keyboardHeightDp)
         }
         return super.onApplyWindowInsets(insets)
+    }
+
+    /** 설정 화면에서 요청된 여백 조정 진입 (열려 있지 않을 때만). */
+    fun startAdjustMode() {
+        if (adjustOverlay == null) toggleAdjustMode()
     }
 
     private fun toggleAdjustMode() {
@@ -393,8 +421,20 @@ class KeyboardContainerView(
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setPadding(dp(4), 0, 0, dp(12))
         })
-        val grid = LinearLayout(context).apply { orientation = HORIZONTAL }
+        // 4열 그리드를 유지하며 줄바꿈하고, 위에서부터 채운다.
+        val grid = LinearLayout(context).apply { orientation = VERTICAL }
+        var gridRow = LinearLayout(context).apply { orientation = HORIZONTAL }
+        grid.addView(gridRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         toolbarItemIcons.forEach { (id, iconRes) ->
+            if (gridRow.childCount == 4) {
+                gridRow = LinearLayout(context).apply { orientation = HORIZONTAL }
+                grid.addView(
+                    gridRow,
+                    LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                        topMargin = dp(8)
+                    },
+                )
+            }
             lateinit var applyCellState: (Boolean) -> Unit
             val cell = LinearLayout(context).apply {
                 orientation = VERTICAL
@@ -432,13 +472,25 @@ class KeyboardContainerView(
             cell.addView(TextView(context).apply {
                 text = toolbarButtons[id]?.contentDescription
                 setTextColor(theme.subText)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                 gravity = Gravity.CENTER
-                setPadding(0, dp(6), 0, 0)
+                maxLines = 1
+                setPadding(dp(2), dp(6), dp(2), 0)
             })
-            grid.addView(
+            // 고정 높이로 모든 셀을 동일하게 맞춘다 (라벨은 한 줄 제한).
+            gridRow.addView(
                 cell,
-                LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+                LayoutParams(0, dp(72), 1f).apply {
+                    marginStart = dp(4)
+                    marginEnd = dp(4)
+                },
+            )
+        }
+        // 마지막 줄이 4칸 미만이면 빈 자리로 채워 셀 폭을 유지한다.
+        repeat(4 - gridRow.childCount) {
+            gridRow.addView(
+                View(context),
+                LayoutParams(0, dp(72), 1f).apply {
                     marginStart = dp(4)
                     marginEnd = dp(4)
                 },

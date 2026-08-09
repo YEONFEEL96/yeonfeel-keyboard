@@ -40,35 +40,29 @@ class SettingsActivity : Activity() {
             ui.textRow(getString(R.string.gesture_feedback_menu)) {
                 startActivity(Intent(this, GestureFeedbackActivity::class.java))
             },
+            ui.textRow(getString(R.string.settings_accessibility)) {
+                startActivity(Intent(this, AccessibilitySettingsActivity::class.java))
+            },
+        )
+
+        ui.caption(getString(R.string.settings_section_display))
+        ui.card(
+            ui.switchRow(getString(R.string.settings_show_toolbar), settings.showToolbar) { checked, _ ->
+                settings.showToolbar = checked
+            },
+            ui.textRow(getString(R.string.settings_section_margins)) {
+                startActivity(Intent(this, MarginSettingsActivity::class.java))
+            },
         )
 
         ui.caption(getString(R.string.settings_section_input))
         ui.card(
-            ui.switchRow(getString(R.string.settings_number_row), settings.showNumberRow) { checked, _ ->
-                settings.showNumberRow = checked
-            },
-            ui.switchRow(getString(R.string.settings_show_toolbar), settings.showToolbar) { checked, _ ->
-                settings.showToolbar = checked
-            },
-            ui.switchRow(getString(R.string.settings_mz_mode), settings.mzModeEnabled) { checked, _ ->
-                settings.mzModeEnabled = checked
-            },
             ui.textRow(getString(R.string.extra_input_menu)) {
                 startActivity(Intent(this, ExtraInputSettingsActivity::class.java))
             },
         )
 
         ui.card(
-            ui.textRow(
-                getString(R.string.settings_section_margins),
-                getString(R.string.settings_margin_hint),
-            ),
-        )
-
-        ui.card(
-            ui.textRow(getString(R.string.settings_accessibility)) {
-                startActivity(Intent(this, AccessibilitySettingsActivity::class.java))
-            },
             ui.textRow(getString(R.string.reset_menu)) {
                 startActivity(Intent(this, ResetSettingsActivity::class.java))
             },

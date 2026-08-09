@@ -40,6 +40,11 @@
             android:label="@string/settings_section_theme" />
 
         <activity
+            android:name=".settings.MarginSettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_section_margins" />
+
+        <activity
             android:name=".settings.AccessibilitySettingsActivity"
             android:exported="false"
             android:label="@string/settings_accessibility" />

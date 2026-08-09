@@ -16,6 +16,7 @@
     <string name="toolbar_emoji_desc">이모지</string>
     <string name="emoji_search_hint">이모지 검색</string>
     <string name="toolbar_edit_desc">툴바 편집</string>
+    <string name="toolbar_onehand_desc">한 손 키보드</string>
     <string name="toolbar_edit_hint">항목을 눌러 툴바에 추가하거나 제거합니다.</string>
     <string name="emoji_search_empty">이모지가 여기에 표시됩니다</string>
 
@@ -51,6 +52,7 @@
     <string name="hc_style_black_white">검은 배경에 흰 글자</string>
     <string name="hc_style_black_yellow">검은 배경에 노란 글자</string>
     <string name="settings_section_input">입력</string>
+    <string name="settings_section_display">화면</string>
     <string name="settings_language_section">언어 및 키보드 형식</string>
     <string name="language_manage_title">키보드 입력 언어 관리</string>
     <string name="language_min_one">최소 한 개의 언어는 켜져 있어야 합니다.</string>

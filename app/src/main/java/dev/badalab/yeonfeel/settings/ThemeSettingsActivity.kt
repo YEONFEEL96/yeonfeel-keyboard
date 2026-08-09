@@ -26,7 +26,11 @@ class ThemeSettingsActivity : Activity() {
             ThemeMode.DARK to ui.radioRow(getString(R.string.settings_theme_dark), mode == ThemeMode.DARK),
             ThemeMode.LIGHT to ui.radioRow(getString(R.string.settings_theme_light), mode == ThemeMode.LIGHT),
         )
-        ui.bindRadioGroup(radios) { selected -> settings.themeMode = selected }
+        ui.bindRadioGroup(radios) { selected ->
+            settings.themeMode = selected
+            // 설정 화면 자체도 새 테마 팔레트로 다시 그린다.
+            buildUi()
+        }
         ui.card(*radios.values.toTypedArray())
 
         ui.card(

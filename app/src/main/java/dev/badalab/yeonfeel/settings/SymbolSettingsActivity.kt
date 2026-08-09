@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import dev.badalab.yeonfeel.R
 
-/** 기호 메뉴: 즐겨찾기(스페이스바 오른쪽)·왼쪽 기호 하위 화면으로 이동한다. */
+/** 기호 메뉴: 즐겨찾기·왼쪽 기호 하위 화면과 숫자 열 관련 옵션. */
 class SymbolSettingsActivity : Activity() {
 
     private lateinit var settings: KeyboardSettings
@@ -41,6 +41,17 @@ class SymbolSettingsActivity : Activity() {
                 onToggle = { checked, _ -> settings.leftSymbolEnabled = checked },
                 onOpen = { openPicker(SymbolPickerActivity.SIDE_LEFT) },
             ),
+        )
+
+        ui.caption(getString(R.string.number_symbol_title))
+        ui.card(
+            ui.switchRow(getString(R.string.settings_number_row), settings.showNumberRow) { checked, _ ->
+                settings.showNumberRow = checked
+            },
+            ui.switchRow(
+                getString(R.string.shift_number_symbols),
+                settings.shiftNumberRowSymbols,
+            ) { checked, _ -> settings.shiftNumberRowSymbols = checked },
         )
 
         ui.show()

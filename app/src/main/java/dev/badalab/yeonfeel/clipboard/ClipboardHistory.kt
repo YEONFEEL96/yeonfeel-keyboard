@@ -63,7 +63,7 @@ class ClipboardHistory(
     fun clear() = items.clear()
 
     companion object {
-        const val DEFAULT_MAX_ITEMS = 30
+        const val DEFAULT_MAX_ITEMS = 100
         const val MAX_TEXT_LENGTH = 5000
     }
 }

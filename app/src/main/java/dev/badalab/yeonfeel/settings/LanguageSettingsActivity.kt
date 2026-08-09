@@ -63,14 +63,6 @@ class LanguageSettingsActivity : Activity() {
             ),
         )
 
-        ui.caption(getString(R.string.number_symbol_title))
-        ui.card(
-            ui.switchRow(
-                getString(R.string.shift_number_symbols),
-                settings.shiftNumberRowSymbols,
-            ) { checked, _ -> settings.shiftNumberRowSymbols = checked },
-        )
-
         ui.caption(getString(R.string.language_switch_method_title))
         val method = settings.languageSwitchMethod
         val radios = linkedMapOf(
