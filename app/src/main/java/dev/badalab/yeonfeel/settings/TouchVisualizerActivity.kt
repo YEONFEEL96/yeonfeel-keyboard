@@ -31,7 +31,11 @@ class TouchVisualizerActivity : Activity() {
             android.widget.LinearLayout(this).apply {
                 setPadding(pad, pad, pad, pad)
                 addView(
-                    VisualizerView(this@TouchVisualizerActivity, settings, store.all()),
+                    VisualizerView(
+                        this@TouchVisualizerActivity,
+                        settings,
+                        store.forBoard("KO_" + settings.koreanLayout.name),
+                    ),
                     android.widget.LinearLayout.LayoutParams(
                         android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                         android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -83,7 +87,12 @@ class TouchVisualizerActivity : Activity() {
         override fun onDraw(canvas: Canvas) {
             // 키 외곽선: KeyboardView와 같은 배치 규칙 (숫자 열 85% 높이)
             val heightWeights = FloatArray(rows.size) { 1f }
-            if (settings.showNumberRow && rows.isNotEmpty()) heightWeights[0] = 0.85f
+            // 숫자 열이 실제로 얹히는 자판(두벌식·단모음)에서만 첫 열을 낮게 그린다.
+            val hasNumberRow = settings.showNumberRow && settings.koreanLayout in setOf(
+                KoreanLayoutType.DUBEOLSIK,
+                KoreanLayoutType.DANMOEUM,
+            )
+            if (hasNumberRow && rows.isNotEmpty()) heightWeights[0] = 0.85f
             val unit = height.toFloat() / heightWeights.sum()
             val gap = 3f * resources.displayMetrics.density
             var top = 0f

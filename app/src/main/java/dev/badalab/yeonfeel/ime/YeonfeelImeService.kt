@@ -76,8 +76,16 @@ class YeonfeelImeService : InputMethodService() {
                     KeyType.CHAR, KeyType.GHOST -> key.char.toString()
                     else -> key.type.name
                 }
+                // 자판마다 키 위치가 달라 보드별로 분리 저장한다.
+                val kv = view.keyboardView
+                val board = when (kv.mode) {
+                    LayoutMode.KOREAN -> "KO_" + settings.koreanLayout.name
+                    LayoutMode.ENGLISH -> "EN_" + settings.englishLayout.name
+                    LayoutMode.SYMBOLS ->
+                        (if (kv.compactSymbols) "SYMC_" else "SYM_") + kv.symbolsPage
+                }
                 touchStats.add(
-                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(keyId, ax, ay, rx, ry),
+                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(board, keyId, ax, ay, rx, ry),
                 )
             }
         }

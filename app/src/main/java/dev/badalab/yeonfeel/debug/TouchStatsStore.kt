@@ -18,7 +18,14 @@ class TouchStatsStore(context: Context) {
      * [ax],[ay]는 키보드 전체 기준 정규화 좌표(0~1, 히트맵용),
      * [rx],[ry]는 눌린 키 중심 대비 상대 오프셋(키 크기 단위, 보정 모델용).
      */
-    data class Sample(val key: String, val ax: Float, val ay: Float, val rx: Float, val ry: Float)
+    data class Sample(
+        val board: String,
+        val key: String,
+        val ax: Float,
+        val ay: Float,
+        val rx: Float,
+        val ry: Float,
+    )
 
     private val file = File(context.filesDir, FILE_NAME)
     private val samples = HashMap<String, MutableList<Sample>>()
@@ -32,6 +39,7 @@ class TouchStatsStore(context: Context) {
                     val obj = array.getJSONObject(i)
                     insert(
                         Sample(
+                            obj.optString("b", LEGACY_BOARD),
                             obj.getString("k"),
                             obj.getDouble("ax").toFloat(),
                             obj.getDouble("ay").toFloat(),
@@ -60,6 +68,11 @@ class TouchStatsStore(context: Context) {
     @Synchronized
     fun all(): List<Sample> = samples.values.flatten()
 
+    /** 특정 자판(보드)의 타점만 돌려준다 — 자판별로 키 위치가 달라 섞으면 안 된다. */
+    @Synchronized
+    fun forBoard(board: String): List<Sample> =
+        samples.values.flatten().filter { it.board == board }
+
     @Synchronized
     fun totalCount(): Int = samples.values.sumOf { it.size }
 
@@ -82,6 +95,7 @@ class TouchStatsStore(context: Context) {
                     val obj = array.getJSONObject(i)
                     insert(
                         Sample(
+                            obj.optString("b", LEGACY_BOARD),
                             obj.getString("k"),
                             obj.getDouble("ax").toFloat(),
                             obj.getDouble("ay").toFloat(),
@@ -95,7 +109,7 @@ class TouchStatsStore(context: Context) {
     }
 
     private fun insert(sample: Sample) {
-        val list = samples.getOrPut(sample.key) { mutableListOf() }
+        val list = samples.getOrPut(sample.board + "|" + sample.key) { mutableListOf() }
         list.add(sample)
         if (list.size > PER_KEY_LIMIT) list.removeAt(0)
     }
@@ -103,11 +117,12 @@ class TouchStatsStore(context: Context) {
     private fun save() {
         runCatching {
             val array = JSONArray()
-            samples.forEach { (key, list) ->
+            samples.forEach { (_, list) ->
                 list.forEach { s ->
                     array.put(
                         JSONObject()
-                            .put("k", key)
+                            .put("b", s.board)
+                            .put("k", s.key)
                             .put("ax", s.ax.toDouble())
                             .put("ay", s.ay.toDouble())
                             .put("rx", s.rx.toDouble())
@@ -121,6 +136,7 @@ class TouchStatsStore(context: Context) {
 
     companion object {
         private const val FILE_NAME = "touch_stats.json"
+        private const val LEGACY_BOARD = "KO_DUBEOLSIK"
         private const val PER_KEY_LIMIT = 150
         private const val SAVE_INTERVAL = 20
     }
