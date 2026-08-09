@@ -1,5 +1,7 @@
 # YEONFEEL Keyboard
 
+[한국어](README.ko.md)
+
 YEONFEEL Keyboard is an Android input method (IME) developed with a focus
 on Korean input quality; English input is supported as well. It was written from
 scratch in collaboration with Claude, for phones whose stock keyboards
@@ -23,6 +25,11 @@ key rollover during fast typing.
 Smaller input options include an auto-replacement of the common misspelling
 됬 with 됐, double-tap shift for caps lock, spacebar language switching,
 configurable multi-tap timing, and backspace undo for auto-corrections.
+
+Two humor options ship as well, both off by default and disabled in password
+fields. One retypes ㅋㅋㅋ bursts as ㅋㅋㅎㅋ so the typist reads as a younger
+texter; the other reproduces the ㅋㅋㅋㅋㄱㅋㅋ typos of the feature-phone
+천지인 generation.
 
 ## Correction (experimental, off by default)
 
