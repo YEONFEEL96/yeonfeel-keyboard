@@ -6,7 +6,8 @@ scratch in collaboration with Claude, for phones whose stock keyboards
 handle Korean poorly. The design goal is a keyboard that works entirely offline: the app
 requests no `INTERNET` permission, so no input, clipboard content, or usage
 data can leave the device. The release APK is about 1.2 MB and has no runtime
-dependency beyond `androidx.core`.
+dependency beyond `androidx.core`. If you are finding Samsung Keyboard alternatives 
+for other Androids? Welcome aboard.
 
 ## Input
 
