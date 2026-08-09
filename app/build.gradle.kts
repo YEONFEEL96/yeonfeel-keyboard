@@ -15,6 +15,21 @@ android {
         versionName = "0.9.5"
     }
 
+    // 릴리스 키스토어는 저장소 밖(~/.gradle/gradle.properties)에서 읽는다.
+    // 키가 없는 환경(포크·CI)에서는 디버그 서명으로 대체돼 빌드는 항상 가능하다.
+    val releaseStoreFile = providers.gradleProperty("YEONFEEL_RELEASE_STORE_FILE").orNull
+
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = providers.gradleProperty("YEONFEEL_RELEASE_STORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("YEONFEEL_RELEASE_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("YEONFEEL_RELEASE_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -22,9 +37,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // TODO: 스토어 배포 전에 정식 릴리스 키스토어로 교체할 것.
-            // 지금은 기기 테스트용으로 디버그 키 서명을 쓴다.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseStoreFile != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
