@@ -49,13 +49,15 @@ data class KeyboardTheme(
             keyBorder = 0xFF000000.toInt(),
         )
 
+        // 배경까지 노랑으로 통일해 키캡 배경을 꺼도 글자·툴바가 항상 보이게 한다.
         val HC_YELLOW_BLACK = KeyboardTheme(
-            background = 0xFF000000.toInt(),
+            background = 0xFFFFD600.toInt(),
             key = 0xFFFFD600.toInt(),
             specialKey = 0xFFE0BC00.toInt(),
-            pressed = 0xFFFFFFFF.toInt(),
+            pressed = 0xFFB59A00.toInt(),
             text = 0xFF000000.toInt(),
             subText = 0xFF000000.toInt(),
+            keyBorder = 0xFF000000.toInt(),
         )
 
         val HC_BLACK_WHITE = KeyboardTheme(

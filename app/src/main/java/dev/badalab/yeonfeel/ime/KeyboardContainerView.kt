@@ -138,10 +138,14 @@ class KeyboardContainerView(
         keyboardView.theme = theme
         keyboardView.showNumberRow = settings.showNumberRow
         keyboardView.koreanLayout = settings.koreanLayout
+        keyboardView.englishLayout = settings.englishLayout
         keyboardView.shiftNumberRowSymbols = settings.shiftNumberRowSymbols
-        keyboardView.showKeyBackground = settings.showKeyBackground
+        // 고대비 모드는 옵션에 따라 테마의 키캡 배경 설정을 오버라이드해 항상 표시한다.
+        keyboardView.showKeyBackground = settings.showKeyBackground ||
+            (settings.highContrast && settings.highContrastForceKeycap)
         keyboardView.keyPreviewEnabled = settings.keyPreviewEnabled
         keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
+        keyboardView.longPressDelayMs = settings.longPressDelayMs.toLong()
         keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
         keyboardView.hapticStrength = settings.hapticStrength
@@ -325,7 +329,9 @@ class KeyboardContainerView(
             panel,
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
         )
-        attachHeader(buildEmojiHeader())
+        // 헤더와 탭 스트립을 여백 없이 붙이되, 없앤 6dp를 헤더 높이에 더해
+        // 키보드 모드와 전체 높이를 똑같이 유지한다 (전환 시 높이 흔들림 방지).
+        attachHeader(buildEmojiHeader(), gapBelow = false, heightDp = 50)
     }
 
     private fun buildEmojiHeader(): View {
@@ -333,7 +339,8 @@ class KeyboardContainerView(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(theme.specialKey)
-            setPadding(dp(8), 0, dp(8), 0)
+            // 늘어난 헤더 높이(50dp) 안에서 내용은 위쪽 44dp에 중앙 정렬되게 한다.
+            setPadding(dp(8), 0, dp(8), dp(6))
         }
         header.addView(
             headerImage(R.drawable.ic_toolbar_keyboard, context.getString(R.string.clipboard_back_to_keyboard)) {
@@ -342,7 +349,7 @@ class KeyboardContainerView(
         )
         header.addView(TextView(context).apply {
             text = context.getString(R.string.toolbar_emoji_desc)
-            setTextColor(theme.text)
+            setTextColor(theme.subText)
             setTypeface(null, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(6), 0, 0, 0)
@@ -357,62 +364,63 @@ class KeyboardContainerView(
     }
 
     /**
-     * 이모지 패널: 키보드 높이를 유지하고 카테고리 블록을 가로로 스크롤한다.
-     * 하단에는 카테고리 대표 이모지 탭 바 — 누르면 해당 섹션으로 이동한다.
+     * 이모지 패널: 상단에 검색+카테고리 탭 바, 아래에 세로 스크롤 8열 그리드.
+     * 탭을 누르면 해당 섹션으로 스크롤하고, 스크롤에 따라 활성 탭이 바뀐다.
      */
     private fun buildEmojiPanel(): View {
         val tabBarHeightDp = 40
-        val rowCount = ((keyboardHeightDp - 28 - tabBarHeightDp) / 46).coerceIn(3, 6)
         val content = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            setPadding(dp(8), dp(2), dp(8), dp(2))
+            orientation = VERTICAL
+            setPadding(dp(8), dp(2), dp(8), dp(8))
         }
         val blocks = mutableListOf<View>()
         EmojiData.categories.forEach { category ->
-            val block = LinearLayout(context).apply {
-                orientation = VERTICAL
-                setPadding(0, 0, dp(10), 0)
-            }
+            val block = LinearLayout(context).apply { orientation = VERTICAL }
             block.addView(TextView(context).apply {
                 text = category.title
                 setTextColor(theme.subText)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setPadding(dp(4), dp(4), 0, dp(2))
+                setPadding(dp(6), dp(8), 0, dp(2))
             })
-            val grid = LinearLayout(context).apply { orientation = HORIZONTAL }
-            category.emojis.chunked(rowCount).forEach { columnEmojis ->
-                val columnView = LinearLayout(context).apply { orientation = VERTICAL }
-                columnEmojis.forEach { emoji ->
-                    columnView.addView(
+            category.emojis.chunked(8).forEach { rowEmojis ->
+                val row = LinearLayout(context).apply { orientation = HORIZONTAL }
+                rowEmojis.forEach { emoji ->
+                    row.addView(
                         TextView(context).apply {
                             text = emoji
                             gravity = Gravity.CENTER
                             setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
                             setOnClickListener { callbacks.onEmoji(emoji) }
                         },
-                        LayoutParams(dp(46), dp(46)),
+                        LayoutParams(0, dp(44), 1f),
                     )
                 }
-                grid.addView(columnView)
+                repeat(8 - rowEmojis.size) {
+                    row.addView(View(context), LayoutParams(0, dp(44), 1f))
+                }
+                block.addView(row)
             }
-            block.addView(grid)
             content.addView(block)
             blocks.add(block)
         }
-        val emojiScroll = android.widget.HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = false
+        val emojiScroll = ScrollView(context).apply {
+            isVerticalScrollBarEnabled = false
             addView(content)
         }
 
-        // 하단 카테고리 탭 바
+        // 카테고리 탭 바 (상단)
         val tabs = mutableListOf<TextView>()
         fun highlightTab(active: Int) {
             tabs.forEachIndexed { index, tab ->
                 tab.background = if (index == active) {
-                    android.graphics.drawable.GradientDrawable().apply {
-                        shape = android.graphics.drawable.GradientDrawable.OVAL
-                        setColor(theme.specialKey)
-                    }
+                    // 바 높이보다 작게 — 원이 바에 꽉 차면 어색해 보인다.
+                    android.graphics.drawable.InsetDrawable(
+                        android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL
+                            setColor(theme.key)
+                        },
+                        dp(5),
+                    )
                 } else {
                     null
                 }
@@ -435,7 +443,7 @@ class KeyboardContainerView(
                     marginEnd = dp(4)
                 }
                 setOnClickListener {
-                    emojiScroll.smoothScrollTo(blocks[index].left, 0)
+                    emojiScroll.smoothScrollTo(0, blocks[index].top)
                     highlightTab(index)
                 }
             }
@@ -443,11 +451,11 @@ class KeyboardContainerView(
             tabRow.addView(tab)
         }
         highlightTab(0)
-        // 본문 스크롤 위치에 따라 활성 탭을 갱신한다.
-        emojiScroll.setOnScrollChangeListener { _, scrollX, _, _, _ ->
+        // 스크롤 위치에 따라 활성 탭을 갱신한다.
+        emojiScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
             var active = 0
             blocks.forEachIndexed { index, block ->
-                if (block.left <= scrollX + dp(40)) active = index
+                if (block.top <= scrollY + dp(48)) active = index
             }
             highlightTab(active)
         }
@@ -463,34 +471,47 @@ class KeyboardContainerView(
         val panel = LinearLayout(context).apply {
             orientation = VERTICAL
             setBackgroundColor(theme.background)
-            // 키보드 하단 여백 + 시스템 하단바 인셋만큼 탭 바를 위로 띄운다.
+            // 시스템 하단바·키보드 하단 여백만큼 그리드가 일찍 끝나도록 띄운다.
             setPadding(0, 0, 0, dp(marginBottomDp) + navBarInset())
         }
-        panel.addView(emojiScroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         panel.addView(
             android.widget.HorizontalScrollView(context).apply {
                 isHorizontalScrollBarEnabled = false
-                // 탭 바 섹션은 배경색으로 구분한다.
-                setBackgroundColor(theme.specialKey)
+                // 탭 바 섹션은 헤더보다 살짝 연한 회색으로 구분한다.
+                setBackgroundColor(blendColor(theme.specialKey, theme.background, 0.5f))
                 addView(tabRow)
             },
             LayoutParams(LayoutParams.MATCH_PARENT, dp(tabBarHeightDp)),
         )
+        panel.addView(emojiScroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         return panel
     }
 
     private fun navBarInset(): Int = navInsetPx
 
-    /** 이모지 검색 모드: 헤더가 검색창이 되고, 그 아래 결과 스트립 + 일반 키보드로 입력한다. */
+    /**
+     * 이모지 검색 모드: 이모지 헤더는 그대로 두고 탭 스트립 자리의 분류가
+     * 검색 칸으로 바뀐다. 그 아래 결과 스트립 + 일반 키보드로 입력한다.
+     */
     private fun openEmojiSearch() {
+        // 키보드는 즉시 나타나고, 그 위 검색 컴포넌트만 페이드인한다.
         showKeyboard()
         emojiSearchOpen = true
-        attachHeader(buildEmojiSearchHeader())
+        attachHeader(buildEmojiSearchHeader(), gapBelow = true, heightDp = 40)
         val results = buildEmojiSearchResultsRow()
         emojiSearchResultsRow = results
         addView(results, 1, LayoutParams(LayoutParams.MATCH_PARENT, dp(46)).apply { bottomMargin = dp(4) })
+        fadeIn(clipboardHeader, results)
         callbacks.onEmojiSearchStateChanged(true)
         updateEmojiSearch("")
+    }
+
+    /** 새로 붙은 컴포넌트를 살짝 페이드인한다 (레이아웃 이동 애니메이션 없이). */
+    private fun fadeIn(vararg views: View?) {
+        views.filterNotNull().forEach { v ->
+            v.alpha = 0f
+            v.animate().alpha(1f).setDuration(180).start()
+        }
     }
 
     fun updateEmojiSearch(text: String) {
@@ -504,7 +525,21 @@ class KeyboardContainerView(
         }
         val list = emojiSearchResultsList ?: return
         list.removeAllViews()
-        EmojiData.search(text).forEach { emoji ->
+        val found = EmojiData.search(text)
+        if (found.isEmpty()) {
+            // 결과가 없을 때는 중앙 정렬 가이드 문구를 보여준다.
+            list.addView(
+                TextView(context).apply {
+                    this.text = context.getString(R.string.emoji_search_empty)
+                    gravity = Gravity.CENTER
+                    setTextColor(theme.subText)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                },
+                LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+            )
+            return
+        }
+        found.forEach { emoji ->
             list.addView(
                 TextView(context).apply {
                     this.text = emoji
@@ -517,18 +552,22 @@ class KeyboardContainerView(
         }
     }
 
+    /** 검색 스트립 단독 헤더: 탭 스트립 자리에 검색 칸이 들어오고, 제목 줄은 없앤다. */
     private fun buildEmojiSearchHeader(): View {
-        val header = LinearLayout(context).apply {
+        val searchRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(theme.specialKey)
+            setBackgroundColor(blendColor(theme.specialKey, theme.background, 0.5f))
             setPadding(dp(8), 0, dp(8), 0)
         }
-        header.addView(
+        searchRow.addView(
             android.widget.ImageView(context).apply {
                 setImageResource(R.drawable.ic_icon_search)
                 imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
-                layoutParams = LayoutParams(dp(24), dp(24)).apply { marginStart = dp(8) }
+                layoutParams = LayoutParams(dp(22), dp(22)).apply {
+                    marginStart = dp(8)
+                    marginEnd = dp(4)
+                }
             },
         )
         emojiSearchQueryView = TextView(context).apply {
@@ -536,14 +575,17 @@ class KeyboardContainerView(
             setPadding(dp(8), 0, 0, 0)
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         }
-        header.addView(emojiSearchQueryView)
-        header.addView(
+        searchRow.addView(emojiSearchQueryView)
+        searchRow.addView(
             headerImage(R.drawable.ic_icon_close, context.getString(R.string.clipboard_cancel)) {
                 showKeyboard()
                 toggleEmojiPanel()
+                // 이모지 패널 복귀도 헤더·패널만 페이드인.
+                fadeIn(clipboardHeader, emojiPanel)
             },
         )
-        return header
+
+        return searchRow
     }
 
     private fun buildEmojiSearchResultsRow(): View {
@@ -553,6 +595,8 @@ class KeyboardContainerView(
         }
         return android.widget.HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
+            // 빈 상태 가이드 문구를 가로 중앙에 놓을 수 있게 뷰포트를 채운다.
+            isFillViewport = true
             setBackgroundColor(theme.background)
             addView(
                 emojiSearchResultsList,
@@ -566,21 +610,34 @@ class KeyboardContainerView(
 
     private fun headerImage(drawableRes: Int, description: String, onClick: () -> Unit) =
         toolbarIcon(drawableRes, description, onClick).apply {
-            imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
+            // 툴바 아이콘과 같은 옅은 색으로 통일한다.
+            imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
             (layoutParams as MarginLayoutParams).apply {
                 marginStart = dp(4)
                 marginEnd = dp(4)
             }
         }
 
-    private fun attachHeader(header: View) {
+    /** 두 색을 [t] 비율로 섞는다 (0=from, 1=to). 알파는 불투명 고정. */
+    private fun blendColor(from: Int, to: Int, t: Float): Int {
+        fun channel(shift: Int): Int {
+            val a = (from shr shift) and 0xFF
+            val b = (to shr shift) and 0xFF
+            return (a + ((b - a) * t)).toInt() and 0xFF
+        }
+        return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
+    }
+
+    private fun attachHeader(header: View, gapBelow: Boolean = true, heightDp: Int = 44) {
         toolbar.visibility = GONE
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = header
         addView(
             header,
             0,
-            LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply { bottomMargin = dp(6) },
+            LayoutParams(LayoutParams.MATCH_PARENT, dp(heightDp)).apply {
+                bottomMargin = if (gapBelow) dp(6) else 0
+            },
         )
     }
 
@@ -613,7 +670,8 @@ class KeyboardContainerView(
             description: String,
             onClick: () -> Unit,
         ) = toolbarIcon(drawableRes, description, onClick).apply {
-            imageTintList = android.content.res.ColorStateList.valueOf(theme.text)
+            // 툴바 아이콘과 같은 옅은 색으로 통일한다.
+            imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
             (layoutParams as MarginLayoutParams).apply {
                 marginStart = dp(4)
                 marginEnd = dp(4)
@@ -634,7 +692,7 @@ class KeyboardContainerView(
         )
         header.addView(TextView(context).apply {
             text = context.getString(R.string.toolbar_clipboard_desc)
-            setTextColor(theme.text)
+            setTextColor(theme.subText)
             setTypeface(null, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(6), 0, 0, 0)

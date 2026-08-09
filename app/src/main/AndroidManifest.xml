@@ -40,9 +40,14 @@
             android:label="@string/settings_section_theme" />
 
         <activity
+            android:name=".settings.AccessibilitySettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_accessibility" />
+
+        <activity
             android:name=".settings.HighContrastSettingsActivity"
             android:exported="false"
-            android:label="@string/settings_high_contrast_short" />
+            android:label="@string/settings_high_contrast" />
 
         <activity
             android:name=".settings.SymbolSettingsActivity"

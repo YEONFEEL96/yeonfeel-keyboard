@@ -61,6 +61,17 @@ enum class KoreanLayoutType {
 
     /** 나랏글: 획추가·쌍자음 변형 (2011년 특허 개방, KT) */
     NARATGUL,
+
+    /** 나랏글 중앙: 글자 열을 가운데 두고 기능 키를 양옆에 배치 */
+    NARATGUL_CENTER,
+}
+
+/** 영어 자판 종류. */
+enum class EnglishLayoutType {
+    QWERTY,
+
+    /** 드보락: 모음·빈도 높은 자음을 홈 행에 배치한 배열 */
+    DVORAK,
 }
 
 /** 키보드 사용자 설정. IME 서비스와 설정 화면이 공유한다. */
@@ -94,6 +105,11 @@ class KeyboardSettings(context: Context) {
             HighContrastStyle.valueOf(prefs.getString(KEY_HIGH_CONTRAST_STYLE, null) ?: "")
         }.getOrDefault(HighContrastStyle.DEFAULT)
         set(value) = prefs.edit().putString(KEY_HIGH_CONTRAST_STYLE, value.name).apply()
+
+    /** 고대비 모드에서 테마의 키캡 배경 설정과 무관하게 키캡을 항상 표시할지. */
+    var highContrastForceKeycap: Boolean
+        get() = prefs.getBoolean(KEY_HC_FORCE_KEYCAP, true)
+        set(value) = prefs.edit().putBoolean(KEY_HC_FORCE_KEYCAP, value).apply()
 
     /** 키캡 배경 표시 여부. 끄면 글자만 보이는 플랫 스타일. */
     var showKeyBackground: Boolean
@@ -150,6 +166,13 @@ class KeyboardSettings(context: Context) {
     var multiTapDelayMs: Int
         get() = prefs.getInt(KEY_MULTI_TAP_DELAY, MULTI_TAP_DELAY_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_MULTI_TAP_DELAY, value.coerceIn(MULTI_TAP_DELAY_MIN, MULTI_TAP_DELAY_MAX)).apply()
+
+    /** 길게 누르기 판정 시간(ms). 변형 팝업·숫자 입력·언어 목록 등 롱프레스 전반에 적용. */
+    var longPressDelayMs: Int
+        get() = prefs.getInt(KEY_LONG_PRESS_DELAY, LONG_PRESS_DELAY_DEFAULT)
+        set(value) = prefs.edit()
+            .putInt(KEY_LONG_PRESS_DELAY, value.coerceIn(LONG_PRESS_DELAY_MIN, LONG_PRESS_DELAY_MAX))
+            .apply()
 
     /** 영문 문장 시작에서 자동으로 Shift를 켠다. */
     var autoCapitalize: Boolean
@@ -208,6 +231,12 @@ class KeyboardSettings(context: Context) {
         }.getOrDefault(KoreanLayoutType.DUBEOLSIK)
         set(value) = prefs.edit().putString(KEY_KOREAN_LAYOUT, value.name).apply()
 
+    var englishLayout: EnglishLayoutType
+        get() = runCatching {
+            EnglishLayoutType.valueOf(prefs.getString(KEY_ENGLISH_LAYOUT, null) ?: "")
+        }.getOrDefault(EnglishLayoutType.QWERTY)
+        set(value) = prefs.edit().putString(KEY_ENGLISH_LAYOUT, value.name).apply()
+
     var languageSwitchMethod: LanguageSwitchMethod
         get() = runCatching {
             LanguageSwitchMethod.valueOf(prefs.getString(KEY_SWITCH_METHOD, null) ?: "")
@@ -229,6 +258,9 @@ class KeyboardSettings(context: Context) {
         const val MULTI_TAP_DELAY_MIN = 100
         const val MULTI_TAP_DELAY_MAX = 600
         const val MULTI_TAP_DELAY_DEFAULT = 300
+        const val LONG_PRESS_DELAY_MIN = 100
+        const val LONG_PRESS_DELAY_MAX = 700
+        const val LONG_PRESS_DELAY_DEFAULT = 350
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
@@ -240,11 +272,13 @@ class KeyboardSettings(context: Context) {
         private const val KEY_HIGH_CONTRAST = "high_contrast"
         private const val KEY_SHOW_KEY_BACKGROUND = "show_key_background"
         private const val KEY_HIGH_CONTRAST_STYLE = "high_contrast_style"
+        private const val KEY_HC_FORCE_KEYCAP = "high_contrast_force_keycap"
         private const val KEY_SHOW_NUMBER_ROW = "show_number_row"
         private const val KEY_KOREAN_ENABLED = "korean_enabled"
         private const val KEY_ENGLISH_ENABLED = "english_enabled"
         private const val KEY_SWITCH_METHOD = "language_switch_method"
         private const val KEY_KOREAN_LAYOUT = "korean_layout"
+        private const val KEY_ENGLISH_LAYOUT = "english_layout"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"
@@ -255,6 +289,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_MZ_MODE = "mz_mode_enabled"
         private const val KEY_TOUCH_STATS = "touch_stats_enabled"
         private const val KEY_MULTI_TAP_DELAY = "multi_tap_delay_ms"
+        private const val KEY_LONG_PRESS_DELAY = "long_press_delay_ms"
         private const val KEY_KEY_PREVIEW = "key_preview_enabled"
         private const val KEY_BACKSPACE_SPEED = "backspace_speed"
         private const val KEY_SOUND_ENABLED = "sound_enabled"

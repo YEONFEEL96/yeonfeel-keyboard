@@ -1,6 +1,7 @@
 package dev.badalab.yeonfeel.ime
 
 import dev.badalab.yeonfeel.hangul.NaratgulComposer
+import dev.badalab.yeonfeel.settings.EnglishLayoutType
 import dev.badalab.yeonfeel.settings.KoreanLayoutType
 
 /**
@@ -20,6 +21,11 @@ data class Key(
 enum class LayoutMode { KOREAN, ENGLISH, SYMBOLS }
 
 object KeyboardLayouts {
+
+    /** PAGE 키의 동작 구분 코드 (Key.char): 숫자 패드 이동 / 기호 1페이지 복귀 / 페이지 순환. */
+    const val PAGE_TO_NUMPAD = '\uE010'
+    const val PAGE_TO_SYMBOLS = '\uE011'
+    const val PAGE_CYCLE = '\uE012'
 
     private val cache = HashMap<String, List<List<Key>>>()
 
@@ -71,11 +77,17 @@ object KeyboardLayouts {
         showLangKey: Boolean = true,
         koreanLayout: KoreanLayoutType = KoreanLayoutType.DUBEOLSIK,
         shiftNumberRowSymbols: Boolean = true,
+        englishLayout: EnglishLayoutType = EnglishLayoutType.QWERTY,
+        compactSymbols: Boolean = false,
     ): List<List<Key>> {
         val cacheKey =
-            "$mode-$shifted-$showNumberRow-$symbolsPage-$showLangKey-$koreanLayout-$shiftNumberRowSymbols"
+            "$mode-$shifted-$showNumberRow-$symbolsPage-$showLangKey-$koreanLayout-" +
+                "$shiftNumberRowSymbols-$englishLayout-$compactSymbols"
         return cache.getOrPut(cacheKey) {
-            build(mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout, shiftNumberRowSymbols)
+            build(
+                mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout,
+                shiftNumberRowSymbols, englishLayout, compactSymbols,
+            )
         }
     }
 
@@ -87,8 +99,11 @@ object KeyboardLayouts {
         showLangKey: Boolean,
         koreanLayout: KoreanLayoutType,
         shiftNumberRowSymbols: Boolean,
+        englishLayout: EnglishLayoutType,
+        compactSymbols: Boolean,
     ): List<List<Key>> {
         if (mode == LayoutMode.SYMBOLS) {
+            if (compactSymbols) return compactSymbolRows(symbolsPage)
             return if (symbolsPage == 1) {
                 symbolsPage("2/2", "`~\\|{}€£¥$", "°•○●□■♤♡◇♧", "☆▪¤《》¡¿", showLangKey)
             } else {
@@ -103,12 +118,17 @@ object KeyboardLayouts {
                 KoreanLayoutType.DANMOEUM -> danmoeumRows(showLangKey)
                 // 세벌식은 맨 윗줄이 자모 열이므로 숫자 열 옵션과 무관하게 자체 4열을 쓴다.
                 KoreanLayoutType.SEBEOLSIK_390 -> return sebeol390Rows(shifted, showLangKey)
-                KoreanLayoutType.CHUNJIIN -> chunjiinRows(showLangKey)
-                KoreanLayoutType.NARATGUL -> naratgulRows(showLangKey)
+                // 3x4 자판은 숫자 열을 얹지 않고 그 높이만큼 키가 커진다.
+                KoreanLayoutType.CHUNJIIN -> return chunjiinRows(showLangKey)
+                KoreanLayoutType.NARATGUL -> return naratgulRows(showLangKey)
+                KoreanLayoutType.NARATGUL_CENTER -> return naratgulCenterRows(showLangKey)
             }
-            LayoutMode.ENGLISH ->
-                if (shifted) letterRows("QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM", showLangKey)
-                else letterRows("qwertyuiop", "asdfghjkl", "zxcvbnm", showLangKey)
+            LayoutMode.ENGLISH -> when (englishLayout) {
+                EnglishLayoutType.QWERTY ->
+                    if (shifted) letterRows("QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM", showLangKey)
+                    else letterRows("qwertyuiop", "asdfghjkl", "zxcvbnm", showLangKey)
+                EnglishLayoutType.DVORAK -> dvorakRows(shifted, showLangKey)
+            }
             LayoutMode.SYMBOLS -> error("unreachable")
         }
         if (!showNumberRow) return base
@@ -212,6 +232,27 @@ object KeyboardLayouts {
             bottomRow(showLangKey),
         )
 
+    /**
+     * 드보락. 위 두 열이 10키씩이고 셋째 열에 글자 9개가 오므로
+     * Shift·백스페이스는 1칸 폭으로 줄여 전체 균형을 맞춘다.
+     * Shift에서 어포스트로피는 실제 드보락처럼 따옴표(")가 된다.
+     */
+    private fun dvorakRows(shifted: Boolean, showLangKey: Boolean): List<List<Key>> {
+        val r1 = if (shifted) "\",.PYFGCRL" else "',.pyfgcrl"
+        val r2 = if (shifted) "AOEUIDHTNS" else "aoeuidhtns"
+        val r3 = if (shifted) "QJKXBMWVZ" else "qjkxbmwvz"
+        return listOf(
+            charRow(r1),
+            charRow(r2),
+            buildList {
+                add(Key(KeyType.SHIFT, "⇧"))
+                addAll(charRow(r3))
+                add(Key(KeyType.DELETE, "⌫"))
+            },
+            bottomRow(showLangKey),
+        )
+    }
+
     /** 천지인 (12키 + 기능 열). 자음 키는 연타 사이클, 모음은 ㅣㆍㅡ 조합. */
     private fun chunjiinRows(showLangKey: Boolean): List<List<Key>> = listOf(
         listOf(
@@ -241,7 +282,11 @@ object KeyboardLayouts {
         bottomRow(showLangKey),
     )
 
-    /** 나랏글 (12키 + 기능 열). 획추가·쌍자음 변형 키 포함. */
+    /**
+     * 나랏글 (국가표준 3x4 배치): 글자 3열 + 오른쪽 기능 열의 4x4 그리드.
+     * 하단 열 없이 기능 키(⌫·스페이스·엔터·기호·한/영)가 그리드에 통합된다.
+     * 글자 키를 길게 누르면 우상단 숫자가 입력된다 (KeyboardView에서 처리).
+     */
     private fun naratgulRows(showLangKey: Boolean): List<List<Key>> = listOf(
         listOf(
             Key(KeyType.CHAR, "ㄱ", 'ㄱ'),
@@ -253,21 +298,107 @@ object KeyboardLayouts {
             Key(KeyType.CHAR, "ㄹ", 'ㄹ'),
             Key(KeyType.CHAR, "ㅁ", 'ㅁ'),
             Key(KeyType.CHAR, "ㅗㅜ", 'ㅗ'),
-            Key(KeyType.CHAR, "!", '!'),
+            Key(KeyType.SPACE, "", ' '),
         ),
         listOf(
             Key(KeyType.CHAR, "ㅅ", 'ㅅ'),
             Key(KeyType.CHAR, "ㅇ", 'ㅇ'),
             Key(KeyType.CHAR, "ㅣ", 'ㅣ'),
-            Key(KeyType.CHAR, "?", '?'),
+            Key(KeyType.CHAR, ",", ',', widthWeight = 0.45f),
+            Key(KeyType.ENTER, "⏎", widthWeight = 0.55f),
         ),
+        buildList {
+            add(Key(KeyType.CHAR, "획추가", NaratgulComposer.KEY_ADD_STROKE))
+            add(Key(KeyType.CHAR, "ㅡ", 'ㅡ'))
+            add(Key(KeyType.CHAR, "쌍자음", NaratgulComposer.KEY_DOUBLE))
+            if (showLangKey) {
+                add(Key(KeyType.SYMBOLS, "!#1", widthWeight = 0.45f))
+                add(Key(KeyType.LANG, "한/영", widthWeight = 0.55f))
+            } else {
+                add(Key(KeyType.SYMBOLS, "!#1"))
+            }
+        },
+    )
+
+    /**
+     * 나랏글 중앙 배치: 글자 3열을 가운데 두고
+     * 왼쪽에 문장부호·한/영·기호, 오른쪽에 ⌫·스페이스·엔터·마침표를 둔다.
+     */
+    private fun naratgulCenterRows(showLangKey: Boolean): List<List<Key>> {
+        val side = 0.75f
+        return listOf(
+            listOf(
+                Key(KeyType.CHAR, "?!", '?', widthWeight = side),
+                Key(KeyType.CHAR, "ㄱ", 'ㄱ'),
+                Key(KeyType.CHAR, "ㄴ", 'ㄴ'),
+                Key(KeyType.CHAR, "ㅏㅓ", 'ㅏ'),
+                Key(KeyType.DELETE, "⌫", widthWeight = side),
+            ),
+            listOf(
+                Key(KeyType.CHAR, ",", ',', widthWeight = side),
+                Key(KeyType.CHAR, "ㄹ", 'ㄹ'),
+                Key(KeyType.CHAR, "ㅁ", 'ㅁ'),
+                Key(KeyType.CHAR, "ㅗㅜ", 'ㅗ'),
+                Key(KeyType.SPACE, "", ' ', widthWeight = side),
+            ),
+            listOf(
+                if (showLangKey) {
+                    Key(KeyType.LANG, "한/영", widthWeight = side)
+                } else {
+                    Key(KeyType.CHAR, "!", '!', widthWeight = side)
+                },
+                Key(KeyType.CHAR, "ㅅ", 'ㅅ'),
+                Key(KeyType.CHAR, "ㅇ", 'ㅇ'),
+                Key(KeyType.CHAR, "ㅣ", 'ㅣ'),
+                Key(KeyType.ENTER, "⏎", widthWeight = side),
+            ),
+            listOf(
+                Key(KeyType.SYMBOLS, "!#1", widthWeight = side),
+                Key(KeyType.CHAR, "획추가", NaratgulComposer.KEY_ADD_STROKE),
+                Key(KeyType.CHAR, "ㅡ", 'ㅡ'),
+                Key(KeyType.CHAR, "쌍자음", NaratgulComposer.KEY_DOUBLE),
+                Key(KeyType.CHAR, ".", '.', widthWeight = side),
+            ),
+        )
+    }
+
+    /**
+     * 3x4 자판용 컴팩트 기호 키보드 (나랏글 계열 통용 기호 배치):
+     * 기호 3페이지(1/3~3/3) + 숫자 패드(page 3).
+     */
+    private fun compactSymbolRows(page: Int): List<List<Key>> {
+        if (page == 3) return compactNumberRows()
+        val pages = listOf(
+            Triple("!?.,()", "@:;/-♡", "*_%~^#"),
+            Triple("+×÷=<>", "[]{}\"'", "₩$€£¥`"),
+            Triple("○●□■☆★", "♤♡◇♧•°", "《》¡¿¤▪"),
+        )
+        val (r1, r2, r3) = pages[page.coerceIn(0, 2)]
+        return listOf(
+            charRow(r1) + Key(KeyType.DELETE, "⌫"),
+            charRow(r2) + Key(KeyType.ENTER, "⏎"),
+            charRow(r3) + Key(KeyType.CHAR, ".,?!", '.'),
+            listOf(
+                Key(KeyType.PAGE, "123", PAGE_TO_NUMPAD),
+                Key(KeyType.SYMBOLS, "가"),
+                Key(KeyType.PAGE, "${page.coerceIn(0, 2) + 1}/3", PAGE_CYCLE, widthWeight = 1.5f),
+                Key(KeyType.SPACE, "", ' ', widthWeight = 2.5f),
+                Key(KeyType.CHAR, ",", ','),
+            ),
+        )
+    }
+
+    /** 컴팩트 기호의 123 페이지: 3x4 숫자 패드. */
+    private fun compactNumberRows(): List<List<Key>> = listOf(
+        charRow("123") + Key(KeyType.DELETE, "⌫"),
+        charRow("456") + Key(KeyType.SPACE, "", ' '),
+        charRow("789") + Key(KeyType.ENTER, "⏎"),
         listOf(
-            Key(KeyType.CHAR, "획+", NaratgulComposer.KEY_ADD_STROKE),
-            Key(KeyType.CHAR, "ㅡ", 'ㅡ'),
-            Key(KeyType.CHAR, "쌍", NaratgulComposer.KEY_DOUBLE),
-            Key(KeyType.ENTER, "⏎"),
+            Key(KeyType.PAGE, "!#1", PAGE_TO_SYMBOLS),
+            Key(KeyType.CHAR, "0", '0'),
+            Key(KeyType.CHAR, ".", '.'),
+            Key(KeyType.SYMBOLS, "가"),
         ),
-        bottomRow(showLangKey),
     )
 
     /** 특수문자 하단 열: 글자 키보드 하단 열과 같은 구성, 첫 키만 '가'. */

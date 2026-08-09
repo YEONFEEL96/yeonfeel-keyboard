@@ -39,8 +39,19 @@ class DebugSettingsActivity : Activity() {
                 startActivity(Intent(this, TouchVisualizerActivity::class.java))
             },
             ui.textRow(getString(R.string.debug_touch_clear)) {
-                store.clear()
-                buildUi()
+                // 실수로 지우지 않도록 하단 확인 모달을 거친다.
+                ui.confirmBottom(
+                    title = getString(R.string.debug_touch_clear),
+                    message = getString(R.string.reset_confirm_message),
+                    confirmLabel = getString(R.string.reset_confirm_yes),
+                    cancelLabel = getString(R.string.clipboard_cancel),
+                ) {
+                    store.clear()
+                    android.widget.Toast
+                        .makeText(this, R.string.reset_done, android.widget.Toast.LENGTH_SHORT)
+                        .show()
+                    buildUi()
+                }
             },
         )
 

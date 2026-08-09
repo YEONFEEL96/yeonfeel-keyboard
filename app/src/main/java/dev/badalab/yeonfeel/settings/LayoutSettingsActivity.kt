@@ -29,6 +29,11 @@ class LayoutSettingsActivity : Activity() {
                     ui.radioRow(getString(R.string.korean_layout_chunjiin), layout == KoreanLayoutType.CHUNJIIN),
                 KoreanLayoutType.NARATGUL to
                     ui.radioRow(getString(R.string.korean_layout_naratgul), layout == KoreanLayoutType.NARATGUL),
+                KoreanLayoutType.NARATGUL_CENTER to
+                    ui.radioRow(
+                        getString(R.string.korean_layout_naratgul_center),
+                        layout == KoreanLayoutType.NARATGUL_CENTER,
+                    ),
             )
             ui.bindRadioGroup(radios) { selected -> settings.koreanLayout = selected }
             ui.card(*radios.values.toTypedArray())
@@ -47,7 +52,15 @@ class LayoutSettingsActivity : Activity() {
             title = getString(R.string.subtype_english)
             ui.header(getString(R.string.subtype_english))
             ui.caption(getString(R.string.english_layout_title))
-            ui.card(ui.radioRow(getString(R.string.english_layout_qwerty), true))
+            val layout = settings.englishLayout
+            val radios = linkedMapOf(
+                EnglishLayoutType.QWERTY to
+                    ui.radioRow(getString(R.string.english_layout_qwerty), layout == EnglishLayoutType.QWERTY),
+                EnglishLayoutType.DVORAK to
+                    ui.radioRow(getString(R.string.english_layout_dvorak), layout == EnglishLayoutType.DVORAK),
+            )
+            ui.bindRadioGroup(radios) { selected -> settings.englishLayout = selected }
+            ui.card(*radios.values.toTypedArray())
         }
 
         setContentView(ui.root())

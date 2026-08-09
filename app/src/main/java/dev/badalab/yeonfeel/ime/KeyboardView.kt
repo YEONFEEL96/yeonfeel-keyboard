@@ -285,6 +285,23 @@ class KeyboardView(
             relayoutKeys()
         }
 
+    var englishLayout: dev.badalab.yeonfeel.settings.EnglishLayoutType =
+        dev.badalab.yeonfeel.settings.EnglishLayoutType.QWERTY
+        set(value) {
+            field = value
+            relayoutKeys()
+        }
+
+    /** 길게 누르기 판정 시간(ms). 접근성 설정에서 조절한다 (변형 팝업·숫자·언어 목록 공통). */
+    var longPressDelayMs: Long = 350L
+
+    /** 3x4 자판(나랏글 계열)에서 기호 키보드를 컴팩트 배치로 보여줄지. */
+    var compactSymbols: Boolean = false
+        set(value) {
+            field = value
+            relayoutKeys()
+        }
+
     var shiftNumberRowSymbols: Boolean = true
         set(value) {
             field = value
@@ -369,6 +386,10 @@ class KeyboardView(
         textAlign = Paint.Align.CENTER
         textSize = sp(13f)
     }
+    private val hintTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.RIGHT
+        textSize = sp(11f)
+    }
     private val previewBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val previewBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val previewTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -392,6 +413,7 @@ class KeyboardView(
         textPaint.color = theme.text
         smallTextPaint.color = theme.text
         spaceGlyphPaint.color = theme.subText
+        hintTextPaint.color = theme.subText
         iconPaint.color = theme.text
         iconPaint.strokeWidth = dp(1.8f)
         iconPaint.pathEffect = CornerPathEffect(dp(1.5f))
@@ -442,6 +464,37 @@ class KeyboardView(
     private var variantPopup: VariantPopupState? = null
     private var variantPopupWindow: android.widget.PopupWindow? = null
     private val longPressRunnable = Runnable { showVariantPopup() }
+    private val digitLongPressRunnable = Runnable { commitPendingDigit() }
+
+    /** 천지인·나랏글 등 3x4 자판(컴팩트 기호 포함)인지 — 키가 커서 누른 키 미리보기를 생략한다. */
+    private fun is3x4Board(): Boolean = when {
+        mode == LayoutMode.SYMBOLS -> compactSymbols
+        mode == LayoutMode.KOREAN -> koreanLayout in setOf(
+            KoreanLayoutType.CHUNJIIN,
+            KoreanLayoutType.NARATGUL,
+            KoreanLayoutType.NARATGUL_CENTER,
+        )
+        else -> false
+    }
+
+    /** 나랏글 자판에서 이 키를 길게 눌렀을 때 입력될 숫자 (없으면 null). */
+    private fun naratgulDigit(key: Key): Char? =
+        if (mode == LayoutMode.KOREAN && key.type == KeyType.CHAR &&
+            (koreanLayout == KoreanLayoutType.NARATGUL || koreanLayout == KoreanLayoutType.NARATGUL_CENTER)
+        ) {
+            NARATGUL_DIGITS[key.char]
+        } else {
+            null
+        }
+
+    /** 롱프레스 시간이 지나면 글자 대신 우상단 숫자를 입력한다. */
+    private fun commitPendingDigit() {
+        val pending = pendingVariant ?: return
+        val digit = naratgulDigit(pending.key) ?: return
+        performKeyHaptic()
+        onKeyListener(Key(KeyType.CHAR, digit.toString(), digit))
+        cancelPendingVariant()
+    }
 
     /** 팝업 창에 그려지는 내용. 셀 좌표는 키보드 로컬 기준이므로 패널 원점만큼 이동해 그린다. */
     private inner class VariantPopupContent : View(context) {
@@ -490,14 +543,22 @@ class KeyboardView(
 
     /** 숫자 열은 다른 열보다 살짝 낮게 그린다. 기호 페이지의 숫자 열도 포함. */
     private fun hasCompactNumberRow(): Boolean = when {
-        mode == LayoutMode.SYMBOLS -> true
-        mode == LayoutMode.KOREAN && koreanLayout == KoreanLayoutType.SEBEOLSIK_390 -> false
+        // 컴팩트 기호(3x4)는 숫자 열 없이 4열이 전체 높이를 나눈다.
+        mode == LayoutMode.SYMBOLS -> !compactSymbols
+        // 세벌식·3x4 자판(천지인/나랏글)은 숫자 열 자체를 얹지 않는다.
+        mode == LayoutMode.KOREAN && koreanLayout in setOf(
+            KoreanLayoutType.SEBEOLSIK_390,
+            KoreanLayoutType.CHUNJIIN,
+            KoreanLayoutType.NARATGUL,
+            KoreanLayoutType.NARATGUL_CENTER,
+        ) -> false
         else -> showNumberRow
     }
 
     private fun rebuildBounds() {
         val rows = KeyboardLayouts.rows(
-            mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout, shiftNumberRowSymbols,
+            mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout,
+            shiftNumberRowSymbols, englishLayout, compactSymbols,
         )
         val heightWeights = FloatArray(rows.size) { 1f }
         if (hasCompactNumberRow() && rows.isNotEmpty()) {
@@ -554,7 +615,7 @@ class KeyboardView(
             }
             drawKeyContent(canvas, key, rect)
         }
-        if (keyPreviewEnabled && variantPopup == null) {
+        if (keyPreviewEnabled && variantPopup == null && !is3x4Board()) {
             for (pressed in pressedByPointer.values) {
                 if (pressed.type != KeyType.CHAR && pressed.type != KeyType.GHOST) continue
                 // 고스트(투명 보정 영역)는 실제 키 위치에서 미리보기를 띄운다.
@@ -619,10 +680,23 @@ class KeyboardView(
                 KeyType.DELETE -> drawDeleteIcon(canvas, rect)
                 KeyType.ENTER -> drawEnterIcon(canvas, rect)
                 else -> if (key.label.isNotEmpty()) {
-                    // 한/영 키는 작은 글자로 표시한다.
-                    val paint = if (key.type == KeyType.LANG) smallTextPaint else textPaint
+                    // 한/영 키와 ".,?!" 같은 긴 라벨은 작은 글자로 표시한다.
+                    val paint = if (key.type == KeyType.LANG || key.label.length >= 4) {
+                        smallTextPaint
+                    } else {
+                        textPaint
+                    }
                     val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
                     canvas.drawText(key.label, rect.centerX(), y, paint)
+                    // 나랏글: 길게 누르면 입력되는 숫자를 우상단에 작게 표시한다.
+                    naratgulDigit(key)?.let { digit ->
+                        canvas.drawText(
+                            digit.toString(),
+                            rect.right - dp(6f),
+                            rect.top + dp(5f) - hintTextPaint.ascent(),
+                            hintTextPaint,
+                        )
+                    }
                 }
             }
         }
@@ -739,15 +813,20 @@ class KeyboardView(
                         deletePointerId = pointerId
                         repeatHandler.postDelayed(repeatDelete, 400L)
                     }
+                    // 나랏글: 길게 누르면 우상단 숫자 입력 (쌍자음 변형 팝업보다 우선).
+                    naratgulDigit(key) != null -> {
+                        pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
+                        repeatHandler.postDelayed(digitLongPressRunnable, longPressDelayMs)
+                    }
                     // 변형 문자(분수 등)가 있는 키는 롱프레스와 구분하기 위해 UP에서 입력한다.
                     key.type == KeyType.CHAR && KEY_VARIANTS.containsKey(key.char) -> {
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
-                        repeatHandler.postDelayed(longPressRunnable, LONG_PRESS_MS)
+                        repeatHandler.postDelayed(longPressRunnable, longPressDelayMs)
                     }
                     // 한/영 키: 짧게 누르면 토글, 길게 누르면 언어 목록
                     key.type == KeyType.LANG -> {
                         langKeyPointerId = pointerId
-                        repeatHandler.postDelayed(langListRunnable, LONG_PRESS_MS)
+                        repeatHandler.postDelayed(langListRunnable, longPressDelayMs)
                     }
                     // ㅋ 등은 꾹 누르면 반복 입력된다.
                     (key.type == KeyType.CHAR || key.type == KeyType.GHOST) &&
@@ -912,6 +991,7 @@ class KeyboardView(
 
     private fun cancelPendingVariant() {
         repeatHandler.removeCallbacks(longPressRunnable)
+        repeatHandler.removeCallbacks(digitLongPressRunnable)
         pendingVariant = null
         variantPopupWindow?.dismiss()
         variantPopupWindow = null
@@ -1025,7 +1105,6 @@ class KeyboardView(
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val HAPTIC_DURATION_MS = 12L
         private const val KEY_SOUND_VOLUME = 0.5f
-        private const val LONG_PRESS_MS = 350L
         private const val LANG_POPUP_DELAY_MS = 300L
         private const val SPACE_SWIPE_THRESHOLD_DP = 30f
         private const val CHAR_REPEAT_START_MS = 400L
@@ -1033,6 +1112,14 @@ class KeyboardView(
 
         /** 꾹 누르면 반복 입력되는 문자. */
         private val REPEATABLE_CHARS = setOf('ㅋ')
+
+        /** 나랏글 키 우상단 숫자: 길게 누르면 해당 숫자가 입력된다. */
+        private val NARATGUL_DIGITS = mapOf(
+            'ㄱ' to '1', 'ㄴ' to '2', 'ㅏ' to '3',
+            'ㄹ' to '4', 'ㅁ' to '5', 'ㅗ' to '6',
+            'ㅅ' to '7', 'ㅇ' to '8', 'ㅣ' to '9',
+            'ㅡ' to '0',
+        )
 
         /** 숫자 키 롱프레스: 위첨자(첫 후보, 기본 선택) + 유니코드 분수. */
         private val NUMBER_VARIANTS = mapOf(

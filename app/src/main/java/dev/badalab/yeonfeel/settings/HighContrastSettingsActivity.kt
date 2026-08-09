@@ -18,18 +18,32 @@ import dev.badalab.yeonfeel.ime.KeyboardTheme
 class HighContrastSettingsActivity : Activity() {
 
     private lateinit var settings: KeyboardSettings
+    private var previewInput: android.widget.EditText? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = KeyboardSettings(this)
-        title = getString(R.string.settings_high_contrast_short)
+        title = getString(R.string.settings_high_contrast)
         buildUi()
     }
 
-    private fun buildUi() {
-        val ui = SettingComponents(this)
-        ui.header(getString(R.string.settings_high_contrast_short))
+    /** 숨은 입력 칸에 포커스를 줘 실제 키보드를 미리보기로 띄운다. */
+    private fun showPreviewKeyboard() {
+        val input = previewInput ?: return
+        input.requestFocus()
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.showSoftInput(input, 0)
+    }
 
+    private fun buildUi(showPreview: Boolean = false) {
+        val ui = SettingComponents(this)
+        ui.header(
+            getString(R.string.settings_high_contrast),
+            actionIcon = R.drawable.ic_toolbar_keyboard,
+            onAction = { showPreviewKeyboard() },
+        )
+
+        // 마스터 ON/OFF는 다른 옵션과 분리된 단독 카드로 둔다.
         ui.card(
             ui.switchRow(getString(R.string.settings_high_contrast), settings.highContrast) { checked, _ ->
                 settings.highContrast = checked
@@ -61,7 +75,27 @@ class HighContrastSettingsActivity : Activity() {
         }
         ui.card(grid)
 
-        setContentView(ui.root())
+        ui.caption(getString(R.string.hc_keyboard_options_title))
+        ui.card(
+            ui.switchRow(getString(R.string.hc_force_keycap), settings.highContrastForceKeycap) { checked, _ ->
+                settings.highContrastForceKeycap = checked
+            },
+        )
+
+        // 키보드 미리보기용 숨은 입력 칸: 화면에는 보이지 않지만 포커스를 받을 수 있다.
+        val input = android.widget.EditText(this).apply {
+            alpha = 0f
+            background = null
+            hint = getString(R.string.hc_preview_hint)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
+        }
+        previewInput = input
+        val root = android.widget.FrameLayout(this).apply {
+            addView(ui.root())
+            addView(input, android.widget.FrameLayout.LayoutParams(1, 1, Gravity.BOTTOM))
+        }
+        setContentView(root)
+        if (showPreview) input.post { showPreviewKeyboard() }
     }
 
     private fun buildStyleTile(ui: SettingComponents, style: HighContrastStyle, label: String): View {
@@ -74,7 +108,8 @@ class HighContrastSettingsActivity : Activity() {
             setOnClickListener {
                 settings.highContrastStyle = style
                 settings.highContrast = true
-                buildUi()
+                // 미리보기 키보드가 떠 있었다면 새 스타일로 다시 띄운다.
+                buildUi(showPreview = previewInput?.hasFocus() == true)
             }
         }
         tile.addView(

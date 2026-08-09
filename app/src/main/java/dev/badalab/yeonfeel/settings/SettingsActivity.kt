@@ -66,6 +66,9 @@ class SettingsActivity : Activity() {
         )
 
         ui.card(
+            ui.textRow(getString(R.string.settings_accessibility)) {
+                startActivity(Intent(this, AccessibilitySettingsActivity::class.java))
+            },
             ui.textRow(getString(R.string.reset_menu)) {
                 startActivity(Intent(this, ResetSettingsActivity::class.java))
             },
@@ -89,7 +92,7 @@ class SettingsActivity : Activity() {
         )
         if (settings.highContrast) {
             append(" · ")
-            append(getString(R.string.settings_high_contrast_short))
+            append(getString(R.string.settings_high_contrast))
         }
     }
 }

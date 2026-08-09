@@ -54,11 +54,19 @@ class FeedbackSettingsActivity : Activity() {
                 },
             )
         }
-        rows.add(
-            ui.switchRow(getString(R.string.feedback_key_preview), settings.keyPreviewEnabled) { checked, _ ->
-                settings.keyPreviewEnabled = checked
-            },
+        // 3x4 자판(천지인/나랏글)은 키가 커서 미리보기가 불필요 — 메뉴에서 숨긴다.
+        val is3x4 = settings.koreanLayout in setOf(
+            KoreanLayoutType.CHUNJIIN,
+            KoreanLayoutType.NARATGUL,
+            KoreanLayoutType.NARATGUL_CENTER,
         )
+        if (!is3x4) {
+            rows.add(
+                ui.switchRow(getString(R.string.feedback_key_preview), settings.keyPreviewEnabled) { checked, _ ->
+                    settings.keyPreviewEnabled = checked
+                },
+            )
+        }
         ui.card(*rows.toTypedArray())
 
         setContentView(ui.root())

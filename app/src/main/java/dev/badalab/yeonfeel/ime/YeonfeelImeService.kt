@@ -78,7 +78,7 @@ class YeonfeelImeService : InputMethodService() {
         composer.reset()
         composer = when (settings.koreanLayout) {
             KoreanLayoutType.CHUNJIIN -> chunjiinComposer
-            KoreanLayoutType.NARATGUL -> naratgulComposer
+            KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER -> naratgulComposer
             else -> dubeolComposer
         }
         dubeolComposer.doubleTapIotation = settings.koreanLayout == KoreanLayoutType.DANMOEUM
@@ -260,10 +260,22 @@ class YeonfeelImeService : InputMethodService() {
             KeyType.SYMBOLS -> {
                 finishComposition()
                 view.symbolsPage = 0
+                if (view.mode != LayoutMode.SYMBOLS) {
+                    // 3x4 나랏글 계열에서 들어온 기호 키보드는 컴팩트 배치를 쓴다.
+                    view.compactSymbols = mode == LayoutMode.KOREAN &&
+                        settings.koreanLayout in setOf(
+                            KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER,
+                        )
+                }
                 view.mode = if (view.mode == LayoutMode.SYMBOLS) mode else LayoutMode.SYMBOLS
                 view.shifted = false
             }
-            KeyType.PAGE -> view.symbolsPage = if (view.symbolsPage == 0) 1 else 0
+            KeyType.PAGE -> view.symbolsPage = when (key.char) {
+                KeyboardLayouts.PAGE_TO_NUMPAD -> 3
+                KeyboardLayouts.PAGE_TO_SYMBOLS -> 0
+                KeyboardLayouts.PAGE_CYCLE -> (view.symbolsPage + 1) % 3
+                else -> if (view.symbolsPage == 0) 1 else 0
+            }
             KeyType.SPACER -> Unit
         }
     }
