@@ -16,6 +16,8 @@ data class Key(
     val label: String,
     val char: Char = ' ',
     val widthWeight: Float = 1f,
+    /** 변형 팝업에서 고른 기호를 이 키에 기억한다 (천지인 우측 하단 기호 키). */
+    val remember: Boolean = false,
 )
 
 enum class LayoutMode { KOREAN, ENGLISH, SYMBOLS }
@@ -28,6 +30,15 @@ object KeyboardLayouts {
     const val PAGE_CYCLE = '\uE012'
 
     private val cache = HashMap<String, List<List<Key>>>()
+
+    /** 3x4 자판 우측 하단 기호 키: 마지막으로 사용한 기호를 기억한다. */
+    var lastSymbol3x4: Char = ','
+        set(value) {
+            if (field != value) {
+                field = value
+                cache.clear()
+            }
+        }
 
     /** 스페이스바 오른쪽 기호 키의 즐겨찾기 기호. 바뀌면 캐시를 비운다. */
     var favoriteSymbol: Char = '.'
@@ -282,7 +293,7 @@ object KeyboardLayouts {
             }
             add(Key(KeyType.CHAR, "ㅇㅁ", 'ㅇ'))
             add(Key(KeyType.SPACE, "", ' '))
-            add(Key(KeyType.CHAR, ",", ','))
+            add(Key(KeyType.CHAR, lastSymbol3x4.toString(), lastSymbol3x4, remember = true))
         },
     )
 

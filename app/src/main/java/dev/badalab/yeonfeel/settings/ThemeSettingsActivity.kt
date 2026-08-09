@@ -35,6 +35,16 @@ class ThemeSettingsActivity : Activity() {
             },
         )
 
+        ui.caption(getString(R.string.font_size_title))
+        val fontSize = settings.keyFontSize
+        val fontRadios = linkedMapOf(
+            KeyFontSize.SMALL to ui.radioRow(getString(R.string.font_size_small), fontSize == KeyFontSize.SMALL),
+            KeyFontSize.NORMAL to ui.radioRow(getString(R.string.font_size_normal), fontSize == KeyFontSize.NORMAL),
+            KeyFontSize.LARGE to ui.radioRow(getString(R.string.font_size_large), fontSize == KeyFontSize.LARGE),
+        )
+        ui.bindRadioGroup(fontRadios) { selected -> settings.keyFontSize = selected }
+        ui.card(*fontRadios.values.toTypedArray())
+
         ui.show()
     }
 }

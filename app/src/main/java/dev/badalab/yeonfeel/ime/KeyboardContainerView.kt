@@ -35,6 +35,7 @@ class KeyboardContainerView(
         fun onOpenSettings()
         fun onLanguageSwipe()
         fun onToolbarOrderChanged(order: String)
+        fun onRememberSymbol(symbol: Char)
         fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
@@ -43,6 +44,7 @@ class KeyboardContainerView(
 
     val keyboardView = KeyboardView(context) { callbacks.onKey(it) }.apply {
         onLanguageSwipe = { callbacks.onLanguageSwipe() }
+        onVariantPicked = { callbacks.onRememberSymbol(it) }
     }
 
     private var theme: KeyboardTheme = KeyboardTheme.DARK
@@ -157,6 +159,8 @@ class KeyboardContainerView(
         keyboardView.keyPreviewEnabled = settings.keyPreviewEnabled
         keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
         keyboardView.longPressDelayMs = settings.longPressDelayMs.toLong()
+        keyboardView.fontScale = settings.keyFontSize.scale
+        KeyboardLayouts.lastSymbol3x4 = settings.rememberedSymbol.first()
         keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
         keyboardView.hapticStrength = settings.hapticStrength

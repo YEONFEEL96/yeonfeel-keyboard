@@ -169,6 +169,10 @@ class YeonfeelImeService : InputMethodService() {
             emojiSearchComposer.reset()
         }
 
+        override fun onRememberSymbol(symbol: Char) {
+            settings.rememberedSymbol = symbol.toString()
+        }
+
         override fun onToolbarOrderChanged(order: String) {
             settings.toolbarOrder = order
         }

@@ -87,6 +87,9 @@ class KeyboardView(
     var currentLanguageIndex: Int = 0
     var onLanguageSelected: ((Int) -> Unit)? = null
 
+    /** 기억형 기호 키에서 변형 팝업으로 기호를 골랐을 때 (저장용). */
+    var onVariantPicked: ((Char) -> Unit)? = null
+
     private class LangListState(
         val pointerId: Int,
         val panel: RectF,
@@ -284,6 +287,22 @@ class KeyboardView(
             field = value
             relayoutKeys()
         }
+
+    /** 키 라벨 글자 크기 배율 (작게/보통/크게 설정). */
+    var fontScale: Float = 1f
+        set(value) {
+            field = value
+            applyFontScale()
+            invalidate()
+        }
+
+    private fun applyFontScale() {
+        textPaint.textSize = sp(20f) * fontScale
+        bigTextPaint.textSize = sp(25f) * fontScale
+        smallTextPaint.textSize = sp(13f) * fontScale
+        hintTextPaint.textSize = sp(11f) * fontScale
+        previewTextPaint.textSize = sp(30f) * fontScale
+    }
 
     /** 길게 누르기 판정 시간(ms). 접근성 설정에서 조절한다 (변형 팝업·숫자·언어 목록 공통). */
     var longPressDelayMs: Long = 350L
@@ -672,10 +691,11 @@ class KeyboardView(
                 KeyType.DELETE -> drawDeleteIcon(canvas, rect)
                 KeyType.ENTER -> drawEnterIcon(canvas, rect)
                 else -> if (key.label.isNotEmpty()) {
-                    // 한/영·".,?!" 같은 긴 라벨은 작게, 키가 큰 3x4 자판 글자는 크게 표시한다.
+                    // 키가 큰 3x4 자판 글자(".,?!" 포함)는 크게, 한/영·그 외 긴 라벨은 작게 표시한다.
                     val paint = when {
-                        key.type == KeyType.LANG || key.label.length >= 4 -> smallTextPaint
-                        is3x4Board() && key.type == KeyType.CHAR && key.label.length <= 2 -> bigTextPaint
+                        key.type == KeyType.LANG -> smallTextPaint
+                        is3x4Board() && key.type == KeyType.CHAR -> bigTextPaint
+                        key.label.length >= 4 -> smallTextPaint
                         else -> textPaint
                     }
                     val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
@@ -881,6 +901,11 @@ class KeyboardView(
                         if (popup != null && popup.pointerId == pointerId) {
                             val choice = popup.options[popup.selected]
                             onKeyListener(Key(KeyType.CHAR, choice, choice.first()))
+                            if (pending.key.remember && choice.length == 1) {
+                                KeyboardLayouts.lastSymbol3x4 = choice.first()
+                                onVariantPicked?.invoke(choice.first())
+                                relayoutKeys()
+                            }
                         } else {
                             onKeyListener(pending.key)
                         }

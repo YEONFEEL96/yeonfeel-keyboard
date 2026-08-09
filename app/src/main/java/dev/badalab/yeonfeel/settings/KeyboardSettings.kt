@@ -61,6 +61,13 @@ enum class EnglishLayoutType {
     DVORAK,
 }
 
+/** 키보드 글자 크기 (라벨 스케일). */
+enum class KeyFontSize(val scale: Float) {
+    SMALL(0.85f),
+    NORMAL(1f),
+    LARGE(1.15f),
+}
+
 /** 키보드 사용자 설정. IME 서비스와 설정 화면이 공유한다. */
 class KeyboardSettings(context: Context) {
 
@@ -209,6 +216,17 @@ class KeyboardSettings(context: Context) {
         }.getOrDefault(KoreanLayoutType.DUBEOLSIK)
         set(value) = prefs.edit().putString(KEY_KOREAN_LAYOUT, value.name).apply()
 
+    /** 천지인 우측 하단 기호 키가 기억하는 마지막 사용 기호. */
+    var rememberedSymbol: String
+        get() = prefs.getString(KEY_REMEMBERED_SYMBOL, ",")?.takeIf { it.isNotEmpty() } ?: ","
+        set(value) = prefs.edit().putString(KEY_REMEMBERED_SYMBOL, value.take(1)).apply()
+
+    var keyFontSize: KeyFontSize
+        get() = runCatching {
+            KeyFontSize.valueOf(prefs.getString(KEY_FONT_SIZE, null) ?: "")
+        }.getOrDefault(KeyFontSize.NORMAL)
+        set(value) = prefs.edit().putString(KEY_FONT_SIZE, value.name).apply()
+
     var englishLayout: EnglishLayoutType
         get() = runCatching {
             EnglishLayoutType.valueOf(prefs.getString(KEY_ENGLISH_LAYOUT, null) ?: "")
@@ -256,6 +274,8 @@ class KeyboardSettings(context: Context) {
         private const val KEY_SWITCH_METHOD = "language_switch_method"
         private const val KEY_KOREAN_LAYOUT = "korean_layout"
         private const val KEY_ENGLISH_LAYOUT = "english_layout"
+        private const val KEY_FONT_SIZE = "key_font_size"
+        private const val KEY_REMEMBERED_SYMBOL = "remembered_symbol_3x4"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"

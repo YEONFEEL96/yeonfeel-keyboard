@@ -36,6 +36,10 @@
     <string name="settings_accessibility">접근성</string>
     <string name="settings_high_contrast">고대비</string>
     <string name="theme_show_keycap">키캡 배경 표시</string>
+    <string name="font_size_title">키보드 글자 크기</string>
+    <string name="font_size_small">작게</string>
+    <string name="font_size_normal">보통</string>
+    <string name="font_size_large">크게</string>
     <string name="theme_hc_style_title">고대비 색상</string>
     <string name="hc_keyboard_options_title">키보드 옵션</string>
     <string name="accessibility_input_title">입력 보조</string>
