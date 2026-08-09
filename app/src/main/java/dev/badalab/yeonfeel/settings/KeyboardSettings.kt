@@ -276,6 +276,21 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_OLDIE_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_OLDIE_MODE, value).apply()
 
+    /** 가로 화면에서 분할 키보드 사용. */
+    var splitLandscape: Boolean
+        get() = prefs.getBoolean(KEY_SPLIT_LANDSCAPE, false)
+        set(value) = prefs.edit().putBoolean(KEY_SPLIT_LANDSCAPE, value).apply()
+
+    /** 세로 화면에서 분할 키보드 사용 (폴더블·태블릿 대화면 전용). */
+    var splitPortrait: Boolean
+        get() = prefs.getBoolean(KEY_SPLIT_PORTRAIT, false)
+        set(value) = prefs.edit().putBoolean(KEY_SPLIT_PORTRAIT, value).apply()
+
+    /** 분할 키보드 중앙 간격 (전체 폭 가중치 대비 %, 10~120). */
+    var splitGapPercent: Int
+        get() = prefs.getInt(KEY_SPLIT_GAP, SPLIT_GAP_DEFAULT)
+        set(value) = prefs.edit().putInt(KEY_SPLIT_GAP, value.coerceIn(SPLIT_GAP_MIN, SPLIT_GAP_MAX)).apply()
+
     var keyFontSize: KeyFontSize
         get() = runCatching {
             KeyFontSize.valueOf(prefs.getString(KEY_FONT_SIZE, null) ?: "")
@@ -302,6 +317,9 @@ class KeyboardSettings(context: Context) {
     fun resetAll() = prefs.edit().clear().apply()
 
     companion object {
+        const val SPLIT_GAP_DEFAULT = 45
+        const val SPLIT_GAP_MIN = 10
+        const val SPLIT_GAP_MAX = 120
         const val MARGIN_TOP_MAX = 60
         const val MARGIN_BOTTOM_MAX = 100
         const val MARGIN_BOTTOM_DEFAULT = 12
@@ -341,6 +359,9 @@ class KeyboardSettings(context: Context) {
         private const val KEY_DWAET_FIX = "dwaet_fix"
         private const val KEY_TERMINAL_ROW = "terminal_row"
         private const val KEY_OLDIE_MODE = "oldie_mode"
+        private const val KEY_SPLIT_LANDSCAPE = "split_landscape"
+        private const val KEY_SPLIT_PORTRAIT = "split_portrait"
+        private const val KEY_SPLIT_GAP = "split_gap_percent"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"

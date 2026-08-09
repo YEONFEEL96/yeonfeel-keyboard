@@ -173,11 +173,20 @@ class WordCorrector {
             return if (dx * dx + dy * dy <= 1.3f) COST_ADJACENT else COST_SUBSTITUTE
         }
 
+        // 후보마다 배열을 새로 만들지 않도록 재사용한다 (단일 스레드 호출 전제).
+        private var dpPrev = FloatArray(64)
+        private var dpCurr = FloatArray(64)
+
         /** 비용 상한 초과 시 조기 종료하는 편집거리. */
         fun editDistance(a: String, b: String, maxCost: Float): Float? {
             if (abs(a.length - b.length) * COST_INSERT_DELETE > maxCost) return null
-            var prev = FloatArray(b.length + 1) { it * COST_INSERT_DELETE }
-            var curr = FloatArray(b.length + 1)
+            if (dpPrev.size <= b.length) {
+                dpPrev = FloatArray(b.length + 1)
+                dpCurr = FloatArray(b.length + 1)
+            }
+            var prev = dpPrev
+            var curr = dpCurr
+            for (j in 0..b.length) prev[j] = j * COST_INSERT_DELETE
             for (i in 1..a.length) {
                 curr[0] = i * COST_INSERT_DELETE
                 var rowMin = curr[0]

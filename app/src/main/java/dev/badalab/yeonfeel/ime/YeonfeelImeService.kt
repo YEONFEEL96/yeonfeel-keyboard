@@ -46,14 +46,14 @@ class YeonfeelImeService : InputMethodService() {
     private val ioExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
-    /** 클립보드 복호화는 느리므로 백그라운드에서 읽고 메인에서 반영한다. */
+    /** 파일이 바뀐 경우에만 백그라운드에서 읽어 메인에서 반영한다 (복호화 비용 절약). */
     private fun reloadStoresAsync() {
         ioExecutor.execute {
-            val entries = clipboardStore.load()
+            val entries = clipboardStore.loadIfChanged()
+            val statsChanged = touchStats.reload()
             mainHandler.post {
-                clipboardHistory.restore(entries)
-                touchStats.reload()
-                touchModel.invalidate()
+                entries?.let { clipboardHistory.restore(it) }
+                if (statsChanged) touchModel.invalidate()
             }
         }
     }
@@ -269,6 +269,10 @@ class YeonfeelImeService : InputMethodService() {
         }
 
         override fun onLanguageSwipe() = switchLanguage()
+
+        override fun onSplitGapCommitted(percent: Int) {
+            settings.splitGapPercent = percent
+        }
 
         override fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {
             settings.marginTopDp = topDp

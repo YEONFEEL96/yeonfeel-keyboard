@@ -27,6 +27,8 @@ class MarginAdjustOverlay(
     private var sideDp: Int,
     private var heightDp: Int,
     private val theme: KeyboardTheme,
+    private val splitActive: Boolean = false,
+    private var splitGapPercent: Int = KeyboardSettings.SPLIT_GAP_DEFAULT,
     private val listener: Listener,
 ) : View(context) {
 
@@ -36,6 +38,12 @@ class MarginAdjustOverlay(
 
         /** 드래그가 끝나거나 초기화됐을 때 — 설정에 저장한다. */
         fun onCommit(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
+
+        /** 분할 간격 드래그 중 실시간 호출. */
+        fun onSplitGapChanged(percent: Int)
+
+        /** 분할 간격 드래그 종료 — 설정에 저장한다. */
+        fun onSplitGapCommitted(percent: Int)
 
         fun onDone()
     }
@@ -73,6 +81,7 @@ class MarginAdjustOverlay(
     private var pendingButton: RectF? = null
     private var downRawX = 0f
     private var downRawY = 0f
+    private var downSplitX = 0f
     private var startTop = 0
     private var startBottom = 0
     private var startSide = 0
@@ -99,6 +108,19 @@ class MarginAdjustOverlay(
         setMeasuredDimension(width, height)
     }
 
+    /** 분할 상태에서 우측 블록 영역 (KeyboardView.layoutSplitRow와 같은 수식). */
+    private fun rightBlockArea(area: RectF): RectF {
+        val g = splitGapPercent / 100f
+        val margin = area.width() * 0.03f
+        val usable = area.width() - margin * 2
+        val innerLeft = area.left + margin + usable * (0.5f + g) / (1f + g)
+        return RectF(innerLeft, area.top, area.right - margin, area.bottom)
+    }
+
+    /** 조정 UI를 얹는 영역 — 분할 상태에서는 우측 블록만 기준으로 잡는다. */
+    private fun displayArea(): RectF =
+        if (splitActive) rightBlockArea(keyArea()) else keyArea()
+
     private fun keyArea(): RectF = RectF(
         sideDp * density,
         topDp * density,
@@ -107,9 +129,9 @@ class MarginAdjustOverlay(
     )
 
     override fun onDraw(canvas: Canvas) {
-        val area = keyArea()
+        val area = displayArea()
 
-        // 여백 영역은 원래 배경 그대로 두고, 키 영역만 반투명 흰색으로 살짝 밝힌다 —
+        // 여백 영역은 원래 배경 그대로 두고, 조정 영역만 반투명 흰색으로 살짝 밝힌다 —
         // 조정 대상이 어디인지 드러나고 초기화/완료 버튼도 잘 보인다.
         canvas.drawRect(area, highlightPaint)
 
@@ -180,6 +202,7 @@ class MarginAdjustOverlay(
                         activeHandle = findHandle(event.x, event.y) ?: return true
                         downRawX = event.rawX
                         downRawY = event.rawY
+                        downSplitX = rightBlockArea(keyArea()).left
                         startTop = topDp
                         startBottom = bottomDp
                         startSide = sideDp
@@ -189,6 +212,20 @@ class MarginAdjustOverlay(
             }
             MotionEvent.ACTION_MOVE -> {
                 val handle = activeHandle ?: return true
+                if (splitActive && handle == Handle.LEFT) {
+                    // 핸들 위치(우측 블록 안쪽 가장자리)를 간격 비율로 역산 — 좌우가 대칭으로 움직인다.
+                    val area = keyArea()
+                    val margin = area.width() * 0.03f
+                    val usable = area.width() - margin * 2
+                    val x = downSplitX + (event.rawX - downRawX)
+                    val t = ((x - area.left - margin) / usable).coerceIn(0.52f, 0.9f)
+                    val g = (t - 0.5f) / (1f - t)
+                    splitGapPercent = (g * 100).toInt()
+                        .coerceIn(KeyboardSettings.SPLIT_GAP_MIN, KeyboardSettings.SPLIT_GAP_MAX)
+                    listener.onSplitGapChanged(splitGapPercent)
+                    invalidate()
+                    return true
+                }
                 val dxDp = ((event.rawX - downRawX) / density).toInt()
                 val dyDp = ((event.rawY - downRawY) / density).toInt()
                 when (handle) {
@@ -225,18 +262,26 @@ class MarginAdjustOverlay(
                         bottomDp = KeyboardSettings.MARGIN_BOTTOM_DEFAULT
                         sideDp = 0
                         heightDp = KeyboardSettings.HEIGHT_DEFAULT
+                        if (splitActive) {
+                            splitGapPercent = KeyboardSettings.SPLIT_GAP_DEFAULT
+                            listener.onSplitGapChanged(splitGapPercent)
+                            listener.onSplitGapCommitted(splitGapPercent)
+                        }
                         listener.onMarginsChanged(topDp, bottomDp, sideDp, heightDp)
                         listener.onCommit(topDp, bottomDp, sideDp, heightDp)
                         requestLayout()
                         invalidate()
                     }
+                    splitActive && activeHandle == Handle.LEFT ->
+                        listener.onSplitGapCommitted(splitGapPercent)
                     activeHandle != null -> listener.onCommit(topDp, bottomDp, sideDp, heightDp)
                 }
                 pendingButton = null
                 activeHandle = null
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (activeHandle != null) listener.onCommit(topDp, bottomDp, sideDp, heightDp)
+                if (splitActive && activeHandle == Handle.LEFT) listener.onSplitGapCommitted(splitGapPercent)
+                else if (activeHandle != null) listener.onCommit(topDp, bottomDp, sideDp, heightDp)
                 pendingButton = null
                 activeHandle = null
             }
@@ -250,17 +295,18 @@ class MarginAdjustOverlay(
      */
     private fun handlePoints(area: RectF): Map<Handle, Pair<Float, Float>> {
         val inset = dp(28f)
-        return mapOf(
+        val points = mutableMapOf(
             Handle.TOP to (area.centerX() to area.top),
             Handle.BOTTOM to (area.centerX() to minOf(area.bottom, height - inset)),
             Handle.LEFT to (maxOf(area.left, inset) to area.centerY()),
             Handle.RIGHT to (minOf(area.right, width - inset) to area.centerY()),
         )
+        return points
     }
 
     private fun findHandle(x: Float, y: Float): Handle? {
         val slop = dp(36f)
-        return handlePoints(keyArea()).entries.firstOrNull { (_, point) ->
+        return handlePoints(displayArea()).entries.firstOrNull { (_, point) ->
             val dx = x - point.first
             val dy = y - point.second
             dx * dx + dy * dy <= slop * slop

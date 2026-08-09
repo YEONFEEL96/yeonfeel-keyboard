@@ -27,6 +27,16 @@ class SecureClipboardStore(context: Context) {
 
     private val file = File(context.filesDir, FILE_NAME)
 
+    private var loadedMtime = -1L
+
+    /** 파일이 마지막 로드 이후 바뀌었을 때만 복호화해 돌려준다 (변경 없으면 null). */
+    fun loadIfChanged(): List<ClipboardHistory.Entry>? {
+        val mtime = if (file.exists()) file.lastModified() else 0L
+        if (mtime == loadedMtime) return null
+        loadedMtime = mtime
+        return load()
+    }
+
     fun save(entries: List<ClipboardHistory.Entry>) {
         runCatching {
             val json = JSONArray()

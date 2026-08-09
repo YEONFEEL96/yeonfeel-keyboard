@@ -325,6 +325,20 @@ class KeyboardView(
     /** 길게 누르기 판정 시간(ms). 접근성 설정에서 조절한다 (변형 팝업·숫자·언어 목록 공통). */
     var longPressDelayMs: Long = 350L
 
+    /** 분할 키보드: 행을 좌우로 나누고 중앙에 빈 공간을 둔다 (3x4 자판 제외). */
+    var splitEnabled: Boolean = false
+        set(value) {
+            field = value
+            relayoutKeys()
+        }
+
+    /** 분할 중앙 간격 비율 (행 전체 폭 가중치 대비). 레이아웃 조정 핸들로 바뀐다. */
+    var splitGapRatio: Float = 0.45f
+        set(value) {
+            field = value
+            relayoutKeys()
+        }
+
     /** 3x4 자판(나랏글 계열)에서 기호 키보드를 컴팩트 배치로 보여줄지. */
     var compactSymbols: Boolean = false
         set(value) {
@@ -499,13 +513,15 @@ class KeyboardView(
     private val digitLongPressRunnable = Runnable { commitPendingDigit() }
 
     /** 천지인·나랏글 등 3x4 자판(컴팩트 기호 포함)인지 — 키가 커서 누른 키 미리보기를 생략한다. */
-    private fun is3x4Board(): Boolean = when {
-        mode == LayoutMode.SYMBOLS -> compactSymbols
-        mode == LayoutMode.KOREAN -> koreanLayout in setOf(
+    private fun is3x4Board(): Boolean = when (mode) {
+        LayoutMode.SYMBOLS -> compactSymbols
+        LayoutMode.KOREAN -> when (koreanLayout) {
             KoreanLayoutType.CHUNJIIN,
             KoreanLayoutType.NARATGUL,
             KoreanLayoutType.NARATGUL_CENTER,
-        )
+            -> true
+            else -> false
+        }
         else -> false
     }
 
@@ -519,9 +535,22 @@ class KeyboardView(
         }
     }
 
+    private fun isLandscape(): Boolean =
+        resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    /** 가로모드 QWERTY류는 숫자 열을 없애고 맨 윗열 길게 누르기로 숫자를 입력한다. */
+    private fun effectiveShowNumberRow(): Boolean =
+        showNumberRow && !(isLandscape() && mode != LayoutMode.SYMBOLS && !is3x4Board())
+
+    // 맨 윗열 문자 → 숫자 (가로모드 전용). 자판이 바뀔 때마다 윗열에서 다시 만든다.
+    private var landscapeTopDigits: Map<Char, Char> = emptyMap()
+
+    private fun landscapeTopDigit(key: Key): Char? =
+        if (key.type == KeyType.CHAR) landscapeTopDigits[key.char] else null
+
     private fun commitPendingDigit() {
         val pending = pendingVariant ?: return
-        val digit = naratgulDigit(pending.key) ?: return
+        val digit = naratgulDigit(pending.key) ?: landscapeTopDigit(pending.key) ?: return
         performKeyHaptic()
         onKeyListener(Key(KeyType.CHAR, digit.toString(), digit))
         cancelPendingVariant()
@@ -577,19 +606,26 @@ class KeyboardView(
         // 컴팩트 기호(3x4)는 숫자 열 없이 4열이 전체 높이를 나눈다.
         mode == LayoutMode.SYMBOLS -> !compactSymbols
         // 3x4 자판(천지인/나랏글)은 숫자 열 자체를 얹지 않는다.
-        mode == LayoutMode.KOREAN && koreanLayout in setOf(
-            KoreanLayoutType.CHUNJIIN,
-            KoreanLayoutType.NARATGUL,
-            KoreanLayoutType.NARATGUL_CENTER,
-        ) -> false
-        else -> showNumberRow
+        mode == LayoutMode.KOREAN && is3x4Board() -> false
+        else -> effectiveShowNumberRow()
     }
 
     private fun rebuildBounds() {
         val rows = KeyboardLayouts.rows(
-            mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout,
+            mode, shifted, effectiveShowNumberRow(), symbolsPage, showLangKey, koreanLayout,
             shiftNumberRowSymbols, englishLayout, compactSymbols,
         )
+        landscapeTopDigits =
+            if (isLandscape() && mode != LayoutMode.SYMBOLS && !is3x4Board()) {
+                buildMap {
+                    rows.firstOrNull()?.asSequence()
+                        ?.filter { it.type == KeyType.CHAR }
+                        ?.take(10)
+                        ?.forEachIndexed { i, key -> put(key.char, "1234567890"[i]) }
+                }
+            } else {
+                emptyMap()
+            }
         val heightWeights = FloatArray(rows.size) { 1f }
         if (hasCompactNumberRow() && rows.isNotEmpty()) {
             heightWeights[0] = NUMBER_ROW_HEIGHT_WEIGHT
@@ -597,24 +633,119 @@ class KeyboardView(
         val unit = height.toFloat() / heightWeights.sum()
         // 수직 간격을 수평보다 넓게 — 키 높이가 낮아 보이는 인상을 준다.
         val gapX = dp(3f)
-        val gapY = dp(6.5f)
+        // 가로는 키 높이가 낮아 수직 간격을 줄여 키캡 면적을 확보한다.
+        val landscape =
+            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val gapY = if (landscape) dp(4f) else dp(6.5f)
         val bounds = mutableListOf<KeyBounds>()
         var top = 0f
+        val split = splitEnabled && !is3x4Board()
+        val spaceLeftEdge = if (split) maxLeftBlockEnd(rows) else null
         rows.forEachIndexed { rowIdx, row ->
             val rowHeight = unit * heightWeights[rowIdx]
             val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
-            var x = 0f
-            row.forEach { key ->
-                val keyWidth = width * (key.widthWeight / totalWeight)
+            if (split) {
+                layoutSplitRow(row, totalWeight, top, rowHeight, gapX, gapY, bounds, spaceLeftEdge)
+            } else {
+                var x = 0f
+                row.forEach { key ->
+                    val keyWidth = width * (key.widthWeight / totalWeight)
+                    bounds += KeyBounds(
+                        key,
+                        RectF(x + gapX, top + gapY, x + keyWidth - gapX, top + rowHeight - gapY),
+                    )
+                    x += keyWidth
+                }
+            }
+            top += rowHeight
+        }
+        keyBounds = bounds
+    }
+
+    /**
+     * 분할 배치: 행을 가중치 절반 지점에서 좌우로 나누고 중앙에 간격을 둔다.
+     * 경계에 걸친 스페이스바는 반으로 갈라 양쪽에 배치하되, 왼쪽 조각의
+     * 오른끝만 [spaceLeftEdge]까지 늘려 윗 행 키 끝(ㅍ)과 맞춘다.
+     */
+    private fun layoutSplitRow(
+        row: List<Key>,
+        totalWeight: Float,
+        top: Float,
+        rowHeight: Float,
+        gapX: Float,
+        gapY: Float,
+        bounds: MutableList<KeyBounds>,
+        spaceLeftEdge: Float?,
+    ) {
+        val sideMargin = width * SPLIT_SIDE_MARGIN_RATIO
+        val usable = width - sideMargin * 2
+        val unit = usable / (totalWeight * (1f + splitGapRatio))
+        val gapWidth = usable - totalWeight * unit
+        val half = totalWeight / 2f
+        var acc = 0f
+        var x = sideMargin
+        var gapPlaced = false
+        row.forEach { key ->
+            val w = key.widthWeight
+            val straddles = acc < half && acc + w > half
+            if (straddles && key.type == KeyType.SPACE) {
+                val leftWidth = (half - acc) * unit
+                val leftEnd = maxOf(x + leftWidth, spaceLeftEdge ?: 0f)
+                bounds += KeyBounds(
+                    key,
+                    RectF(x + gapX, top + gapY, leftEnd - gapX, top + rowHeight - gapY),
+                )
+                x += leftWidth + gapWidth
+                val rightWidth = (acc + w - half) * unit
+                bounds += KeyBounds(
+                    key,
+                    RectF(x + gapX, top + gapY, x + rightWidth - gapX, top + rowHeight - gapY),
+                )
+                x += rightWidth
+                gapPlaced = true
+            } else {
+                val keyWidth = w * unit
                 bounds += KeyBounds(
                     key,
                     RectF(x + gapX, top + gapY, x + keyWidth - gapX, top + rowHeight - gapY),
                 )
                 x += keyWidth
             }
-            top += rowHeight
+            acc += w
+            if (!gapPlaced && acc >= half) {
+                x += gapWidth
+                gapPlaced = true
+            }
         }
-        keyBounds = bounds
+    }
+
+    /** 분할된 스페이스바가 없는 행들의 좌 블록 오른끝 최댓값 — 스페이스바 끝 정렬 기준. */
+    private fun maxLeftBlockEnd(rows: List<List<Key>>): Float? {
+        val sideMargin = width * SPLIT_SIDE_MARGIN_RATIO
+        val usable = width - sideMargin * 2
+        var best: Float? = null
+        rows.forEach { row ->
+            val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
+            val half = totalWeight / 2f
+            var acc = 0f
+            var leftWeight = 0f
+            var hasSplitSpace = false
+            row.forEach { key ->
+                val w = key.widthWeight
+                if (acc < half && acc + w > half && key.type == KeyType.SPACE) {
+                    hasSplitSpace = true
+                } else if (acc < half) {
+                    leftWeight += w
+                }
+                acc += w
+            }
+            if (!hasSplitSpace) {
+                val unit = usable / (totalWeight * (1f + splitGapRatio))
+                val end = sideMargin + leftWeight * unit
+                if (best == null || end > best!!) best = end
+            }
+        }
+        return best
     }
 
     private val backgroundPaint = Paint()
@@ -718,10 +849,19 @@ class KeyboardView(
                         else -> textPaint
                     }
                     val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
-                    canvas.drawText(key.label, rect.centerX(), y, paint)
-                    naratgulDigit(key)?.let { digit ->
+                    val digit = (naratgulDigit(key) ?: landscapeTopDigit(key))?.toString()
+                    var cx = rect.centerX()
+                    if (digit != null) {
+                        // 좁은 키에서 각주 숫자와 겹치면 본문 라벨을 왼쪽으로 밀어낸다.
+                        val hintLeft = rect.right - dp(6f) - hintTextPaint.measureText(digit)
+                        val labelHalf = paint.measureText(key.label) / 2
+                        val overflow = cx + labelHalf + dp(1f) - hintLeft
+                        if (overflow > 0) cx = maxOf(cx - overflow, rect.left + labelHalf)
+                    }
+                    canvas.drawText(key.label, cx, y, paint)
+                    if (digit != null) {
                         canvas.drawText(
-                            digit.toString(),
+                            digit,
                             rect.right - dp(6f),
                             rect.top + dp(5f) - hintTextPaint.ascent(),
                             hintTextPaint,
@@ -732,9 +872,10 @@ class KeyboardView(
         }
     }
 
-    private fun drawShiftIcon(canvas: Canvas, rect: RectF) {
+    // 기능 키 아이콘 Path는 dp 고정이라 1회만 생성한다 (매 프레임 할당 방지).
+    private val shiftIconPath by lazy(LazyThreadSafetyMode.NONE) {
         val u = dp(1f)
-        val path = Path().apply {
+        Path().apply {
             moveTo(0f, -9f * u)
             lineTo(7.5f * u, -0.5f * u)
             lineTo(3.5f * u, -0.5f * u)
@@ -744,11 +885,27 @@ class KeyboardView(
             lineTo(-7.5f * u, -0.5f * u)
             close()
         }
+    }
+
+    private val deleteIconBody by lazy(LazyThreadSafetyMode.NONE) {
+        val u = dp(1f)
+        Path().apply {
+            moveTo(-10f * u, 0f)
+            lineTo(-4f * u, -6.5f * u)
+            lineTo(9.5f * u, -6.5f * u)
+            lineTo(9.5f * u, 6.5f * u)
+            lineTo(-4f * u, 6.5f * u)
+            close()
+        }
+    }
+
+    private fun drawShiftIcon(canvas: Canvas, rect: RectF) {
+        val u = dp(1f)
         canvas.withTranslation(rect.centerX(), rect.centerY()) {
             if (shifted) {
-                drawPath(path, iconFillPaint)
+                drawPath(shiftIconPath, iconFillPaint)
             } else {
-                drawPath(path, iconPaint)
+                drawPath(shiftIconPath, iconPaint)
             }
             // 고정 상태 표시: 아이콘 아래 짧은 밑줄 (액센트 색)
             if (capsLock) {
@@ -759,16 +916,8 @@ class KeyboardView(
 
     private fun drawDeleteIcon(canvas: Canvas, rect: RectF) {
         val u = dp(1f)
-        val body = Path().apply {
-            moveTo(-10f * u, 0f)
-            lineTo(-4f * u, -6.5f * u)
-            lineTo(9.5f * u, -6.5f * u)
-            lineTo(9.5f * u, 6.5f * u)
-            lineTo(-4f * u, 6.5f * u)
-            close()
-        }
         canvas.withTranslation(rect.centerX(), rect.centerY()) {
-            drawPath(body, iconPaint)
+            drawPath(deleteIconBody, iconPaint)
             val c = 2.4f * u
             val ox = 1.8f * u
             drawLine(ox - c, -c, ox + c, c, iconPaint)
@@ -844,8 +993,9 @@ class KeyboardView(
                         deletePointerId = pointerId
                         repeatHandler.postDelayed(repeatDelete, 400L)
                     }
-                    // 나랏글: 길게 누르면 우상단 숫자 입력 (쌍자음 변형 팝업보다 우선).
-                    naratgulDigit(key) != null -> {
+                    // 우상단 숫자 키: 변형 팝업이 없는 키는 길게 누르면 바로 숫자 입력.
+                    naratgulDigit(key) != null ||
+                        (landscapeTopDigit(key) != null && !KEY_VARIANTS.containsKey(key.char)) -> {
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(digitLongPressRunnable, longPressDelayMs)
                     }
@@ -1074,7 +1224,9 @@ class KeyboardView(
 
     private fun showVariantPopup() {
         val pending = pendingVariant ?: return
-        val variants = KEY_VARIANTS[pending.key.char] ?: return
+        val variants = (KEY_VARIANTS[pending.key.char] ?: "") +
+            (landscapeTopDigit(pending.key)?.toString() ?: "")
+        if (variants.isEmpty()) return
         // 한글 쌍자음 팝업은 원래 자음을 빼고 변형만 보여준다 (ㅂ 롱프레스 → ㅃ만).
         val includeOriginal = pending.key.char !in KOREAN_VARIANTS
         val options = buildList {
@@ -1175,6 +1327,7 @@ class KeyboardView(
 
     companion object {
         private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
+        private const val SPLIT_SIDE_MARGIN_RATIO = 0.03f
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val HAPTIC_DURATION_MS = 12L
         private const val KEY_SOUND_VOLUME = 0.5f

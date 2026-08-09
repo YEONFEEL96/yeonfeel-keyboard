@@ -132,7 +132,9 @@
     <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경</string>
     <string name="settings_number_row">숫자 열 표시</string>
     <string name="settings_show_toolbar">키보드 툴바 표시</string>
-    <string name="terminal_row_title">터미널 도구 줄 (esc·tab·ctrl·화살표)</string>
+    <string name="terminal_row_title">터미널 도구 줄</string>
+    <string name="split_landscape_title">가로 화면 분할 키보드</string>
+    <string name="split_portrait_title">세로 화면 분할 키보드</string>
     <string name="settings_mz_mode">MZ 모드 (ㅋㅋㅎㅋㅋㅎㅋ)</string>
     <string name="settings_oldie_mode">노친네 모드 (ㅋㅋㄱㄱㅋㄱ)</string>
     <string name="extra_input_menu">기타 입력 옵션</string>

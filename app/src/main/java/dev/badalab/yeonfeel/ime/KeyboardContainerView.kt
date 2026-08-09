@@ -41,6 +41,7 @@ class KeyboardContainerView(
         fun onTerminalKey(keyCode: Int)
         fun onOneHandedModeChanged(mode: dev.badalab.yeonfeel.settings.OneHandedMode)
         fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
+        fun onSplitGapCommitted(percent: Int)
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
         fun onClipboardPin(texts: List<String>, pinned: Boolean)
@@ -245,6 +246,11 @@ class KeyboardContainerView(
         keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
         keyboardView.longPressDelayMs = settings.longPressDelayMs.toLong()
         keyboardView.fontScale = settings.keyFontSize.scale
+        val landscape = resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        keyboardView.splitEnabled =
+            if (landscape) settings.splitLandscape else settings.splitPortrait
+        keyboardView.splitGapRatio = settings.splitGapPercent / 100f
         keyboardView.touchModelEnabled =
             settings.touchCorrectionEnabled && settings.touchCorrectionBasic
         oneHandedMode = settings.oneHandedMode
@@ -454,14 +460,17 @@ class KeyboardContainerView(
         marginSideDp = sideDp
         keyboardHeightDp = heightDp
         // 가로 모드에서 세로용 높이를 그대로 쓰면 화면 대부분을 덮어
-        // 앱이 입력창을 가릴 수 없다고 판단해 키보드를 즉시 숨긴다 — 화면 절반으로 제한.
+        // 앱이 입력창을 가릴 수 없다고 판단해 키보드를 즉시 숨긴다 — 화면 40%로 제한.
         val config = resources.configuration
+        val landscape = config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val effectiveHeightDp =
-            if (config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
-                minOf(heightDp, (config.screenHeightDp / 2).coerceAtLeast(140))
+            if (landscape) {
+                minOf(heightDp, (config.screenHeightDp * 2 / 5).coerceAtLeast(120))
             } else {
                 heightDp
             }
+        // 가로는 세로 공간이 귀해 제스처 바 위 여백을 최소화한다 (인셋은 유지).
+        val effectiveBottomDp = if (landscape) minOf(bottomDp, 10) else bottomDp
         keyboardView.heightDp = effectiveHeightDp
         // 한 손 모드: 반대쪽에 여백을 몰아 키 영역을 한쪽으로 붙인다.
         val oneHandDp = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.OFF) {
@@ -476,12 +485,12 @@ class KeyboardContainerView(
             dp(sideDp + leftExtra),
             dp(topDp),
             dp(sideDp + rightExtra),
-            dp(bottomDp) + navInsetPx,
+            dp(effectiveBottomDp) + navInsetPx,
         )
         // 콘텐츠 영역 높이를 키보드 높이로 고정 — 패널(클립보드·이모지) 내용이
         // 길어도 창이 위로 자라지 않고 패널 안에서 스크롤된다.
         contentFrame.layoutParams = (contentFrame.layoutParams as LayoutParams).apply {
-            height = dp(effectiveHeightDp + topDp + bottomDp) + navInsetPx
+            height = dp(effectiveHeightDp + topDp + effectiveBottomDp) + navInsetPx
         }
     }
 
@@ -527,13 +536,23 @@ class KeyboardContainerView(
 
         val overlay = MarginAdjustOverlay(
             context, marginTopDp, marginBottomDp, marginSideDp, keyboardHeightDp, theme,
-            object : MarginAdjustOverlay.Listener {
+            splitActive = keyboardView.splitEnabled,
+            splitGapPercent = (keyboardView.splitGapRatio * 100).toInt(),
+            listener = object : MarginAdjustOverlay.Listener {
                 override fun onMarginsChanged(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {
                     applyMargins(topDp, bottomDp, sideDp, heightDp)
                 }
 
                 override fun onCommit(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {
                     callbacks.onMarginsCommitted(topDp, bottomDp, sideDp, heightDp)
+                }
+
+                override fun onSplitGapChanged(percent: Int) {
+                    keyboardView.splitGapRatio = percent / 100f
+                }
+
+                override fun onSplitGapCommitted(percent: Int) {
+                    callbacks.onSplitGapCommitted(percent)
                 }
 
                 override fun onDone() = showKeyboard()

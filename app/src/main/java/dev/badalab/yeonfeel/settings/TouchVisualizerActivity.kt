@@ -95,7 +95,10 @@ class TouchVisualizerActivity : Activity() {
             setMeasuredDimension(width, height)
         }
 
+        private val statRects = mutableListOf<Pair<String, RectF>>()
+
         override fun onDraw(canvas: Canvas) {
+            statRects.clear()
             // 키 외곽선: KeyboardView와 같은 배치 규칙 (숫자 열 85% 높이)
             val heightWeights = FloatArray(rows.size) { 1f }
             // 숫자 열이 실제로 얹히는 자판(두벌식·단모음)에서만 첫 열을 낮게 그린다.
@@ -124,23 +127,9 @@ class TouchVisualizerActivity : Activity() {
                                 labelPaint,
                             )
                         }
-                        // 표본이 충분한 키는 개인화 평균(점)과 1σ 타원을 겹쳐 그린다.
+                        // 개인화 분포 표시는 타점 위에 얹기 위해 위치만 모아 둔다.
                         if (key.type == KeyType.CHAR) {
-                            stats[key.char.toString()]?.let { stat ->
-                                if (stat.n >= TouchModel.MIN_SAMPLES) {
-                                    val p = TouchModel.effective(stat)
-                                    val cx = rect.centerX() + p[0] * rect.width()
-                                    val cy = rect.centerY() + p[1] * rect.height()
-                                    canvas.drawOval(
-                                        cx - p[2] * rect.width(),
-                                        cy - p[3] * rect.height(),
-                                        cx + p[2] * rect.width(),
-                                        cy + p[3] * rect.height(),
-                                        ellipsePaint,
-                                    )
-                                    canvas.drawCircle(cx, cy, 4f, muPaint)
-                                }
-                            }
+                            statRects.add(key.char.toString() to RectF(rect))
                         }
                     }
                     x += keyWidth
@@ -152,6 +141,23 @@ class TouchVisualizerActivity : Activity() {
             val radius = 2.5f * resources.displayMetrics.density
             samples.forEach { sample ->
                 canvas.drawCircle(sample.ax * width, sample.ay * height, radius, dotPaint)
+            }
+
+            // 개인화 평균(점)과 1σ 타원 — 타점 위 오버레이로 그린다.
+            statRects.forEach { (keyId, rect) ->
+                val stat = stats[keyId] ?: return@forEach
+                if (stat.n < TouchModel.MIN_SAMPLES) return@forEach
+                val p = TouchModel.effective(stat)
+                val cx = rect.centerX() + p[0] * rect.width()
+                val cy = rect.centerY() + p[1] * rect.height()
+                canvas.drawOval(
+                    cx - p[2] * rect.width(),
+                    cy - p[3] * rect.height(),
+                    cx + p[2] * rect.width(),
+                    cy + p[3] * rect.height(),
+                    ellipsePaint,
+                )
+                canvas.drawCircle(cx, cy, 4f, muPaint)
             }
         }
     }

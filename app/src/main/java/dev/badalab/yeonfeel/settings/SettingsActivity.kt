@@ -53,6 +53,22 @@ class SettingsActivity : Activity() {
             ui.switchRow(getString(R.string.terminal_row_title), settings.terminalRowEnabled) { checked, _ ->
                 settings.terminalRowEnabled = checked
             },
+            ui.switchRow(
+                getString(R.string.split_landscape_title),
+                settings.splitLandscape,
+            ) { checked, _ -> settings.splitLandscape = checked },
+            *(
+                if (resources.configuration.smallestScreenWidthDp >= 600) {
+                    arrayOf(
+                        ui.switchRow(
+                            getString(R.string.split_portrait_title),
+                            settings.splitPortrait,
+                        ) { checked, _ -> settings.splitPortrait = checked },
+                    )
+                } else {
+                    emptyArray()
+                }
+                ),
             ui.textRow(getString(R.string.settings_section_margins)) {
                 startActivity(Intent(this, MarginSettingsActivity::class.java))
             },
