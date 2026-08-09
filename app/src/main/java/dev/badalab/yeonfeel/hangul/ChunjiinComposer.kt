@@ -61,8 +61,7 @@ class ChunjiinComposer : KoreanComposer {
         }
         // 새 자음 입력 (두벌식과 같은 규칙)
         val c = group[0]
-        lastInputWasActiveConsonant = true
-        return when {
+        val result = when {
             cho == null && jungTokens.isEmpty() -> {
                 cho = c
                 HangulComposer.Result("", composed())
@@ -95,6 +94,9 @@ class ChunjiinComposer : KoreanComposer {
                 HangulComposer.Result(committed, composed())
             }
         }
+        // reset()이 플래그를 지우므로 확정 분기 이후에 세워야 다음 연타가 이어진다.
+        lastInputWasActiveConsonant = true
+        return result
     }
 
     private fun inputVowelToken(token: Char): HangulComposer.Result {

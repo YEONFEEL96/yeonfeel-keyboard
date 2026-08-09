@@ -373,6 +373,10 @@ class KeyboardView(
         textAlign = Paint.Align.CENTER
         textSize = sp(20f)
     }
+    private val bigTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(25f)
+    }
     private val smallTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = sp(13f)
@@ -402,6 +406,7 @@ class KeyboardView(
         specialKeyPaint.color = theme.specialKey
         pressedPaint.color = theme.pressed
         textPaint.color = theme.text
+        bigTextPaint.color = theme.text
         smallTextPaint.color = theme.text
         spaceGlyphPaint.color = theme.subText
         hintTextPaint.color = theme.subText
@@ -667,11 +672,11 @@ class KeyboardView(
                 KeyType.DELETE -> drawDeleteIcon(canvas, rect)
                 KeyType.ENTER -> drawEnterIcon(canvas, rect)
                 else -> if (key.label.isNotEmpty()) {
-                    // 한/영 키와 ".,?!" 같은 긴 라벨은 작은 글자로 표시한다.
-                    val paint = if (key.type == KeyType.LANG || key.label.length >= 4) {
-                        smallTextPaint
-                    } else {
-                        textPaint
+                    // 한/영·".,?!" 같은 긴 라벨은 작게, 키가 큰 3x4 자판 글자는 크게 표시한다.
+                    val paint = when {
+                        key.type == KeyType.LANG || key.label.length >= 4 -> smallTextPaint
+                        is3x4Board() && key.type == KeyType.CHAR && key.label.length <= 2 -> bigTextPaint
+                        else -> textPaint
                     }
                     val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
                     canvas.drawText(key.label, rect.centerX(), y, paint)

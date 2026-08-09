@@ -32,6 +32,22 @@ class TenKeyComposerTest {
     // --- 천지인 ---
 
     @Test
+    fun `천지인 - 자음만 이어 칠 때 연타 사이클 유지`() {
+        // ㅅㅅㅅ=ㅆ 확정 후에도 ㄷㄷ=ㅌ, ㅈㅈ=ㅊ 연타가 이어져야 한다 (확정 시 연타 상태 유실 회귀)
+        val composer = ChunjiinComposer()
+        val committed = StringBuilder()
+        var composing = ""
+        // 같은 키 연타만 빠르게, 키가 바뀔 때는 시간 간격을 둔다
+        val taps = listOf('ㅅ' to 0L, 'ㅅ' to 100L, 'ㅅ' to 200L, 'ㄷ' to 1500L, 'ㄷ' to 1600L, 'ㅈ' to 3000L, 'ㅈ' to 3100L)
+        taps.forEach { (key, t) ->
+            val result = composer.input(key, t)
+            committed.append(result.commit)
+            composing = result.composing
+        }
+        assertEquals("ㅆㅌㅊ", committed.toString() + composing)
+    }
+
+    @Test
     fun `천지인 - 기본 모음 조합`() {
         assertEquals("나", typeSlow(ChunjiinComposer(), "ㄴㅣㆍ"))
         assertEquals("너", typeSlow(ChunjiinComposer(), "ㄴㆍㅣ"))
