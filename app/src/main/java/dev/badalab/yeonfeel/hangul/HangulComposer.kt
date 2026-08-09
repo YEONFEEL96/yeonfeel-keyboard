@@ -30,6 +30,14 @@ class HangulComposer : KoreanComposer {
      * (ㄱㄱ→ㄲ). 판정 시간이 짧을수록 '학교→하꾜'류 오조합이 줄어든다.
      */
     var doubleTapDoubling: Boolean = false
+
+    /** '됬' 금지 모드: 받침 ㅆ이 붙는 순간 ㄷ+ㅚ를 ㄷ+ㅙ(됐)로 고친다. */
+    var fixDwaet: Boolean = false
+
+    private fun applyDwaetFix() {
+        if (!fixDwaet || cho != 'ㄷ' || jong != "ㅆ") return
+        if (jung.isNotEmpty() && jungChar() == 'ㅚ') jung = "ㅗㅐ"
+    }
     var multiTapTimeoutMs: Long = 300L
 
     private var lastKey: Char? = null
@@ -68,6 +76,7 @@ class HangulComposer : KoreanComposer {
                 else JONG_COMBINE.containsKey(jong[0] to doubled)
             if (canUpgradeInPlace) {
                 jong = jong.dropLast(1) + doubled
+                applyDwaetFix()
                 return Result("", composed())
             }
             // 받침에서 승급 불가 → 마지막 받침을 빼내 새 글자 초성 쌍자음으로
@@ -164,6 +173,7 @@ class HangulComposer : KoreanComposer {
             jong.isEmpty() -> {
                 if (canBeJong(c)) {
                     jong = c.toString()
+                    applyDwaetFix()
                     Result("", composed())
                 } else {
                     val committed = composed()

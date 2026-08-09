@@ -43,6 +43,13 @@ class KeyboardView(
             relayoutKeys()
         }
 
+    /** 시프트 더블탭 고정(Caps Lock): 글자를 입력해도 시프트가 풀리지 않는다. */
+    var capsLock: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var theme: KeyboardTheme = KeyboardTheme.DARK
         set(value) {
             field = value
@@ -535,6 +542,8 @@ class KeyboardView(
     private val repeatDelete = object : Runnable {
         override fun run() {
             onKeyListener(Key(KeyType.DELETE, "⌫"))
+            // 반복 삭제마다 짧은 진동을 줘 지워지는 리듬이 손에 전달되게 한다.
+            performKeyHaptic()
             repeatHandler.postDelayed(this, deleteRepeatIntervalMs)
         }
     }
@@ -740,6 +749,10 @@ class KeyboardView(
                 drawPath(path, iconFillPaint)
             } else {
                 drawPath(path, iconPaint)
+            }
+            // 고정 상태 표시: 아이콘 아래 짧은 밑줄 (액센트 색)
+            if (capsLock) {
+                drawRect(-3.5f * u, 10.5f * u, 3.5f * u, 12.5f * u, iconFillPaint)
             }
         }
     }

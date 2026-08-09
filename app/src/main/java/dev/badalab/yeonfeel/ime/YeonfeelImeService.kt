@@ -141,6 +141,8 @@ class YeonfeelImeService : InputMethodService() {
         }
         dubeolComposer.doubleTapIotation = settings.koreanLayout == KoreanLayoutType.DANMOEUM
         dubeolComposer.doubleTapDoubling = settings.koreanLayout == KoreanLayoutType.DANMOEUM
+        dubeolComposer.fixDwaet = settings.dwaetFixEnabled
+        chunjiinComposer.fixDwaet = settings.dwaetFixEnabled
         val multiTapDelay = settings.multiTapDelayMs.toLong()
         dubeolComposer.multiTapTimeoutMs = multiTapDelay
         // 천지인 자동 방식: 연타 대기가 사실상 무한 — 같은 키는 스페이스바로 끊기 전까지 계속 사이클.
@@ -156,6 +158,7 @@ class YeonfeelImeService : InputMethodService() {
             if (sensitiveField) it.keyboardView.keyPreviewEnabled = false
             it.keyboardView.mode = mode
             it.keyboardView.shifted = false
+            it.keyboardView.capsLock = false
         }
         // 설정의 '키보드 여백' 화면에서 조정 모드로 열어달라는 1회성 요청.
         if (settings.adjustModeRequested) {
@@ -229,6 +232,11 @@ class YeonfeelImeService : InputMethodService() {
 
         override fun onSkinToneChanged(tone: Int) {
             settings.skinTone = tone
+        }
+
+        override fun onTerminalKey(keyCode: Int) {
+            finishComposition()
+            sendKeyWithMeta(keyCode, container?.consumeModifierMeta() ?: 0)
         }
 
         override fun onOneHandedModeChanged(mode: dev.badalab.yeonfeel.settings.OneHandedMode) {
@@ -358,11 +366,30 @@ class YeonfeelImeService : InputMethodService() {
         val view = container?.keyboardView ?: return
         when (key.type) {
             KeyType.CHAR, KeyType.GHOST -> {
+                // ctrl/alt가 무장돼 있으면 문자 대신 조합 키 이벤트로 보낸다 (터미널용).
+                val meta = container?.consumeModifierMeta() ?: 0
+                if (meta != 0 && sendCharWithMeta(key.char, meta)) {
+                    if (view.shifted && !view.capsLock) view.shifted = false
+                    return
+                }
                 onChar(key.char)
-                if (view.shifted) view.shifted = false
+                if (view.shifted && !view.capsLock) view.shifted = false
                 updateAutoCapitalize()
             }
-            KeyType.SHIFT -> view.shifted = !view.shifted
+            KeyType.SHIFT -> {
+                val now = System.currentTimeMillis()
+                when {
+                    // 고정 상태에서 한 번 더 누르면 완전 해제
+                    view.capsLock -> {
+                        view.capsLock = false
+                        view.shifted = false
+                    }
+                    // 켜진 시프트를 빠르게 한 번 더 → 고정
+                    view.shifted && now - lastShiftTime < CAPS_LOCK_TAP_MS -> view.capsLock = true
+                    else -> view.shifted = !view.shifted
+                }
+                lastShiftTime = now
+            }
             KeyType.DELETE -> {
                 onDelete()
                 updateAutoCapitalize()
@@ -390,6 +417,7 @@ class YeonfeelImeService : InputMethodService() {
                 }
                 view.mode = if (view.mode == LayoutMode.SYMBOLS) mode else LayoutMode.SYMBOLS
                 view.shifted = false
+                view.capsLock = false
             }
             KeyType.PAGE -> view.symbolsPage = when (key.char) {
                 KeyboardLayouts.PAGE_TO_NUMPAD -> 3
@@ -415,6 +443,7 @@ class YeonfeelImeService : InputMethodService() {
         mode = target
         view.mode = target
         view.shifted = false
+        view.capsLock = false
         updateLanguageNames()
     }
 
@@ -442,10 +471,13 @@ class YeonfeelImeService : InputMethodService() {
 
     /** MZ 모드가 켜져 있으면 ㅋ 3연타부터 30% 확률로 ㅎ을 대신 입력한다. */
     private fun applyMzMode(c: Char): Char {
-        if (!settings.mzModeEnabled || sensitiveField) return c
+        if (sensitiveField || !(settings.mzModeEnabled || settings.oldieModeEnabled)) return c
         if (c == 'ㅋ') {
             kiekStreak++
-            if (kiekStreak >= 3 && kotlin.random.Random.nextFloat() < 0.3f) return 'ㅎ'
+            if (kiekStreak >= 3) {
+                if (settings.oldieModeEnabled && kotlin.random.Random.nextFloat() < 0.4f) return 'ㄱ'
+                if (settings.mzModeEnabled && kotlin.random.Random.nextFloat() < 0.3f) return 'ㅎ'
+            }
         } else {
             kiekStreak = 0
         }
@@ -459,7 +491,9 @@ class YeonfeelImeService : InputMethodService() {
         if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
             val result = composer.input(c, System.currentTimeMillis())
             ic.beginBatchEdit()
-            if (result.commit.isNotEmpty()) ic.commitText(result.commit, 1)
+            // 조합기 내부 치환이 없는 자판(나랏글 등)을 위한 커밋 시점 안전망
+            val commit = if (settings.dwaetFixEnabled) result.commit.replace('됬', '됐') else result.commit
+            if (commit.isNotEmpty()) ic.commitText(commit, 1)
             ic.setComposingText(result.composing, 1)
             ic.endBatchEdit()
         } else {
@@ -468,8 +502,33 @@ class YeonfeelImeService : InputMethodService() {
         }
     }
 
+    private fun sendKeyWithMeta(keyCode: Int, meta: Int) {
+        val ic = currentInputConnection ?: return
+        val now = android.os.SystemClock.uptimeMillis()
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
+    }
+
+    /** 키코드 매핑이 있는 문자(영문·숫자)만 조합 이벤트로 보낸다. 한글이면 false. */
+    private fun sendCharWithMeta(c: Char, meta: Int): Boolean {
+        val keyCode = when (c.lowercaseChar()) {
+            in 'a'..'z' -> KeyEvent.KEYCODE_A + (c.lowercaseChar() - 'a')
+            in '0'..'9' -> KeyEvent.KEYCODE_0 + (c - '0')
+            ' ' -> KeyEvent.KEYCODE_SPACE
+            else -> return false
+        }
+        finishComposition()
+        sendKeyWithMeta(keyCode, meta)
+        return true
+    }
+
+    private var lastShiftTime = 0L
     private var lastSpaceTime = 0L
     private val doubleSpaceMs = 500L
+
+    companion object {
+        private const val CAPS_LOCK_TAP_MS = 350L
+    }
 
     private fun onSpace() {
         val ic = currentInputConnection ?: return

@@ -38,6 +38,7 @@ class KeyboardContainerView(
         fun onRememberSymbol(symbol: Char)
         fun onOneHandedCycle()
         fun onSkinToneChanged(tone: Int)
+        fun onTerminalKey(keyCode: Int)
         fun onOneHandedModeChanged(mode: dev.badalab.yeonfeel.settings.OneHandedMode)
         fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
         fun clipboardEntries(): List<ClipboardHistory.Entry>
@@ -100,6 +101,12 @@ class KeyboardContainerView(
         "onehand" to R.drawable.ic_toolbar_onehand,
     )
     private var currentToolbarOrder = KeyboardSettings.TOOLBAR_ORDER_DEFAULT
+    private val terminalRow = LinearLayout(context)
+    private var terminalRowEnabled = false
+    private var ctrlArmed = false
+    private var altArmed = false
+    private var ctrlButton: TextView? = null
+    private var altButton: TextView? = null
     private var toolbarEditPanel: View? = null
 
     init {
@@ -146,6 +153,8 @@ class KeyboardContainerView(
         setupToolbarReorder()
         applyToolbarOrder(KeyboardSettings.TOOLBAR_ORDER_DEFAULT)
         addView(toolbar)
+        buildTerminalRow()
+        addView(terminalRow, LayoutParams(LayoutParams.MATCH_PARENT, dp(36)).apply { bottomMargin = dp(4) })
 
         keyboardWrapper.addView(
             keyboardView,
@@ -156,6 +165,61 @@ class KeyboardContainerView(
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT),
         )
         addView(contentFrame, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+    }
+
+    /** 터미널 도구 줄: esc·tab·ctrl·alt·화살표. ctrl/alt는 원샷 스티키. */
+    private fun buildTerminalRow() {
+        terminalRow.orientation = HORIZONTAL
+        terminalRow.gravity = Gravity.CENTER_VERTICAL
+        fun termButton(label: String, onClick: () -> Unit): TextView =
+            TextView(context).apply {
+                text = label
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                setOnClickListener { onClick() }
+                addIconPressEffect(this)
+                terminalRow.addView(this, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+            }
+        termButton("esc") { callbacks.onTerminalKey(android.view.KeyEvent.KEYCODE_ESCAPE) }
+        termButton("tab") { callbacks.onTerminalKey(android.view.KeyEvent.KEYCODE_TAB) }
+        ctrlButton = termButton("ctrl") {
+            ctrlArmed = !ctrlArmed
+            refreshTerminalColors()
+        }
+        altButton = termButton("alt") {
+            altArmed = !altArmed
+            refreshTerminalColors()
+        }
+        termButton("←") { callbacks.onTerminalKey(android.view.KeyEvent.KEYCODE_DPAD_LEFT) }
+        termButton("↓") { callbacks.onTerminalKey(android.view.KeyEvent.KEYCODE_DPAD_DOWN) }
+        termButton("↑") { callbacks.onTerminalKey(android.view.KeyEvent.KEYCODE_DPAD_UP) }
+        termButton("→") { callbacks.onTerminalKey(android.view.KeyEvent.KEYCODE_DPAD_RIGHT) }
+    }
+
+    private fun refreshTerminalColors() {
+        for (i in 0 until terminalRow.childCount) {
+            (terminalRow.getChildAt(i) as? TextView)?.setTextColor(theme.subText)
+        }
+        val accent = 0xFF3D8BFF.toInt()
+        if (ctrlArmed) ctrlButton?.setTextColor(accent)
+        if (altArmed) altButton?.setTextColor(accent)
+    }
+
+    /** 무장된 ctrl/alt 메타 마스크를 소비(해제)하고 돌려준다. */
+    fun consumeModifierMeta(): Int {
+        var meta = 0
+        if (ctrlArmed) {
+            meta = meta or android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_CTRL_LEFT_ON
+        }
+        if (altArmed) {
+            meta = meta or android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_ALT_LEFT_ON
+        }
+        if (meta != 0) {
+            ctrlArmed = false
+            altArmed = false
+            refreshTerminalColors()
+        }
+        return meta
     }
 
     /** 설정 변경(테마·여백)을 반영한다. 열린 패널·조정 모드는 닫는다. */
@@ -202,6 +266,11 @@ class KeyboardContainerView(
         setBackgroundColor(theme.background)
         keyboardWrapper.setBackgroundColor(theme.background)
         toolbar.setBackgroundColor(theme.specialKey)
+        terminalRowEnabled = settings.terminalRowEnabled
+        terminalRow.setBackgroundColor(theme.background)
+        ctrlArmed = false
+        altArmed = false
+        refreshTerminalColors()
         toolbarButtons.values.forEach {
             it.imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
         }
@@ -353,6 +422,10 @@ class KeyboardContainerView(
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = null
         toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
+        terminalRow.visibility = if (terminalRowEnabled) VISIBLE else GONE
+        // 도구 줄이 켜져 있으면 툴바와 사이를 붙인다 (여백은 도구 줄 아래로).
+        (toolbar.layoutParams as MarginLayoutParams).bottomMargin =
+            if (terminalRowEnabled && toolbarEnabled) 0 else dp(6)
         adjustOverlay?.let { contentFrame.removeView(it) }
         adjustOverlay = null
         skinTonePopup?.dismiss()
@@ -1062,6 +1135,7 @@ class KeyboardContainerView(
 
     private fun attachHeader(header: View, gapBelow: Boolean = true, heightDp: Int = 44) {
         toolbar.visibility = GONE
+        terminalRow.visibility = GONE
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = header
         addView(

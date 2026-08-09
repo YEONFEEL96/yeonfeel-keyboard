@@ -54,6 +54,11 @@ class DebugSettingsActivity : Activity() {
                 },
                 onOpen = { startActivity(Intent(this, TouchCorrectionActivity::class.java)) },
             ),
+            ui.switchRow(
+                getString(R.string.dwaet_fix_title),
+                getString(R.string.dwaet_fix_sub),
+                settings.dwaetFixEnabled,
+            ) { checked, _ -> settings.dwaetFixEnabled = checked },
         )
 
         ui.show()

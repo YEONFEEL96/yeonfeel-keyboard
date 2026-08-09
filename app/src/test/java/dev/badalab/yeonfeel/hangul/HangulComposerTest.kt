@@ -210,3 +210,33 @@ class HangulComposerTest {
         assertEquals("", composer.flush())
     }
 }
+
+class DwaetFixTest {
+    private fun type(composer: HangulComposer, keys: String): String {
+        val out = StringBuilder()
+        var composing = ""
+        keys.forEachIndexed { i, k ->
+            val r = composer.input(k, i * 1000L)
+            out.append(r.commit)
+            composing = r.composing
+        }
+        return out.toString() + composing
+    }
+
+    @org.junit.Test
+    fun `됬 금지 모드 - 됬이 됐으로 바뀐다`() {
+        val c = HangulComposer().apply { fixDwaet = true }
+        org.junit.Assert.assertEquals("됐", type(c, "ㄷㅗㅣㅆ"))
+    }
+
+    @org.junit.Test
+    fun `됬 금지 모드 - 이어지는 입력도 자연스럽다`() {
+        val c = HangulComposer().apply { fixDwaet = true }
+        org.junit.Assert.assertEquals("됐어", type(c, "ㄷㅗㅣㅆㅇㅓ"))
+    }
+
+    @org.junit.Test
+    fun `기본값에서는 됬 그대로`() {
+        org.junit.Assert.assertEquals("됬", type(HangulComposer(), "ㄷㅗㅣㅆ"))
+    }
+}

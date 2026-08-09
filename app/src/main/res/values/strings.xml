@@ -104,6 +104,8 @@
     <string name="touch_basic_sub">나의 타점 분포로 경계 터치를 재판정합니다</string>
     <string name="touch_ai">AI 보정</string>
     <string name="touch_ai_sub">스페이스바로 어절이 끝나면 오타를 교정합니다.\n백스페이스를 입력하여 되돌릴 수 있습니다.</string>
+    <string name="dwaet_fix_title">됬이라는 글자는 존재하지 않습니다</string>
+    <string name="dwaet_fix_sub">됬을 입력하면 무조건 됐으로 고칩니다</string>
     <string name="debug_touch_section">타점 데이터</string>
     <string name="debug_touch_correction_dialog_message">터치 보정은 수집된 타점 데이터로 동작합니다. 타점 수집이 함께 켜집니다.</string>
     <string name="debug_touch_correction_dialog_confirm">함께 켜기</string>
@@ -135,7 +137,9 @@
     <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경</string>
     <string name="settings_number_row">숫자 열 표시</string>
     <string name="settings_show_toolbar">키보드 툴바 표시</string>
+    <string name="terminal_row_title">터미널 도구 줄 (esc·tab·ctrl·화살표)</string>
     <string name="settings_mz_mode">MZ 모드 (ㅋㅋㅎㅋㅋㅎㅋ)</string>
+    <string name="settings_oldie_mode">노친네 모드 (ㅋㅋㄱㄱㅋㄱ)</string>
     <string name="extra_input_menu">기타 입력 옵션</string>
     <string name="extra_auto_capitalize">자동 대문자 전환 (영문 문장 시작)</string>
     <string name="extra_double_space_period">스페이스바 두 번 눌러 마침표 입력</string>

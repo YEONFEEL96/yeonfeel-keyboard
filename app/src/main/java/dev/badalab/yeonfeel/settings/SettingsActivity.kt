@@ -50,6 +50,9 @@ class SettingsActivity : Activity() {
             ui.switchRow(getString(R.string.settings_show_toolbar), settings.showToolbar) { checked, _ ->
                 settings.showToolbar = checked
             },
+            ui.switchRow(getString(R.string.terminal_row_title), settings.terminalRowEnabled) { checked, _ ->
+                settings.terminalRowEnabled = checked
+            },
             ui.textRow(getString(R.string.settings_section_margins)) {
                 startActivity(Intent(this, MarginSettingsActivity::class.java))
             },

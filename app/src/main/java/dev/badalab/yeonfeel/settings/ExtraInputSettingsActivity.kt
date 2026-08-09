@@ -25,6 +25,9 @@ class ExtraInputSettingsActivity : Activity() {
             ui.switchRow(getString(R.string.settings_mz_mode), settings.mzModeEnabled) { checked, _ ->
                 settings.mzModeEnabled = checked
             },
+            ui.switchRow(getString(R.string.settings_oldie_mode), settings.oldieModeEnabled) { checked, _ ->
+                settings.oldieModeEnabled = checked
+            },
         )
 
         ui.show()

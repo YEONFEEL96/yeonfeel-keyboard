@@ -261,6 +261,21 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_TOUCH_CORRECTION_AI, false)
         set(value) = prefs.edit().putBoolean(KEY_TOUCH_CORRECTION_AI, value).apply()
 
+    /** 실험실: '됬'을 입력하면 무조건 '됐'으로 고친다. */
+    var dwaetFixEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DWAET_FIX, false)
+        set(value) = prefs.edit().putBoolean(KEY_DWAET_FIX, value).apply()
+
+    /** 터미널 도구 줄 (esc·tab·ctrl·alt·화살표) 표시 여부. */
+    var terminalRowEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TERMINAL_ROW, false)
+        set(value) = prefs.edit().putBoolean(KEY_TERMINAL_ROW, value).apply()
+
+    /** 노친네 모드 (유머): ㅋ 연타에 ㄱ을 랜덤으로 섞는다. */
+    var oldieModeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_OLDIE_MODE, false)
+        set(value) = prefs.edit().putBoolean(KEY_OLDIE_MODE, value).apply()
+
     var keyFontSize: KeyFontSize
         get() = runCatching {
             KeyFontSize.valueOf(prefs.getString(KEY_FONT_SIZE, null) ?: "")
@@ -323,6 +338,9 @@ class KeyboardSettings(context: Context) {
         private const val KEY_TOUCH_CORRECTION = "touch_correction"
         private const val KEY_TOUCH_CORRECTION_BASIC = "touch_correction_basic"
         private const val KEY_TOUCH_CORRECTION_AI = "touch_correction_ai"
+        private const val KEY_DWAET_FIX = "dwaet_fix"
+        private const val KEY_TERMINAL_ROW = "terminal_row"
+        private const val KEY_OLDIE_MODE = "oldie_mode"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"

@@ -15,6 +15,14 @@ class ChunjiinComposer : KoreanComposer {
 
     var multiTapTimeoutMs: Long = 600L
 
+    /** '됬' 금지 모드: 받침 ㅆ이 붙는 순간 ㄷ+ㅚ를 ㄷ+ㅙ(됐)로 고친다. */
+    var fixDwaet: Boolean = false
+
+    private fun applyDwaetFix() {
+        if (!fixDwaet || cho != 'ㄷ' || jong != "ㅆ") return
+        if (currentVowel() == 'ㅚ') jungTokens = "ㆍㅡㅣㆍㅣ"
+    }
+
     private var cho: Char? = null
     private var jungTokens: String = "" // ㅣㆍㅡ 토큰 열
     private var jong: String = "" // 호환 자모 1~2타
@@ -55,6 +63,7 @@ class ChunjiinComposer : KoreanComposer {
                     else JONG_COMBINE.containsKey(jong[0] to candidate)
                 }
                 jong = jong.dropLast(1) + replaced
+                applyDwaetFix()
                 lastInputWasActiveConsonant = true
                 return HangulComposer.Result("", composed())
             }
@@ -75,6 +84,7 @@ class ChunjiinComposer : KoreanComposer {
             jong.isEmpty() && currentVowel() != null -> {
                 if (canBeJong(c)) {
                     jong = c.toString()
+                    applyDwaetFix()
                     HangulComposer.Result("", composed())
                 } else {
                     val committed = composed()
