@@ -27,12 +27,59 @@ class ChunjiinComposer : KoreanComposer {
     private var jungTokens: String = "" // ㅣㆍㅡ 토큰 열
     private var jong: String = "" // 호환 자모 1~2타
 
+    // 보류 글자: 새 자음이 연타로 겹받침 후보(ㅎ 등)가 될 수 있으면 앞 글자를
+    // 확정하지 않고 띄워 둔다 (않·삶·읊 — 다음 입력에서 합치거나 함께 확정).
+    private var heldCho: Char? = null
+    private var heldJung: String = ""
+    private var heldJong: String = ""
+
+    private fun heldComposed(): String {
+        val c = heldCho ?: return ""
+        val vowel = VOWEL_MAP[heldJung] ?: return c.toString()
+        val jongChar = when (heldJong2()) {
+            0 -> null
+            1 -> heldJong[0]
+            else -> JONG_COMBINE.getValue(heldJong[0] to heldJong[1])
+        }
+        return HangulTables.syllable(c, vowel, jongChar).toString()
+    }
+
+    private fun heldJong2(): Int = heldJong.length
+
+    private fun clearHeld() {
+        heldCho = null
+        heldJung = ""
+        heldJong = ""
+    }
+
+    private fun displayPrefix(): String = if (heldCho != null) heldComposed() else ""
+
+    /** 보류 해소: 떠 있는 자음을 앞 받침에 합치거나(않) 함께 확정 문자열로 돌려준다. */
+    private fun resolveHold(mergeFloating: Boolean): String {
+        if (heldCho == null) return ""
+        val floating = cho
+        if (mergeFloating && floating != null && heldJong.length == 1 &&
+            JONG_COMBINE.containsKey(heldJong[0] to floating)
+        ) {
+            heldJong += floating
+            cho = null
+        }
+        var text = heldComposed()
+        clearHeld()
+        if (mergeFloating && cho != null) {
+            // 병합 실패 → 떠 있던 자음도 함께 확정
+            text += cho.toString()
+            cho = null
+        }
+        return text
+    }
+
     private var lastKey: Char? = null
     private var lastTime: Long = 0
     private var lastInputWasActiveConsonant = false
 
     override val isComposing: Boolean
-        get() = cho != null || jungTokens.isNotEmpty()
+        get() = heldCho != null || cho != null || jungTokens.isNotEmpty()
 
     override fun input(jamo: Char, now: Long): HangulComposer.Result {
         val cycling = jamo == lastKey && now - lastTime < multiTapTimeoutMs
@@ -55,20 +102,36 @@ class ChunjiinComposer : KoreanComposer {
             if (jungTokens.isEmpty() && jong.isEmpty() && cho != null) {
                 cho = nextInGroup(group, cho!!) { true }
                 lastInputWasActiveConsonant = true
-                return HangulComposer.Result("", composed())
+                return HangulComposer.Result("", displayPrefix() + composed())
             }
             if (jong.isNotEmpty()) {
-                val replaced = nextInGroup(group, jong.last()) { candidate ->
-                    if (jong.length == 1) canBeJong(candidate)
-                    else JONG_COMBINE.containsKey(jong[0] to candidate)
+                val current = jong.last()
+                val index = group.indexOf(current)
+                if (index >= 0) {
+                    val next = group[(index + 1) % group.length]
+                    val fitsAsJong =
+                        if (jong.length == 1) canBeJong(next)
+                        else JONG_COMBINE.containsKey(jong[0] to next)
+                    if (fitsAsJong) {
+                        jong = jong.dropLast(1) + next
+                        applyDwaetFix()
+                    } else {
+                        // 받침이 될 수 없는 후보(ㅃ·ㄸ·ㅉ)는 받침을 떼어
+                        // 새 글자의 쌍자음 초성으로 시작한다 (오빠·아빠).
+                        jong = jong.dropLast(1)
+                        val committed = composed()
+                        reset()
+                        cho = next
+                        lastInputWasActiveConsonant = true
+                        return HangulComposer.Result(committed, composed())
+                    }
+                    lastInputWasActiveConsonant = true
+                    return HangulComposer.Result("", composed())
                 }
-                jong = jong.dropLast(1) + replaced
-                applyDwaetFix()
-                lastInputWasActiveConsonant = true
-                return HangulComposer.Result("", composed())
             }
         }
-        // 새 자음 입력 (두벌식과 같은 규칙)
+        // 새 자음 입력 (두벌식과 같은 규칙) — 그 전에 떠 있던 글자를 해소한다.
+        val prefix = resolveHold(mergeFloating = true)
         val c = group[0]
         val result = when {
             cho == null && jungTokens.isEmpty() -> {
@@ -97,6 +160,19 @@ class ChunjiinComposer : KoreanComposer {
                 jong += c
                 HangulComposer.Result("", composed())
             }
+            // 직접 결합은 안 되지만 연타 사이클로 결합 가능해질 수 있는 자음은
+            // 앞 글자를 보류하고 떠 있는 초성으로 시작한다 (않·삶·읊).
+            jong.length == 1 && group.any { mate ->
+                mate != c && JONG_COMBINE.containsKey(jong[0] to mate)
+            } -> {
+                heldCho = cho
+                heldJung = jungTokens
+                heldJong = jong
+                cho = c
+                jungTokens = ""
+                jong = ""
+                HangulComposer.Result("", heldComposed() + composed())
+            }
             else -> {
                 val committed = composed()
                 reset()
@@ -106,10 +182,19 @@ class ChunjiinComposer : KoreanComposer {
         }
         // reset()이 플래그를 지우므로 확정 분기 이후에 세워야 다음 연타가 이어진다.
         lastInputWasActiveConsonant = true
-        return result
+        return HangulComposer.Result(prefix + result.commit, result.composing)
     }
 
     private fun inputVowelToken(token: Char): HangulComposer.Result {
+        val prefix = resolveHold(mergeFloating = false)
+        if (prefix.isNotEmpty()) {
+            val r = inputVowelTokenInner(token)
+            return HangulComposer.Result(prefix + r.commit, r.composing)
+        }
+        return inputVowelTokenInner(token)
+    }
+
+    private fun inputVowelTokenInner(token: Char): HangulComposer.Result {
         // 받침 있는 상태에서 모음 시작 → 도깨비불
         if (jong.isNotEmpty()) {
             val moving = jong.last()
@@ -145,6 +230,13 @@ class ChunjiinComposer : KoreanComposer {
     }
 
     override fun backspace(): HangulComposer.Result? {
+        if (heldCho != null) {
+            cho = heldCho
+            jungTokens = heldJung
+            jong = heldJong
+            clearHeld()
+            return HangulComposer.Result("", composed())
+        }
         when {
             jong.isNotEmpty() -> jong = jong.dropLast(1)
             jungTokens.isNotEmpty() -> jungTokens = jungTokens.dropLast(1)
@@ -155,7 +247,7 @@ class ChunjiinComposer : KoreanComposer {
     }
 
     override fun flush(): String {
-        val committed = composed()
+        val committed = resolveHold(mergeFloating = true) + composed()
         reset()
         return committed
     }
@@ -164,6 +256,7 @@ class ChunjiinComposer : KoreanComposer {
         cho = null
         jungTokens = ""
         jong = ""
+        clearHeld()
         lastKey = null
         lastInputWasActiveConsonant = false
     }

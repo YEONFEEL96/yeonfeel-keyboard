@@ -6,8 +6,7 @@ import dev.badalab.yeonfeel.hangul.HangulTables.VOWEL_COMBINE
 import dev.badalab.yeonfeel.hangul.HangulTables.canBeJong
 
 /**
- * 두벌식 한글 조합 오토마타. 단모음 자판(모음 연타)과
- * 세벌식(역할 명시 자모 블록 입력)도 이 클래스가 처리한다.
+ * 두벌식 한글 조합 오토마타. 단모음 자판(모음 연타 이오테이션·쌍자음)도 처리한다.
  *
  * 호환 자모(U+3131~U+3163) 단위로 입력을 받아 완성형 음절(U+AC00~)을 조합한다.
  * 조합 중인 글자(composing)와 확정된 글자(commit)를 분리해 돌려주므로,
@@ -46,9 +45,13 @@ class HangulComposer : KoreanComposer {
     override val isComposing: Boolean
         get() = cho != null || jung.isNotEmpty()
 
+    /** 같은 키를 연타 판정 시간 안에 다시 눌렀는지 — 모음 이오테이션(ㅏㅏ→ㅑ)도 이 시간을 따른다. */
+    private var withinTap = false
+
     override fun input(jamo: Char, now: Long): Result {
+        withinTap = jamo == lastKey && now - lastKeyTime < multiTapTimeoutMs
         val result =
-            if (doubleTapDoubling && jamo == lastKey && now - lastKeyTime < multiTapTimeoutMs) {
+            if (doubleTapDoubling && withinTap) {
                 tryToggleDouble(jamo) ?: input(jamo)
             } else {
                 input(jamo)
@@ -89,64 +92,8 @@ class HangulComposer : KoreanComposer {
         return null
     }
 
-    /**
-     * 호환 자모(ㄱ~ㅣ)는 두벌식 규칙(도깨비불 포함)으로,
-     * 옛한글 자모 블록(초성 U+1100~/중성 U+1161~/종성 U+11A8~)은
-     * 세벌식 규칙(역할 명시, 도깨비불 없음)으로 처리한다.
-     */
-    fun input(jamo: Char): Result = when (jamo) {
-        in 'ᄀ'..'ᄒ' -> inputChoExplicit(HangulTables.CHO_LIST[jamo - 'ᄀ'])
-        in 'ᅡ'..'ᅵ' -> inputJungExplicit(JUNG_LIST[jamo - 'ᅡ'])
-        in 'ᆨ'..'ᇂ' -> inputJongExplicit(HangulTables.JONG_LIST[jamo - 'ᆨ'])
-        else -> if (HangulTables.isVowel(jamo)) inputVowel(jamo) else inputConsonant(jamo)
-    }
-
-    /** 세벌식 초성: 조합 중인 글자가 있으면 확정하고 새 글자를 시작한다. */
-    private fun inputChoExplicit(c: Char): Result {
-        val committed = if (isComposing) composed() else ""
-        reset()
-        cho = c
-        return Result(committed, composed())
-    }
-
-    /** 세벌식 중성: 받침 뒤의 모음은 도깨비불 없이 새 글자가 된다. */
-    private fun inputJungExplicit(v: Char): Result {
-        return when {
-            jung.isEmpty() -> {
-                jung = v.toString()
-                Result("", composed())
-            }
-            jung.length == 1 && jong.isEmpty() && combineVowel(jung[0], v) != null -> {
-                jung += v
-                Result("", composed())
-            }
-            else -> {
-                val committed = composed()
-                reset()
-                jung = v.toString()
-                Result(committed, composed())
-            }
-        }
-    }
-
-    /** 세벌식 종성: 붙을 자리가 없으면 홑자모로 바로 확정한다. */
-    private fun inputJongExplicit(j: Char): Result {
-        return when {
-            cho != null && jung.isNotEmpty() && jong.isEmpty() -> {
-                jong = j.toString()
-                Result("", composed())
-            }
-            jong.length == 1 && JONG_COMBINE.containsKey(jong[0] to j) -> {
-                jong += j
-                Result("", composed())
-            }
-            else -> {
-                val committed = composed()
-                reset()
-                Result(committed + j, "")
-            }
-        }
-    }
+    fun input(jamo: Char): Result =
+        if (HangulTables.isVowel(jamo)) inputVowel(jamo) else inputConsonant(jamo)
 
     private fun inputConsonant(c: Char): Result {
         return when {
@@ -218,7 +165,7 @@ class HangulComposer : KoreanComposer {
             }
             // 받침 없는 상태: 복합 모음 조합 시도
             jong.isEmpty() -> {
-                if (jung.length == 1 && combineVowel(jung[0], v) != null) {
+                if (jung.length == 1 && combineVowelOnInput(jung[0], v) != null) {
                     jung += v
                     Result("", composed())
                 } else {
@@ -284,6 +231,11 @@ class HangulComposer : KoreanComposer {
     private fun combineVowel(a: Char, b: Char): Char? =
         VOWEL_COMBINE[a to b] ?: if (doubleTapIotation) HangulTables.DOUBLE_TAP_VOWEL[a to b] else null
 
+    /** 새 모음 입력 시의 결합 판정: 연타 이오테이션은 연타 판정 시간 안에서만 허용한다. */
+    private fun combineVowelOnInput(a: Char, b: Char): Char? =
+        VOWEL_COMBINE[a to b]
+            ?: if (doubleTapIotation && withinTap) HangulTables.DOUBLE_TAP_VOWEL[a to b] else null
+
     private fun jungChar(): Char =
         if (jung.length == 2) combineVowel(jung[0], jung[1])!! else jung[0]
 
@@ -304,7 +256,6 @@ class HangulComposer : KoreanComposer {
 
         fun isVowel(jamo: Char): Boolean = HangulTables.isVowel(jamo)
 
-        fun isHangulJamo(ch: Char): Boolean =
-            ch in 'ㄱ'..'ㅣ' || ch in 'ᄀ'..'ᇂ'
+        fun isHangulJamo(ch: Char): Boolean = ch in 'ㄱ'..'ㅣ'
     }
 }

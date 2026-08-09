@@ -32,6 +32,38 @@ class TenKeyComposerTest {
     // --- 천지인 ---
 
     @Test
+    fun `천지인 - 연타 겹받침 보류 병합`() {
+        // 않아: 안 + ㅅㅅ(ㅎ) → 다음 자음이 오면 ㄶ으로 병합
+        assertEquals("않아", typeFast(ChunjiinComposer(), "ㅇㅣㆍㄴㅅㅅㅇㅣㆍ"))
+        // 삶: 살 + ㅇㅇ(ㅁ) → 확정 시 ㄻ 병합
+        val c = ChunjiinComposer()
+        typeFast(c, "ㅅㅣㆍㄴㄴ")
+        listOf('ㅇ', 'ㅇ').forEachIndexed { i, k -> c.input(k, 10_000L + i * 100L) }
+        assertEquals("삶", c.flush())
+    }
+
+    @Test
+    fun `천지인 - 보류 상태에서 모음이 오면 새 글자 초성`() {
+        // 살 + ㅇ(보류) + ㅣ → 살이
+        assertEquals("살이", typeFast(ChunjiinComposer(), "ㅅㅣㆍㄴㄴㅇㅣ"))
+    }
+
+    @Test
+    fun `천지인 - 보류 상태 백스페이스는 앞 글자 복원`() {
+        val c = ChunjiinComposer()
+        typeFast(c, "ㅇㅣㆍㄴㅅ") // 안 + ㅅ(보류)
+        val r = c.backspace()
+        assertEquals("안", r?.composing)
+    }
+
+    @Test
+    fun `천지인 - 받침 연타로 다음 글자 쌍자음 시작`() {
+        // ㅂ 3연타: 압→앞→(아+ㅃ), 이어서 모음이 오면 아빠
+        assertEquals("아빠", typeFast(ChunjiinComposer(), "ㅇㅣㆍㅂㅂㅂㅣㆍ"))
+        assertEquals("오빠", typeFast(ChunjiinComposer(), "ㅇㆍㅡㅂㅂㅂㅣㆍ"))
+    }
+
+    @Test
     fun `천지인 - 자음만 이어 칠 때 연타 사이클 유지`() {
         // ㅅㅅㅅ=ㅆ 확정 후에도 ㄷㄷ=ㅌ, ㅈㅈ=ㅊ 연타가 이어져야 한다 (확정 시 연타 상태 유실 회귀)
         val composer = ChunjiinComposer()

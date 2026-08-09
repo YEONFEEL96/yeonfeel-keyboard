@@ -96,7 +96,7 @@ class LayoutSettingsActivity : Activity() {
     }
 
     /**
-     * 연타 입력이 없는 두벌식·세벌식, 그리고 연타 대기가 무한인 자동 방식 천지인에서는
+     * 연타 입력이 없는 두벌식, 그리고 연타 대기가 무한인 스페이스바 조합 끊기 천지인에서는
      * 연타 판정 시간 섹션을 숨긴다 (다른 콘텐츠는 유지).
      */
     private fun updateMultiTapSection(settings: KeyboardSettings) {

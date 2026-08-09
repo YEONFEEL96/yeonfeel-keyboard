@@ -106,15 +106,12 @@
     <string name="touch_ai_sub">스페이스바로 어절이 끝나면 오타를 교정합니다.\n백스페이스를 입력하여 되돌릴 수 있습니다.</string>
     <string name="dwaet_fix_title">됬이라는 글자는 존재하지 않습니다</string>
     <string name="dwaet_fix_sub">됬을 입력하면 무조건 됐으로 고칩니다</string>
-    <string name="debug_touch_section">타점 데이터</string>
     <string name="debug_touch_correction_dialog_message">터치 보정은 수집된 타점 데이터로 동작합니다. 타점 수집이 함께 켜집니다.</string>
     <string name="debug_touch_correction_dialog_confirm">함께 켜기</string>
-    <string name="feedback_menu">피드백</string>
     <string name="touch_feedback_menu">터치 피드백</string>
     <string name="feedback_sound">소리</string>
     <string name="feedback_vibration">진동</string>
     <string name="feedback_key_preview">누른 키 보여주기</string>
-    <string name="feedback_haptic">햅틱 피드백</string>
     <string name="feedback_haptic_strength">햅틱 강도</string>
     <string name="gesture_backspace_speed">백스페이스 속도</string>
     <string name="speed_slow">느리게</string>
@@ -122,8 +119,6 @@
     <string name="speed_fast">빠르게</string>
     <string name="symbol_favorite_title">기호 즐겨찾기</string>
     <string name="symbol_left_title">스페이스바 좌측에 기호 표시하기</string>
-    <string name="symbol_left_switch">스페이스바 좌측 기호 표시</string>
-    <string name="symbol_disabled">사용 안 함</string>
     <string name="symbol_pick_caption">기호 선택</string>
     <string name="symbol_custom_title">직접 입력</string>
     <string name="symbol_custom_hint">원하는 기호 한 글자를 입력하세요</string>

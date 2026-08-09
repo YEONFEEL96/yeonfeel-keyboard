@@ -97,11 +97,12 @@ class HangulComposerTest {
     }
 
     private fun typeDanmoeum(jamos: String): String {
+        // 연타 판정 시간(300ms) 안의 빠른 입력으로 친다 — 모음 이오테이션도 이 시간을 따른다.
         val composer = HangulComposer().apply { doubleTapIotation = true }
         val committed = StringBuilder()
         var composing = ""
-        jamos.forEach { jamo ->
-            val result = composer.input(jamo)
+        jamos.forEachIndexed { index, jamo ->
+            val result = composer.input(jamo, index * 100L)
             committed.append(result.commit)
             composing = result.composing
         }
@@ -238,5 +239,44 @@ class DwaetFixTest {
     @org.junit.Test
     fun `기본값에서는 됬 그대로`() {
         org.junit.Assert.assertEquals("됬", type(HangulComposer(), "ㄷㅗㅣㅆ"))
+    }
+}
+
+
+class DanmoeumIotationTimeoutTest {
+    private fun danmoeum() = HangulComposer().apply {
+        doubleTapIotation = true
+        doubleTapDoubling = true
+        multiTapTimeoutMs = 300L
+    }
+
+    private fun type(composer: HangulComposer, keys: List<Pair<Char, Long>>): String {
+        val out = StringBuilder()
+        var composing = ""
+        keys.forEach { (k, t) ->
+            val r = composer.input(k, t)
+            out.append(r.commit)
+            composing = r.composing
+        }
+        return out.toString() + composing
+    }
+
+    @org.junit.Test
+    fun `빠른 모음 연타는 이오테이션`() {
+        val keys = listOf('ㄱ' to 0L, 'ㅏ' to 100L, 'ㅏ' to 200L)
+        org.junit.Assert.assertEquals("갸", type(danmoeum(), keys))
+    }
+
+    @org.junit.Test
+    fun `연타 시간 이후 같은 모음은 새 글자`() {
+        // 시간이 지난 같은 모음은 이오테이션(갸) 대신 새 조합으로 분리된다
+        val keys = listOf('ㄱ' to 0L, 'ㅏ' to 100L, 'ㅏ' to 1000L)
+        org.junit.Assert.assertEquals("가ㅏ", type(danmoeum(), keys))
+    }
+
+    @org.junit.Test
+    fun `복합 모음 결합은 시간과 무관`() {
+        val keys = listOf('ㄱ' to 0L, 'ㅗ' to 100L, 'ㅏ' to 2000L)
+        org.junit.Assert.assertEquals("과", type(danmoeum(), keys))
     }
 }
