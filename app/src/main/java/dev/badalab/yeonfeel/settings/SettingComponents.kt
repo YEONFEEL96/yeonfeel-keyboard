@@ -60,7 +60,8 @@ class SettingComponents(private val activity: Activity) {
         } else {
             emptyList()
         }
-        view.setOnTouchListener { _, event ->
+        view.setOnTouchListener { v, event ->
+            if (!v.isEnabled) return@setOnTouchListener false
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     fadeOut?.cancel()
@@ -243,7 +244,9 @@ class SettingComponents(private val activity: Activity) {
     fun textRow(label: String, subLabel: String? = null, onClick: (() -> Unit)? = null): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(18), dp(20), dp(18))
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(ROW_MIN_HEIGHT)
+            setPadding(dp(20), dp(ROW_V_PAD), dp(20), dp(ROW_V_PAD))
         }
         row.addView(TextView(activity).apply {
             text = label
@@ -284,12 +287,16 @@ class SettingComponents(private val activity: Activity) {
             color = Color.WHITE
         }
 
+        /** 상태가 바뀔 때마다(코드로 되돌릴 때 포함) 호출된다 — 라벨 동기화용. */
+        var onStateChanged: ((Boolean) -> Unit)? = null
+
         /** 콜백 없이 상태만 바꾼다 (예: 최소 1개 언어 제약으로 되돌릴 때). */
         var isChecked: Boolean = initialChecked
             set(value) {
                 if (field == value) return
                 field = value
                 animateTo(value)
+                onStateChanged?.invoke(value)
             }
 
         init {
@@ -331,18 +338,81 @@ class SettingComponents(private val activity: Activity) {
 
     }
 
-    fun switchRow(label: String, checked: Boolean, onChange: (Boolean, ToggleView) -> Unit): View {
+    /**
+     * 마스터 스위치: 알약형 단독 카드에 "사용 중/사용 안 함" 상태 라벨과 토글.
+     * 화면 전체 기능의 대표 온오프에 쓴다.
+     */
+    fun masterSwitch(checked: Boolean, onChange: (Boolean, ToggleView) -> Unit): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(14), dp(20), dp(14))
+            background = GradientDrawable().apply {
+                setColor(MASTER_BG)
+                cornerRadius = dp(30).toFloat()
+            }
+            setPadding(dp(24), 0, dp(16), 0)
         }
-        row.addView(TextView(activity).apply {
+        val label = TextView(activity).apply {
+            textSize = 17f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        fun applyLabel(on: Boolean) {
+            label.text = activity.getString(
+                if (on) dev.badalab.yeonfeel.R.string.master_on else dev.badalab.yeonfeel.R.string.master_off,
+            )
+            label.setTextColor(if (on) ACCENT else TEXT)
+        }
+        applyLabel(checked)
+        val toggle = ToggleView(activity, checked, onChange)
+        toggle.onStateChanged = { applyLabel(it) }
+        row.addView(label)
+        row.addView(toggle)
+        row.setOnClickListener { toggle.toggle() }
+        addPressEffect(row, cornerDp = 30)
+        column.addView(
+            row,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60)).apply {
+                bottomMargin = dp(16)
+            },
+        )
+        return row
+    }
+
+    fun switchRow(label: String, checked: Boolean, onChange: (Boolean, ToggleView) -> Unit): View =
+        switchRow(label, null, checked, onChange)
+
+    /** [subLabel]을 주면 라벨 아래에 설명이 붙는 토글 행. */
+    fun switchRow(
+        label: String,
+        subLabel: String?,
+        checked: Boolean,
+        onChange: (Boolean, ToggleView) -> Unit,
+    ): View {
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(ROW_MIN_HEIGHT)
+            setPadding(dp(20), dp(ROW_V_PAD), dp(20), dp(ROW_V_PAD))
+        }
+        val textColumn = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        textColumn.addView(TextView(activity).apply {
             text = label
             textSize = 17f
             setTextColor(TEXT)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
+        subLabel?.let {
+            textColumn.addView(TextView(activity).apply {
+                text = it
+                textSize = 13f
+                setTextColor(SUB_TEXT)
+                setPadding(0, dp(3), 0, 0)
+            })
+        }
+        row.addView(textColumn)
         val switch = ToggleView(activity, checked, onChange)
         row.addView(switch)
         row.setOnClickListener { switch.toggle() }
@@ -364,7 +434,8 @@ class SettingComponents(private val activity: Activity) {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(14), dp(20), dp(14))
+            minimumHeight = dp(ROW_MIN_HEIGHT)
+            setPadding(dp(20), dp(ROW_V_PAD), dp(20), dp(ROW_V_PAD))
         }
         val textColumn = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -416,7 +487,7 @@ class SettingComponents(private val activity: Activity) {
         val thumbRadius = dp(11)
         val row = SliderRowView(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20) - thumbRadius, dp(14), dp(20) - thumbRadius, dp(14))
+            setPadding(dp(20) - thumbRadius, dp(ROW_V_PAD), dp(20) - thumbRadius, dp(ROW_V_PAD))
         }
         val valueView = valueFormatter?.let { formatter ->
             TextView(activity).apply {
@@ -636,7 +707,8 @@ class SettingComponents(private val activity: Activity) {
                 marginStart = dp(20)
                 marginEnd = dp(20)
             }
-            setPadding(dp(8), dp(16), dp(12), dp(16))
+            minHeight = dp(ROW_MIN_HEIGHT)
+            setPadding(dp(8), dp(ROW_V_PAD), dp(12), dp(ROW_V_PAD))
             isClickable = false
             isFocusable = false
             // 행 pressed 상태가 전파되며 뜨는 기본 원형 리플이 행 하이라이트와 겹치지 않게 없앤다.
@@ -663,6 +735,30 @@ class SettingComponents(private val activity: Activity) {
 
     companion object {
         private const val ROOT_TAG = "setting_root"
+
+        /** 마스터 스위치 하위 섹션을 흐리게/터치 차단 상태로 전환한다. */
+        fun setSectionsEnabled(sections: List<View>, enabled: Boolean, animate: Boolean) {
+            val target = if (enabled) 1f else 0.4f
+            sections.forEach { section ->
+                if (animate) {
+                    section.animate().alpha(target).setDuration(180).start()
+                } else {
+                    section.alpha = target
+                }
+                setEnabledDeep(section, enabled)
+            }
+        }
+
+        private fun setEnabledDeep(view: View, enabled: Boolean) {
+            view.isEnabled = enabled
+            if (view is android.view.ViewGroup) {
+                for (i in 0 until view.childCount) setEnabledDeep(view.getChildAt(i), enabled)
+            }
+        }
+
+        // 모든 행이 같은 수직 리듬을 갖도록 하는 공통 값
+        private const val ROW_MIN_HEIGHT = 56
+        private const val ROW_V_PAD = 16
         const val ACCENT = 0xFF3D8BFF.toInt()
 
         // 테마에 따라 빌더 생성 시 교체되는 팔레트 (설정 화면은 항상 빌더를 먼저 만든다)
@@ -674,6 +770,7 @@ class SettingComponents(private val activity: Activity) {
         var DIVIDER_STRONG = 0xFFDCDEE3.toInt()
         var PRESS_OVERLAY = 0x26000000
         var TRACK_OFF = 0xFFC6CAD2.toInt()
+        var MASTER_BG = 0xFFE2E4E9.toInt()
 
         private fun applyPalette(dark: Boolean) {
             BG = if (dark) 0xFF17181C.toInt() else 0xFFF1F2F6.toInt()
@@ -684,6 +781,7 @@ class SettingComponents(private val activity: Activity) {
             DIVIDER_STRONG = if (dark) 0xFF3B3F48.toInt() else 0xFFDCDEE3.toInt()
             PRESS_OVERLAY = if (dark) 0x2EFFFFFF else 0x26000000
             TRACK_OFF = if (dark) 0xFF4A4F59.toInt() else 0xFFC6CAD2.toInt()
+            MASTER_BG = if (dark) 0xFF2E3138.toInt() else 0xFFE2E4E9.toInt()
         }
     }
 }

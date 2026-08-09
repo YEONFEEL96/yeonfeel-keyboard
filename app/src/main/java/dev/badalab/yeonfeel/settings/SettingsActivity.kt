@@ -62,6 +62,7 @@ class SettingsActivity : Activity() {
             },
         )
 
+        ui.caption(getString(R.string.settings_section_general))
         ui.card(
             ui.textRow(getString(R.string.reset_menu)) {
                 startActivity(Intent(this, ResetSettingsActivity::class.java))

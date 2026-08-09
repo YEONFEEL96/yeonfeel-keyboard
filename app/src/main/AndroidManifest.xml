@@ -94,6 +94,11 @@
             android:label="@string/debug_menu" />
 
         <activity
+            android:name=".settings.TouchCorrectionActivity"
+            android:exported="false"
+            android:label="@string/debug_touch_correction" />
+
+        <activity
             android:name=".settings.TouchVisualizerActivity"
             android:exported="false"
             android:label="@string/debug_touch_visualizer" />

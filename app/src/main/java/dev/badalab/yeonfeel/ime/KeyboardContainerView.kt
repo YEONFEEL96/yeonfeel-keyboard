@@ -37,6 +37,8 @@ class KeyboardContainerView(
         fun onToolbarOrderChanged(order: String)
         fun onRememberSymbol(symbol: Char)
         fun onOneHandedCycle()
+        fun onSkinToneChanged(tone: Int)
+        fun onOneHandedModeChanged(mode: dev.badalab.yeonfeel.settings.OneHandedMode)
         fun onMarginsCommitted(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int)
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
@@ -54,10 +56,14 @@ class KeyboardContainerView(
     private val contentFrame = FrameLayout(context)
     private var clipboardPanel: View? = null
     private var emojiPanel: View? = null
+    private var kaomojiPanel: View? = null
     private var clipboardHeader: View? = null
     private var adjustOverlay: MarginAdjustOverlay? = null
 
     private var emojiSearchOpen = false
+    private var skinTone = 0
+    private var emojiScrollView: ScrollView? = null
+    private var skinTonePopup: android.widget.PopupWindow? = null
     private var emojiSearchResultsRow: View? = null
     private var emojiSearchQueryView: TextView? = null
     private var emojiSearchResultsList: LinearLayout? = null
@@ -72,6 +78,7 @@ class KeyboardContainerView(
 
     private var toolbarEnabled = true
     private var oneHandedMode = dev.badalab.yeonfeel.settings.OneHandedMode.OFF
+    private var oneHandControls: View? = null
     private var marginTopDp = 0
     private var marginBottomDp = 0
     private var marginSideDp = 0
@@ -89,6 +96,7 @@ class KeyboardContainerView(
         "layout" to R.drawable.ic_toolbar_keyboard,
         "clipboard" to R.drawable.ic_toolbar_clipboard,
         "emoji" to R.drawable.ic_toolbar_emoji,
+        "kaomoji" to R.drawable.ic_toolbar_kaomoji,
         "onehand" to R.drawable.ic_toolbar_onehand,
     )
     private var currentToolbarOrder = KeyboardSettings.TOOLBAR_ORDER_DEFAULT
@@ -122,6 +130,10 @@ class KeyboardContainerView(
         toolbarButtons["layout"] = layoutButton
         toolbarButtons["clipboard"] = clipboardButton
         toolbarButtons["emoji"] = emojiButton
+        toolbarButtons["kaomoji"] = toolbarIcon(
+            R.drawable.ic_toolbar_kaomoji,
+            context.getString(R.string.toolbar_kaomoji_desc),
+        ) { toggleKaomojiPanel() }
         oneHandButton = toolbarIcon(
             R.drawable.ic_toolbar_onehand,
             context.getString(R.string.toolbar_onehand_desc),
@@ -169,7 +181,10 @@ class KeyboardContainerView(
         keyboardView.deleteRepeatIntervalMs = settings.backspaceSpeed.intervalMs
         keyboardView.longPressDelayMs = settings.longPressDelayMs.toLong()
         keyboardView.fontScale = settings.keyFontSize.scale
+        keyboardView.touchModelEnabled =
+            settings.touchCorrectionEnabled && settings.touchCorrectionBasic
         oneHandedMode = settings.oneHandedMode
+        skinTone = settings.skinTone
         KeyboardLayouts.lastSymbol3x4 = settings.rememberedSymbol.first()
         keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
@@ -193,6 +208,73 @@ class KeyboardContainerView(
         editButton.imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
         applyToolbarOrder(settings.toolbarOrder)
         showKeyboard()
+        updateOneHandControls()
+    }
+
+    /** 한 손 모드의 빈 영역에 위치 전환·해제 버튼을 띄운다. */
+    private fun updateOneHandControls() {
+        oneHandControls?.let { contentFrame.removeView(it) }
+        oneHandControls = null
+        val mode = oneHandedMode
+        if (mode == dev.badalab.yeonfeel.settings.OneHandedMode.OFF) return
+
+        val stripDp = (resources.configuration.screenWidthDp * 0.25f).toInt()
+        val emptyOnLeft = mode == dev.badalab.yeonfeel.settings.OneHandedMode.RIGHT
+        fun controlIcon(res: Int, desc: String, rotate: Float, onClick: () -> Unit) =
+            android.widget.ImageView(context).apply {
+                setImageResource(res)
+                contentDescription = desc
+                rotation = rotate
+                imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                setOnClickListener { onClick() }
+                addIconPressEffect(this)
+            }
+
+        // 전환 화살표는 세로 중앙, 해제 버튼은 하단 모서리로 떨어뜨린다.
+        val column = LinearLayout(context).apply {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        column.addView(View(context), LayoutParams(0, 0, 1f))
+        column.addView(
+            controlIcon(
+                R.drawable.ic_toolbar_chevron_down,
+                context.getString(R.string.onehand_switch_desc),
+                if (emptyOnLeft) 90f else -90f,
+            ) {
+                callbacks.onOneHandedModeChanged(
+                    if (emptyOnLeft) {
+                        dev.badalab.yeonfeel.settings.OneHandedMode.LEFT
+                    } else {
+                        dev.badalab.yeonfeel.settings.OneHandedMode.RIGHT
+                    },
+                )
+            },
+            LayoutParams(dp(44), dp(44)),
+        )
+        column.addView(View(context), LayoutParams(0, 0, 1f))
+        column.addView(
+            controlIcon(R.drawable.ic_icon_expand, context.getString(R.string.onehand_exit_desc), 0f) {
+                callbacks.onOneHandedModeChanged(dev.badalab.yeonfeel.settings.OneHandedMode.OFF)
+            },
+            LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(10) },
+        )
+
+        oneHandControls = column
+        // 키보드 바로 위 레이어 — 이후 열리는 패널(클립보드·이모지)이 자연스럽게 덮는다.
+        contentFrame.addView(
+            column,
+            contentFrame.indexOfChild(keyboardWrapper) + 1,
+            FrameLayout.LayoutParams(
+                dp(stripDp),
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                if (emptyOnLeft) Gravity.START else Gravity.END,
+            ).apply {
+                topMargin = dp(marginTopDp)
+                bottomMargin = dp(marginBottomDp) + navInsetPx
+            },
+        )
     }
 
     /** 툴바 아이콘 순서·표시 적용. 목록에 없는 항목은 숨겨지고 편집 패널에서 다시 추가한다. */
@@ -266,11 +348,15 @@ class KeyboardContainerView(
         clipboardPanel = null
         emojiPanel?.let { contentFrame.removeView(it) }
         emojiPanel = null
+        kaomojiPanel?.let { contentFrame.removeView(it) }
+        kaomojiPanel = null
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = null
         toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
         adjustOverlay?.let { contentFrame.removeView(it) }
         adjustOverlay = null
+        skinTonePopup?.dismiss()
+        skinTonePopup = null
         toolbarEditPanel?.let { contentFrame.removeView(it) }
         toolbarEditPanel = null
         editButton.rotation = 0f
@@ -500,6 +586,98 @@ class KeyboardContainerView(
         return panel
     }
 
+    private fun toggleKaomojiPanel() {
+        val wasOpen = kaomojiPanel != null
+        showKeyboard()
+        if (wasOpen) {
+            fadeIn(keyboardView)
+            return
+        }
+
+        val content = LinearLayout(context).apply {
+            orientation = VERTICAL
+            // 하단 여백은 패널이 아니라 스크롤 내용의 패딩으로 — 항목이 그 영역까지 보인다.
+            setPadding(dp(8), dp(4), dp(8), dp(8) + dp(marginBottomDp) + navBarInset())
+        }
+        EmojiData.kaomojiGroupList().forEach { (title, items) ->
+            content.addView(TextView(context).apply {
+                text = title
+                setTextColor(theme.subText)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setPadding(dp(6), dp(8), 0, dp(2))
+            })
+            items.chunked(3).forEach { rowItems ->
+                val row = LinearLayout(context).apply { orientation = HORIZONTAL }
+                rowItems.forEach { item ->
+                    row.addView(
+                        TextView(context).apply {
+                            text = item
+                            gravity = Gravity.CENTER
+                            maxLines = 1
+                            setTextColor(theme.text)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                            setOnClickListener { callbacks.onEmoji(item) }
+                        },
+                        LayoutParams(0, dp(46), 1f),
+                    )
+                }
+                repeat(3 - rowItems.size) {
+                    row.addView(View(context), LayoutParams(0, dp(46), 1f))
+                }
+                content.addView(row)
+            }
+        }
+        val panel = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setBackgroundColor(theme.background)
+            addView(
+                ScrollView(context).apply {
+                    isVerticalScrollBarEnabled = false
+                    addView(content)
+                },
+                LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f),
+            )
+        }
+        kaomojiPanel = panel
+        keyboardView.visibility = INVISIBLE
+        contentFrame.addView(
+            panel,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
+        )
+        attachHeader(buildPanelTitleHeader(R.string.toolbar_kaomoji_desc))
+        fadeIn(clipboardHeader, panel)
+    }
+
+    /** 키보드 복귀·제목·백스페이스로 구성된 공용 패널 헤더. */
+    private fun buildPanelTitleHeader(titleRes: Int): View {
+        val header = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(theme.specialKey)
+            setPadding(dp(8), 0, dp(8), 0)
+        }
+        header.addView(
+            headerImage(R.drawable.ic_toolbar_keyboard, context.getString(R.string.clipboard_back_to_keyboard)) {
+                showKeyboard()
+                fadeIn(keyboardView)
+            },
+        )
+        header.addView(TextView(context).apply {
+            text = context.getString(titleRes)
+            setTextColor(theme.subText)
+            setTypeface(null, Typeface.BOLD)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setPadding(dp(6), 0, 0, 0)
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        })
+        header.addView(
+            headerImage(R.drawable.ic_icon_backspace, context.getString(R.string.clipboard_delete)) {
+                callbacks.onKey(Key(KeyType.DELETE, "⌫"))
+            },
+        )
+        return header
+    }
+
     private fun toggleEmojiPanel() {
         val wasOpen = emojiPanel != null
         showKeyboard()
@@ -562,7 +740,8 @@ class KeyboardContainerView(
             setPadding(dp(8), dp(2), dp(8), dp(8))
         }
         val blocks = mutableListOf<View>()
-        EmojiData.categories.forEach { category ->
+        val allCategories = EmojiData.categories()
+        allCategories.forEach { category ->
             val block = LinearLayout(context).apply { orientation = VERTICAL }
             block.addView(TextView(context).apply {
                 text = category.title
@@ -570,20 +749,31 @@ class KeyboardContainerView(
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setPadding(dp(6), dp(8), 0, dp(2))
             })
-            category.emojis.chunked(8).forEach { rowEmojis ->
+            val columns = if (category.wide) 3 else 8
+            val textSp = if (category.wide) 14f else 24f
+            category.emojis.chunked(columns).forEach { rowEmojis ->
                 val row = LinearLayout(context).apply { orientation = HORIZONTAL }
                 rowEmojis.forEach { emoji ->
+                    val shown = EmojiData.applySkinTone(emoji, skinTone)
                     row.addView(
                         TextView(context).apply {
-                            text = emoji
+                            text = shown
                             gravity = Gravity.CENTER
-                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-                            setOnClickListener { callbacks.onEmoji(emoji) }
+                            maxLines = 1
+                            setTextColor(theme.text)
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp)
+                            setOnClickListener { callbacks.onEmoji(shown) }
+                            if (EmojiData.supportsSkinTone(emoji)) {
+                                setOnLongClickListener {
+                                    showSkinTonePopup(this, emoji)
+                                    true
+                                }
+                            }
                         },
                         LayoutParams(0, dp(44), 1f),
                     )
                 }
-                repeat(8 - rowEmojis.size) {
+                repeat(columns - rowEmojis.size) {
                     row.addView(View(context), LayoutParams(0, dp(44), 1f))
                 }
                 block.addView(row)
@@ -595,6 +785,7 @@ class KeyboardContainerView(
             isVerticalScrollBarEnabled = false
             addView(content)
         }
+        emojiScrollView = emojiScroll
 
         val tabs = mutableListOf<TextView>()
         fun highlightTab(active: Int) {
@@ -618,11 +809,13 @@ class KeyboardContainerView(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(8), 0, dp(8), 0)
         }
-        EmojiData.categories.forEachIndexed { index, category ->
+        allCategories.forEachIndexed { index, category ->
             val tab = TextView(context).apply {
-                text = category.emojis.first()
+                text = category.tabLabel
                 gravity = Gravity.CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                maxLines = 1
+                setTextColor(theme.text)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (category.wide) 12f else 20f)
                 contentDescription = category.title
                 layoutParams = LayoutParams(dp(38), dp(38)).apply {
                     marginStart = dp(4)
@@ -672,6 +865,67 @@ class KeyboardContainerView(
 
     private fun navBarInset(): Int = navInsetPx
 
+    /** 스킨톤 지원 이모지 롱프레스: 기본+5톤 선택 팝업. 선택한 톤은 기본값으로 저장된다. */
+    private fun showSkinTonePopup(anchor: View, baseEmoji: String) {
+        skinTonePopup?.dismiss()
+        val row = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(theme.key)
+                setStroke(dp(1), theme.subText and 0x50FFFFFF.toInt())
+            }
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+        }
+        (0..5).forEach { tone ->
+            val toned = EmojiData.applySkinTone(baseEmoji, tone)
+            row.addView(
+                TextView(context).apply {
+                    text = toned
+                    gravity = Gravity.CENTER
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                    setOnClickListener {
+                        callbacks.onEmoji(toned)
+                        if (skinTone != tone) {
+                            skinTone = tone
+                            callbacks.onSkinToneChanged(tone)
+                            refreshEmojiPanel()
+                        }
+                        skinTonePopup?.dismiss()
+                        skinTonePopup = null
+                    }
+                },
+                LayoutParams(dp(40), dp(46)),
+            )
+        }
+        val popupWidth = dp(6 * 40 + 12)
+        val popup = android.widget.PopupWindow(row, popupWidth, dp(54), false).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0x00000000))
+            isClippingEnabled = false
+        }
+        val location = IntArray(2)
+        anchor.getLocationInWindow(location)
+        val x = (location[0] + anchor.width / 2 - popupWidth / 2)
+            .coerceIn(dp(4), maxOf(dp(4), width - popupWidth - dp(4)))
+        popup.showAtLocation(this, Gravity.NO_GRAVITY, x, location[1] - dp(58))
+        skinTonePopup = popup
+    }
+
+    /** 스킨톤 변경 등으로 이모지 패널을 스크롤 위치를 유지한 채 다시 그린다. */
+    private fun refreshEmojiPanel() {
+        val open = emojiPanel ?: return
+        val scrollY = emojiScrollView?.scrollY ?: 0
+        contentFrame.removeView(open)
+        val rebuilt = buildEmojiPanel()
+        emojiPanel = rebuilt
+        contentFrame.addView(
+            rebuilt,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
+        )
+        emojiScrollView?.post { emojiScrollView?.scrollTo(0, scrollY) }
+    }
+
     /**
      * 이모지 검색 모드: 이모지 헤더는 그대로 두고 탭 스트립 자리의 분류가
      * 검색 칸으로 바뀐다. 그 아래 결과 스트립 + 일반 키보드로 입력한다.
@@ -720,12 +974,13 @@ class KeyboardContainerView(
             return
         }
         found.forEach { emoji ->
+            val shown = EmojiData.applySkinTone(emoji, skinTone)
             list.addView(
                 TextView(context).apply {
-                    this.text = emoji
+                    this.text = shown
                     gravity = Gravity.CENTER
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-                    setOnClickListener { callbacks.onEmoji(emoji) }
+                    setOnClickListener { callbacks.onEmoji(shown) }
                 },
                 LayoutParams(dp(46), LayoutParams.MATCH_PARENT),
             )

@@ -241,6 +241,26 @@ class KeyboardSettings(context: Context) {
         }.getOrDefault(OneHandedMode.OFF)
         set(value) = prefs.edit().putString(KEY_ONE_HANDED, value.name).apply()
 
+    /** 이모지 기본 스킨톤 (0 = 기본, 1~5 = 밝은 → 어두운). */
+    var skinTone: Int
+        get() = prefs.getInt(KEY_SKIN_TONE, 0)
+        set(value) = prefs.edit().putInt(KEY_SKIN_TONE, value.coerceIn(0, 5)).apply()
+
+    /** 타점 개인화 보정 (실험): 경계 근처 탭을 사용자의 타점 분포로 재판정. */
+    var touchCorrectionEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TOUCH_CORRECTION, true)
+        set(value) = prefs.edit().putBoolean(KEY_TOUCH_CORRECTION, value).apply()
+
+    /** 1단계 기본 보정(타점 분포 재판정) 사용 여부. 마스터 스위치와 AND로 동작. */
+    var touchCorrectionBasic: Boolean
+        get() = prefs.getBoolean(KEY_TOUCH_CORRECTION_BASIC, true)
+        set(value) = prefs.edit().putBoolean(KEY_TOUCH_CORRECTION_BASIC, value).apply()
+
+    /** 2단계 AI 보정(어절 단위 노이지 채널) 사용 여부. 마스터 스위치와 AND로 동작. */
+    var touchCorrectionAi: Boolean
+        get() = prefs.getBoolean(KEY_TOUCH_CORRECTION_AI, false)
+        set(value) = prefs.edit().putBoolean(KEY_TOUCH_CORRECTION_AI, value).apply()
+
     var keyFontSize: KeyFontSize
         get() = runCatching {
             KeyFontSize.valueOf(prefs.getString(KEY_FONT_SIZE, null) ?: "")
@@ -279,7 +299,7 @@ class KeyboardSettings(context: Context) {
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
-        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,onehand"
+        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,kaomoji,onehand"
 
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SHOW_TOOLBAR = "show_toolbar"
@@ -299,6 +319,10 @@ class KeyboardSettings(context: Context) {
         private const val KEY_CHUNJIIN_SPACE_COMMITS = "chunjiin_space_commits"
         private const val KEY_ADJUST_REQUESTED = "adjust_mode_requested"
         private const val KEY_ONE_HANDED = "one_handed_mode"
+        private const val KEY_SKIN_TONE = "emoji_skin_tone"
+        private const val KEY_TOUCH_CORRECTION = "touch_correction"
+        private const val KEY_TOUCH_CORRECTION_BASIC = "touch_correction_basic"
+        private const val KEY_TOUCH_CORRECTION_AI = "touch_correction_ai"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"

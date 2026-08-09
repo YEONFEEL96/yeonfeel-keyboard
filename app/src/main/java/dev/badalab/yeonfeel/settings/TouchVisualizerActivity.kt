@@ -12,6 +12,7 @@ import dev.badalab.yeonfeel.debug.TouchStatsStore
 import dev.badalab.yeonfeel.ime.KeyType
 import dev.badalab.yeonfeel.ime.KeyboardLayouts
 import dev.badalab.yeonfeel.ime.LayoutMode
+import dev.badalab.yeonfeel.ime.TouchModel
 
 /** 수집된 타점을 현재 한국어 자판 위에 흩뿌려 보여준다. */
 class TouchVisualizerActivity : Activity() {
@@ -35,6 +36,7 @@ class TouchVisualizerActivity : Activity() {
                         this@TouchVisualizerActivity,
                         settings,
                         store.forBoard("KO_" + settings.koreanLayout.name),
+                        TouchModel(store).statsFor("KO_" + settings.koreanLayout.name),
                     ),
                     android.widget.LinearLayout.LayoutParams(
                         android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
@@ -51,6 +53,7 @@ class TouchVisualizerActivity : Activity() {
         activity: Activity,
         private val settings: KeyboardSettings,
         private val samples: List<TouchStatsStore.Sample>,
+        private val stats: Map<String, TouchModel.KeyStat>,
     ) : View(activity) {
 
         private val rows = KeyboardLayouts.rows(
@@ -75,6 +78,14 @@ class TouchVisualizerActivity : Activity() {
         }
         private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0x553D8BFF
+        }
+        private val ellipsePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+            color = 0xCCFF6D3D.toInt()
+        }
+        private val muPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFFF6D3D.toInt()
         }
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -112,6 +123,24 @@ class TouchVisualizerActivity : Activity() {
                                 rect.centerY() - (labelPaint.ascent() + labelPaint.descent()) / 2,
                                 labelPaint,
                             )
+                        }
+                        // 표본이 충분한 키는 개인화 평균(점)과 1σ 타원을 겹쳐 그린다.
+                        if (key.type == KeyType.CHAR) {
+                            stats[key.char.toString()]?.let { stat ->
+                                if (stat.n >= TouchModel.MIN_SAMPLES) {
+                                    val p = TouchModel.effective(stat)
+                                    val cx = rect.centerX() + p[0] * rect.width()
+                                    val cy = rect.centerY() + p[1] * rect.height()
+                                    canvas.drawOval(
+                                        cx - p[2] * rect.width(),
+                                        cy - p[3] * rect.height(),
+                                        cx + p[2] * rect.width(),
+                                        cy + p[3] * rect.height(),
+                                        ellipsePaint,
+                                    )
+                                    canvas.drawCircle(cx, cy, 4f, muPaint)
+                                }
+                            }
                         }
                     }
                     x += keyWidth

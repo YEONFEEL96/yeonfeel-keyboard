@@ -35,7 +35,7 @@ class MarginSettingsActivity : Activity() {
             actionIcon = R.drawable.ic_toolbar_keyboard,
             onAction = { showAdjustKeyboard() },
         )
-        ui.card(ui.textRow(getString(R.string.settings_margin_hint)))
+        ui.caption(getString(R.string.settings_margin_hint))
 
         val input = android.widget.EditText(this).apply {
             alpha = 0f

@@ -28,6 +28,12 @@ class YeonfeelImeService : InputMethodService() {
     private val clipboardHistory = ClipboardHistory()
     private lateinit var clipboardStore: SecureClipboardStore
     private lateinit var touchStats: dev.badalab.yeonfeel.debug.TouchStatsStore
+    private lateinit var touchModel: TouchModel
+    private val wordCorrector = dev.badalab.yeonfeel.hangul.WordCorrector()
+
+    /** 직전 자동 교정 (원래 어절, 교정 어절) — 백스페이스 한 번으로 되돌린다. */
+    private var lastCorrection: Pair<String, String>? = null
+    private var pendingTouchSample: dev.badalab.yeonfeel.debug.TouchStatsStore.Sample? = null
     private var container: KeyboardContainerView? = null
     private var mode = LayoutMode.KOREAN
 
@@ -47,6 +53,7 @@ class YeonfeelImeService : InputMethodService() {
             mainHandler.post {
                 clipboardHistory.restore(entries)
                 touchStats.reload()
+                touchModel.invalidate()
             }
         }
     }
@@ -56,6 +63,13 @@ class YeonfeelImeService : InputMethodService() {
         settings = KeyboardSettings(this)
         clipboardStore = SecureClipboardStore(this)
         touchStats = dev.badalab.yeonfeel.debug.TouchStatsStore(this)
+        touchModel = TouchModel(touchStats)
+        ioExecutor.execute {
+            runCatching { assets.open("ko_freq.txt").use(wordCorrector::load) }
+            runCatching {
+                assets.open("ko_known.bloom").use { wordCorrector.loadKnown(it.readBytes()) }
+            }
+        }
         reloadStoresAsync()
         clipboardManager = getSystemService(ClipboardManager::class.java)
         clipboardManager.addPrimaryClipChangedListener(clipListener)
@@ -88,23 +102,24 @@ class YeonfeelImeService : InputMethodService() {
     override fun onCreateInputView(): View {
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
+        view.keyboardView.touchStatsProvider = { board -> touchModel.statsFor(board) }
         view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
             if (settings.touchStatsEnabled && !sensitiveField && key.type != KeyType.SPACER) {
                 val keyId = when (key.type) {
                     KeyType.CHAR, KeyType.GHOST -> key.char.toString()
                     else -> key.type.name
                 }
-                // 자판마다 키 위치가 달라 보드별로 분리 저장한다.
-                val kv = view.keyboardView
-                val board = when (kv.mode) {
-                    LayoutMode.KOREAN -> "KO_" + settings.koreanLayout.name
-                    LayoutMode.ENGLISH -> "EN_" + settings.englishLayout.name
-                    LayoutMode.SYMBOLS ->
-                        (if (kv.compactSymbols) "SYMC_" else "SYM_") + kv.symbolsPage
+                val board = view.keyboardView.currentBoardId()
+                val sample =
+                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(board, keyId, ax, ay, rx, ry)
+                // 지연 커밋: 바로 백스페이스가 따라오면 오타 탭으로 보고 표본을 버린다.
+                if (key.type == KeyType.DELETE) {
+                    pendingTouchSample = null
+                    touchStats.add(sample)
+                } else {
+                    pendingTouchSample?.let { touchStats.add(it) }
+                    pendingTouchSample = sample
                 }
-                touchStats.add(
-                    dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(board, keyId, ax, ay, rx, ry),
-                )
             }
         }
         view.keyboardView.onLanguageSelected = { index ->
@@ -171,6 +186,7 @@ class YeonfeelImeService : InputMethodService() {
         )
         // candidatesStart == -1은 앱의 지연·역순 콜백에서 일시적으로 나타날 수 있어
         // (연타 조합이 끊기는 오동작) 조합 영역이 유효할 때만 판정한다.
+        lastCorrection = null
         if (composer.isComposing && candidatesStart >= 0 &&
             (newSelStart < candidatesStart || newSelStart > candidatesEnd)
         ) {
@@ -181,6 +197,8 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         finishComposition()
+        pendingTouchSample?.let { touchStats.add(it) }
+        pendingTouchSample = null
         touchStats.flush()
         super.onFinishInputView(finishingInput)
     }
@@ -207,6 +225,15 @@ class YeonfeelImeService : InputMethodService() {
 
         override fun onRememberSymbol(symbol: Char) {
             settings.rememberedSymbol = symbol.toString()
+        }
+
+        override fun onSkinToneChanged(tone: Int) {
+            settings.skinTone = tone
+        }
+
+        override fun onOneHandedModeChanged(mode: dev.badalab.yeonfeel.settings.OneHandedMode) {
+            settings.oneHandedMode = mode
+            container?.applySettings(settings)
         }
 
         override fun onOneHandedCycle() {
@@ -426,6 +453,7 @@ class YeonfeelImeService : InputMethodService() {
     }
 
     private fun onChar(rawChar: Char) {
+        lastCorrection = null
         val c = if (mode == LayoutMode.KOREAN) applyMzMode(rawChar) else rawChar
         val ic = currentInputConnection ?: return
         if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
@@ -461,8 +489,24 @@ class YeonfeelImeService : InputMethodService() {
             return
         }
         finishComposition()
+        maybeAutoCorrect(ic)
         ic.commitText(" ", 1)
         lastSpaceTime = now
+    }
+
+    /** AI 보정(노이지 채널): 스페이스바로 어절이 끝날 때 사전 밖 어절을 교정한다. */
+    private fun maybeAutoCorrect(ic: android.view.inputmethod.InputConnection) {
+        lastCorrection = null
+        if (sensitiveField || mode != LayoutMode.KOREAN) return
+        if (!(settings.touchCorrectionEnabled && settings.touchCorrectionAi)) return
+        val before = ic.getTextBeforeCursor(16, 0) ?: return
+        val word = before.takeLastWhile { it in '가'..'힣' }.toString()
+        if (word.length < 2) return
+        val fixed = wordCorrector.correct(word) ?: return
+        if (fixed == word) return
+        ic.deleteSurroundingText(word.length, 0)
+        ic.commitText(fixed, 1)
+        lastCorrection = word to fixed
     }
 
     /** 직전이 "글자 + 공백"일 때만 마침표 축약을 적용한다. */
@@ -484,6 +528,13 @@ class YeonfeelImeService : InputMethodService() {
 
     private fun onDelete() {
         val ic = currentInputConnection ?: return
+        // 자동 교정 직후 백스페이스는 삭제 대신 원래 어절로 되돌린다.
+        lastCorrection?.let { (original, fixed) ->
+            lastCorrection = null
+            ic.deleteSurroundingText(fixed.length + 1, 0)
+            ic.commitText("$original ", 1)
+            return
+        }
         val result = composer.backspace()
         if (result != null) {
             if (result.composing.isEmpty()) {

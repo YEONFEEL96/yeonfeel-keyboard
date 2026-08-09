@@ -288,6 +288,17 @@ class KeyboardView(
             relayoutKeys()
         }
 
+    /** 타점 개인화 보정 사용 여부 (경계 근처 CHAR 키만 재판정). */
+    var touchModelEnabled: Boolean = false
+    var touchStatsProvider: ((String) -> Map<String, TouchModel.KeyStat>)? = null
+
+    /** 타점 저장·보정에 쓰는 현재 자판 보드 식별자. */
+    fun currentBoardId(): String = when (mode) {
+        LayoutMode.KOREAN -> "KO_" + koreanLayout.name
+        LayoutMode.ENGLISH -> "EN_" + englishLayout.name
+        LayoutMode.SYMBOLS -> (if (compactSymbols) "SYMC_" else "SYM_") + symbolsPage
+    }
+
     /** 키 라벨 글자 크기 배율 (작게/보통/크게 설정). */
     var fontScale: Float = 1f
         set(value) {
@@ -963,6 +974,43 @@ class KeyboardView(
      * 터치마다 호출되므로 할당 없이 순회한다.
      */
     private fun boundsAt(x: Float, y: Float): KeyBounds? {
+        val geometric = geometricBoundsAt(x, y) ?: return null
+        val provider = touchStatsProvider
+        if (!touchModelEnabled || provider == null) return geometric
+        // 기능 키(스페이스·엔터 등)는 확률 판정으로 빼앗기지 않게 보호한다.
+        if (geometric.key.type != KeyType.CHAR) return geometric
+        val rect = geometric.rect
+        val edgeX = rect.width() * 0.28f
+        val edgeY = rect.height() * 0.28f
+        val nearEdge = x < rect.left + edgeX || x > rect.right - edgeX ||
+            y < rect.top + edgeY || y > rect.bottom - edgeY
+        if (!nearEdge) return geometric
+
+        val stats = provider(currentBoardId())
+        var best = geometric
+        var bestScore = Float.NEGATIVE_INFINITY
+        for (bound in keyBounds) {
+            if (bound.key.type != KeyType.CHAR) continue
+            val r = bound.rect
+            val marginX = r.width() * 0.6f
+            val marginY = r.height() * 0.6f
+            if (x < r.left - marginX || x > r.right + marginX ||
+                y < r.top - marginY || y > r.bottom + marginY
+            ) {
+                continue
+            }
+            val rx = (x - r.centerX()) / r.width()
+            val ry = (y - r.centerY()) / r.height()
+            val score = TouchModel.logLikelihood(rx, ry, stats[bound.key.char.toString()])
+            if (score > bestScore) {
+                bestScore = score
+                best = bound
+            }
+        }
+        return best
+    }
+
+    private fun geometricBoundsAt(x: Float, y: Float): KeyBounds? {
         val slopX = dp(6f)
         val slopY = dp(9f)
         var nearest: KeyBounds? = null

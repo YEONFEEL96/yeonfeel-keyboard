@@ -27,3 +27,5 @@ app/src/main/java/dev/badalab/yeonfeel/
 ├── ime/KeyboardLayouts.kt     # 한글/영문/기호 레이아웃 정의
 └── MainActivity.kt            # 키보드 활성화 도우미
 ```
+
+- 한국어 빈도 사전: [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (OpenSubtitles 2018, CC-BY-SA 4.0)

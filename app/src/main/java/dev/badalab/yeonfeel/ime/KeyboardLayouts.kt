@@ -172,15 +172,15 @@ object KeyboardLayouts {
 
     /** 기호 키를 끄면 그 폭만큼 스페이스바가 늘어난다 (한/영 키는 원래 크기 유지). */
     private fun bottomRow(showLangKey: Boolean): List<Key> = buildList {
-        add(Key(KeyType.SYMBOLS, "?123", widthWeight = 1.5f))
+        add(Key(KeyType.SYMBOLS, "?123", widthWeight = 1.3f))
         if (showLangKey) add(Key(KeyType.LANG, "한/영"))
         if (leftSymbolEnabled) add(Key(KeyType.CHAR, leftSymbol.toString(), leftSymbol))
-        val spaceWeight = (if (showLangKey) 4.5f else 5.5f) -
+        val spaceWeight = (if (showLangKey) 5f else 6f) -
             (if (leftSymbolEnabled) 1f else 0f) +
             (if (favoriteSymbolEnabled) 0f else 1f)
         add(Key(KeyType.SPACE, "", ' ', widthWeight = spaceWeight))
         if (favoriteSymbolEnabled) add(Key(KeyType.CHAR, favoriteSymbol.toString(), favoriteSymbol))
-        add(Key(KeyType.ENTER, "⏎", widthWeight = 2f))
+        add(Key(KeyType.ENTER, "⏎", widthWeight = 1.7f))
     }
 
     /**
@@ -381,15 +381,15 @@ object KeyboardLayouts {
 
     /** 특수문자 하단 열: 글자 키보드 하단 열과 같은 구성, 첫 키만 '가'. */
     private fun symbolsBottomRow(showLangKey: Boolean): List<Key> = buildList {
-        add(Key(KeyType.SYMBOLS, "가", widthWeight = 1.5f))
+        add(Key(KeyType.SYMBOLS, "가", widthWeight = 1.3f))
         if (showLangKey) add(Key(KeyType.LANG, "한/영"))
         if (leftSymbolEnabled) add(Key(KeyType.CHAR, leftSymbol.toString(), leftSymbol))
-        val spaceWeight = (if (showLangKey) 4.5f else 5.5f) -
+        val spaceWeight = (if (showLangKey) 5f else 6f) -
             (if (leftSymbolEnabled) 1f else 0f) +
             (if (favoriteSymbolEnabled) 0f else 1f)
         add(Key(KeyType.SPACE, "", ' ', widthWeight = spaceWeight))
         if (favoriteSymbolEnabled) add(Key(KeyType.CHAR, favoriteSymbol.toString(), favoriteSymbol))
-        add(Key(KeyType.ENTER, "⏎", widthWeight = 2f))
+        add(Key(KeyType.ENTER, "⏎", widthWeight = 1.7f))
     }
 
     private fun symbolsPage(

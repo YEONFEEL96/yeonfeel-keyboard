@@ -1,0 +1,156 @@
+package dev.badalab.yeonfeel.ime
+
+import android.graphics.Paint
+
+/**
+ * 이모지 패널 데이터. scripts/generate_emoji_data.py 로 생성한다 — 직접 수정 금지.
+ * 기기 폰트가 렌더링하지 못하는 글리프는 [categories]에서 hasGlyph로 걸러진다.
+ */
+object EmojiData {
+
+    data class Category(
+        val title: String,
+        val tabLabel: String,
+        val emojis: List<String>,
+        val wide: Boolean = false,
+    )
+
+    private val rawCategories = listOf(
+@CATEGORIES@
+    )
+
+    private var cached: List<Category>? = null
+
+    fun categories(): List<Category> {
+        cached?.let { return it }
+        val paint = Paint()
+        val filtered = rawCategories.map { category ->
+            if (category.wide) {
+                category
+            } else {
+                category.copy(emojis = category.emojis.filter { paint.hasGlyph(it) })
+            }
+        }.filter { it.emojis.isNotEmpty() }
+        cached = filtered
+        return filtered
+    }
+
+    /** 텍스트 이모티콘(카오모지) — 감정별 그룹, 전용 패널에서 사용한다. */
+    private val kaomojiGroups = listOf(
+@KAOMOJI@
+    )
+
+    private var kaomojiCache: List<Pair<String, List<String>>>? = null
+
+    /** 기기 폰트가 모든 글자를 그릴 수 있는 이모티콘만 감정 그룹별로 돌려준다. */
+    fun kaomojiGroupList(): List<Pair<String, List<String>>> {
+        kaomojiCache?.let { return it }
+        val paint = Paint()
+        val filtered = kaomojiGroups.map { (title, items) ->
+            title to items.filter { item ->
+                item.all { ch -> ch == ' ' || paint.hasGlyph(ch.toString()) }
+            }
+        }.filter { it.second.isNotEmpty() }
+        kaomojiCache = filtered
+        return filtered
+    }
+
+    // --- 스킨톤 ---
+
+    private val SKIN_TONE_MODIFIERS = listOf("\uD83C\uDFFB", "\uD83C\uDFFC", "\uD83C\uDFFD", "\uD83C\uDFFE", "\uD83C\uDFFF")
+
+    val SKIN_TONE_BASES: Set<String> = setOf(
+@SKIN_BASES@
+    )
+
+    fun supportsSkinTone(emoji: String): Boolean = emoji in SKIN_TONE_BASES
+
+    /** [tone] 0 = 기본, 1~5 = 밝은 → 어두운. VS16이 붙은 베이스는 떼고 톤을 더한다. */
+    fun applySkinTone(emoji: String, tone: Int): String {
+        if (tone !in 1..5 || emoji !in SKIN_TONE_BASES) return emoji
+        return emoji.removeSuffix("\uFE0F") + SKIN_TONE_MODIFIERS[tone - 1]
+    }
+
+    /** 검색 키워드 → 이모지. 키워드는 공백 구분, 부분 일치로 찾는다. */
+    private val keywords = listOf(
+
+        "웃음 스마일 기쁨 행복 smile happy" to "😀 😃 😄 😁 😆 😊 🙂",
+        "폭소 낄낄 웃겨 lol laugh ㅋㅋ" to "😂 🤣",
+        "사랑 좋아 love" to "🥰 😍 😘 💘 💖 💕",
+        "하트 heart" to "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 💗 💓 💞",
+        "슬픔 눈물 울음 sad cry" to "😢 😭 😥 😪 💔",
+        "화남 분노 짜증 angry" to "😠 😡 🤬 💢",
+        "놀람 충격 헉 wow shock" to "😱 🤯 😨 😰",
+        "졸림 피곤 잠 sleep tired" to "😴 🥱 😪",
+        "아픔 병 아파 sick" to "😷 🤒 🤕 🤢 🤮",
+        "멋짐 쿨 cool" to "😎 🤩 🥳",
+        "생각 고민 think" to "🤔 🧐 😕",
+        "따봉 최고 굿 good thumbs" to "👍 💪 👏 🙌",
+        "싫어 별로 bad" to "👎",
+        "인사 안녕 손 hi hello wave" to "👋 🤚 ✋",
+        "기도 부탁 감사 pray please" to "🙏",
+        "브이 victory" to "✌️ 🤞",
+        "박수 clap" to "👏 🙌",
+        "불 열정 fire" to "🔥",
+        "별 star" to "⭐ 🌟 ✨ 💫",
+        "축하 파티 party congrats" to "🎉 🎊 🥳 🎁 🎂",
+        "강아지 개 멍멍 dog puppy" to "🐶",
+        "고양이 냥 cat" to "🐱",
+        "곰 bear" to "🐻 🐼",
+        "토끼 rabbit" to "🐰",
+        "새 bird" to "🐦 🐧 🦆 🦅 🦉",
+        "꽃 flower" to "🌸 🌼 🌻 🌹 🌷",
+        "나무 자연 행운 luck" to "🍀",
+        "무지개 rainbow" to "🌈",
+        "해 태양 sun" to "☀️",
+        "달 밤 moon" to "🌙",
+        "커피 coffee" to "☕",
+        "맥주 술 beer" to "🍺 🍷",
+        "밥 식사 rice" to "🍚 🍙 🍜",
+        "피자 pizza" to "🍕",
+        "치킨 chicken" to "🍗",
+        "케이크 cake" to "🍰 🎂",
+        "과일 사과 fruit apple" to "🍎 🍌 🍇 🍓 🍉",
+        "축구 공 soccer ball" to "⚽",
+        "농구 basketball" to "🏀",
+        "야구 baseball" to "⚾",
+        "게임 game" to "🎮 🎲",
+        "음악 노래 music song" to "🎸 🎹 🎤 🎧",
+        "폰 전화 phone" to "📱",
+        "컴퓨터 노트북 computer" to "💻",
+        "돈 money" to "💰",
+        "집 home house" to "🏠",
+        "차 자동차 car" to "🚗",
+        "비행기 여행 travel plane" to "✈️ 🚀",
+        "시간 시계 time clock" to "⏰ ⌚ 📅",
+        "책 공부 book study" to "📚 ✏️",
+        "백점 만점 100" to "💯",
+        "번개 전기 bolt" to "⚡",
+        "선물 gift" to "🎁",
+    )
+
+    /** 부분 일치 검색. 한글 초성만 입력하면 키워드의 초성과도 맞춘다. */
+    fun search(text: String): List<String> {
+        val query = text.trim()
+        if (query.isEmpty()) return emptyList()
+        val choseongQuery = query.all { it in CHOSEONG }
+        val result = LinkedHashSet<String>()
+        keywords.forEach { (words, emojis) ->
+            val hit = if (choseongQuery) {
+                choseongOf(words).contains(query)
+            } else {
+                words.contains(query, ignoreCase = true)
+            }
+            if (hit) result.addAll(emojis.split(" "))
+        }
+        return result.toList()
+    }
+
+    private const val CHOSEONG = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
+
+    private fun choseongOf(text: String): String = buildString {
+        text.forEach { ch ->
+            if (ch in '가'..'힣') append(CHOSEONG[(ch - '가') / 588]) else append(ch)
+        }
+    }
+}

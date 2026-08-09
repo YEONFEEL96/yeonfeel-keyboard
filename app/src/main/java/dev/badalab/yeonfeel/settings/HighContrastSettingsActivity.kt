@@ -43,14 +43,15 @@ class HighContrastSettingsActivity : Activity() {
             onAction = { showPreviewKeyboard() },
         )
 
-        // 마스터 ON/OFF는 다른 옵션과 분리된 단독 카드로 둔다.
-        ui.card(
-            ui.switchRow(getString(R.string.settings_high_contrast), settings.highContrast) { checked, _ ->
-                settings.highContrast = checked
-            },
-        )
+        ui.masterSwitch(settings.highContrast) { checked, _ ->
+            settings.highContrast = checked
+            // 재구성하면 토글 애니메이션이 끊기므로 하위 항목만 제자리에서 전환한다.
+            applySectionsState(checked, animate = true)
+        }
 
-        ui.caption(getString(R.string.theme_hc_style_title))
+        val sections = mutableListOf<android.view.View>()
+        this.sections = sections
+        sections.add(ui.caption(getString(R.string.theme_hc_style_title)))
         val styles = listOf(
             HighContrastStyle.DEFAULT to getString(R.string.hc_style_default),
             HighContrastStyle.YELLOW_BLACK to getString(R.string.hc_style_yellow_black),
@@ -73,14 +74,17 @@ class HighContrastSettingsActivity : Activity() {
             }
             grid.addView(row)
         }
-        ui.card(grid)
+        sections.add(ui.card(grid))
 
-        ui.caption(getString(R.string.hc_keyboard_options_title))
-        ui.card(
-            ui.switchRow(getString(R.string.hc_force_keycap), settings.highContrastForceKeycap) { checked, _ ->
-                settings.highContrastForceKeycap = checked
-            },
+        sections.add(ui.caption(getString(R.string.hc_keyboard_options_title)))
+        sections.add(
+            ui.card(
+                ui.switchRow(getString(R.string.hc_force_keycap), settings.highContrastForceKeycap) { checked, _ ->
+                    settings.highContrastForceKeycap = checked
+                },
+            ),
         )
+        applySectionsState(settings.highContrast, animate = false)
 
         // 키보드 미리보기용 숨은 입력 칸: 화면에는 보이지 않지만 포커스를 받을 수 있다.
         val input = android.widget.EditText(this).apply {
@@ -125,6 +129,11 @@ class HighContrastSettingsActivity : Activity() {
         })
         return tile
     }
+
+    private var sections: List<android.view.View> = emptyList()
+
+    private fun applySectionsState(enabled: Boolean, animate: Boolean) =
+        SettingComponents.setSectionsEnabled(sections, enabled, animate)
 
     private fun resolveDark(): Boolean = when (settings.themeMode) {
         ThemeMode.DARK -> true

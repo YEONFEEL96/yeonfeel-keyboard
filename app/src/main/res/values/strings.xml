@@ -16,7 +16,10 @@
     <string name="toolbar_emoji_desc">이모지</string>
     <string name="emoji_search_hint">이모지 검색</string>
     <string name="toolbar_edit_desc">툴바 편집</string>
+    <string name="toolbar_kaomoji_desc">이모티콘</string>
     <string name="toolbar_onehand_desc">한 손 키보드</string>
+    <string name="onehand_switch_desc">한 손 키보드 위치 전환</string>
+    <string name="onehand_exit_desc">한 손 키보드 해제</string>
     <string name="toolbar_edit_hint">항목을 눌러 툴바에 추가하거나 제거합니다.</string>
     <string name="emoji_search_empty">이모지가 여기에 표시됩니다</string>
 
@@ -53,6 +56,7 @@
     <string name="hc_style_black_yellow">검은 배경에 노란 글자</string>
     <string name="settings_section_input">입력</string>
     <string name="settings_section_display">화면</string>
+    <string name="settings_section_general">일반</string>
     <string name="settings_language_section">언어 및 키보드 형식</string>
     <string name="language_manage_title">키보드 입력 언어 관리</string>
     <string name="language_min_one">최소 한 개의 언어는 켜져 있어야 합니다.</string>
@@ -87,11 +91,22 @@
     <string name="reset_confirm_message">되돌릴 수 없습니다. 진행할까요?</string>
     <string name="reset_confirm_yes">삭제</string>
     <string name="reset_done">완료되었습니다</string>
-    <string name="debug_menu">디버그</string>
+    <string name="debug_menu">실험실</string>
     <string name="debug_touch_collect">타점 수집</string>
     <string name="debug_touch_visualizer">타점 시각화</string>
     <string name="debug_touch_count">수집된 타점: %1$d개</string>
     <string name="debug_touch_clear">타점 데이터 초기화</string>
+    <string name="debug_touch_correction">터치 보정</string>
+    <string name="debug_touch_correction_sub">경계 근처의 애매한 터치를 나의 타점 습관에 맞춰 판정합니다</string>
+    <string name="master_on">사용 중</string>
+    <string name="master_off">사용 안 함</string>
+    <string name="touch_basic">기본 보정</string>
+    <string name="touch_basic_sub">나의 타점 분포로 경계 터치를 재판정합니다</string>
+    <string name="touch_ai">AI 보정</string>
+    <string name="touch_ai_sub">스페이스바로 어절이 끝나면 오타를 교정합니다.\n백스페이스를 입력하여 되돌릴 수 있습니다.</string>
+    <string name="debug_touch_section">타점 데이터</string>
+    <string name="debug_touch_correction_dialog_message">터치 보정은 수집된 타점 데이터로 동작합니다. 타점 수집이 함께 켜집니다.</string>
+    <string name="debug_touch_correction_dialog_confirm">함께 켜기</string>
     <string name="feedback_menu">피드백</string>
     <string name="touch_feedback_menu">터치 피드백</string>
     <string name="feedback_sound">소리</string>
