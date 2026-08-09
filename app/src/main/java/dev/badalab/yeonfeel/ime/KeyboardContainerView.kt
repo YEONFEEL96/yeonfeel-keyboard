@@ -50,6 +50,12 @@ class KeyboardContainerView(
     val keyboardView = KeyboardView(context) { callbacks.onKey(it) }.apply {
         onLanguageSwipe = { callbacks.onLanguageSwipe() }
         onVariantPicked = { callbacks.onRememberSymbol(it) }
+        onShortcutSelected = { shortcut ->
+            when (shortcut) {
+                KeyboardView.SHORTCUT_CLIPBOARD -> toggleClipboardPanel()
+                KeyboardView.SHORTCUT_SETTINGS -> callbacks.onOpenSettings()
+            }
+        }
     }
 
     private var theme: KeyboardTheme = KeyboardTheme.DARK

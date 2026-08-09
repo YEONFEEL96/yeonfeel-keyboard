@@ -97,6 +97,9 @@ class KeyboardView(
     /** 기억형 기호 키에서 변형 팝업으로 기호를 골랐을 때 (저장용). */
     var onVariantPicked: ((Char) -> Unit)? = null
 
+    /** 스페이스바 왼쪽 기호 키 팝업의 클립보드·설정 단축 셀 선택. */
+    var onShortcutSelected: ((Char) -> Unit)? = null
+
     private class LangListState(
         val pointerId: Int,
         val panel: RectF,
@@ -794,6 +797,13 @@ class KeyboardView(
         }
     }
 
+    private val clipboardShortcutIcon by lazy(LazyThreadSafetyMode.NONE) {
+        context.getDrawable(dev.badalab.yeonfeel.R.drawable.ic_toolbar_clipboard)?.mutate()
+    }
+    private val settingsShortcutIcon by lazy(LazyThreadSafetyMode.NONE) {
+        context.getDrawable(dev.badalab.yeonfeel.R.drawable.ic_toolbar_settings)?.mutate()
+    }
+
     private fun drawVariantPopup(canvas: Canvas, popup: VariantPopupState) {
         val radius = dp(12f)
         // 테두리 선이 팝업 창 경계에서 잘려 모서리가 뭉쳐 보이지 않게 안쪽에 그린다.
@@ -808,8 +818,26 @@ class KeyboardView(
                 canvas.drawRoundRect(cell, dp(8f), dp(8f), specialKeyPaint)
             }
             val paint = if (index == popup.selected) previewSelectedTextPaint else textPaint
-            val y = cell.centerY() - (paint.ascent() + paint.descent()) / 2
-            canvas.drawText(popup.options[index], cell.centerX(), y, paint)
+            val option = popup.options[index]
+            val icon = when (option.firstOrNull()) {
+                SHORTCUT_CLIPBOARD -> clipboardShortcutIcon
+                SHORTCUT_SETTINGS -> settingsShortcutIcon
+                else -> null
+            }
+            if (icon != null) {
+                val half = dp(10f).toInt()
+                icon.setTint(paint.color)
+                icon.setBounds(
+                    cell.centerX().toInt() - half,
+                    cell.centerY().toInt() - half,
+                    cell.centerX().toInt() + half,
+                    cell.centerY().toInt() + half,
+                )
+                icon.draw(canvas)
+            } else {
+                val y = cell.centerY() - (paint.ascent() + paint.descent()) / 2
+                canvas.drawText(option, cell.centerX(), y, paint)
+            }
         }
     }
 
@@ -1077,11 +1105,16 @@ class KeyboardView(
                         val popup = variantPopup
                         if (popup != null && popup.pointerId == pointerId) {
                             val choice = popup.options[popup.selected]
-                            onKeyListener(Key(KeyType.CHAR, choice, choice.first()))
-                            if (pending.key.remember && choice.length == 1) {
-                                KeyboardLayouts.lastSymbol3x4 = choice.first()
-                                onVariantPicked?.invoke(choice.first())
-                                relayoutKeys()
+                            val first = choice.first()
+                            if (first == SHORTCUT_CLIPBOARD || first == SHORTCUT_SETTINGS) {
+                                onShortcutSelected?.invoke(first)
+                            } else {
+                                onKeyListener(Key(KeyType.CHAR, choice, first))
+                                if (pending.key.remember && choice.length == 1) {
+                                    KeyboardLayouts.lastSymbol3x4 = first
+                                    onVariantPicked?.invoke(first)
+                                    relayoutKeys()
+                                }
                             }
                         } else {
                             onKeyListener(pending.key)
@@ -1236,6 +1269,11 @@ class KeyboardView(
         val options = buildList {
             if (includeOriginal) add(pending.key.label)
             variants.forEach { add(it.toString()) }
+            // 툴바 없이도 접근할 수 있게 그리드의 빈 두 칸을 단축키로 채운다.
+            if (pending.key.char == ',' && !pending.key.remember) {
+                add(SHORTCUT_CLIPBOARD.toString())
+                add(SHORTCUT_SETTINGS.toString())
+            }
         }
         val anchor = pending.rect
         // 단일 문자 후보는 키가 큰 3x4 자판에서도 작은 고정 셀(6열)로 촘촘히 배치한다.
@@ -1330,6 +1368,8 @@ class KeyboardView(
     }
 
     companion object {
+        const val SHORTCUT_CLIPBOARD = '\uE020'
+        const val SHORTCUT_SETTINGS = '\uE021'
         private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
         private const val SPLIT_SIDE_MARGIN_RATIO = 0.03f
         private const val ACCENT = 0xFF3D8BFF.toInt()
