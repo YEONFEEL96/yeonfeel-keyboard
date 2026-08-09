@@ -8,6 +8,10 @@ import android.graphics.Paint
  */
 object EmojiData {
 
+    /** 패널 제목은 시스템 언어에 따라 한국어/영어를 고른다. */
+    private fun loc(ko: String, en: String): String =
+        if (java.util.Locale.getDefault().language == "ko") ko else en
+
     data class Category(
         val title: String,
         val tabLabel: String,

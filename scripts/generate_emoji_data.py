@@ -71,7 +71,7 @@ FLAGS = cps(0x1F3C1, 0x1F6A9, 0x1F38C) + [flag(c) for c in FLAG_CODES]
 # 개별 항목은 짧은 문자 배열로 저작권 보호 대상이 아니며, 특정 사이트의
 # 편집물을 복제하지 않았다.
 KAOMOJI_GROUPS = [
-    ("기쁨·웃음", [
+    ("기쁨·웃음", "Joy & laughter", [
         "(^_^)", "(^o^)/", "(^_-)", "(＾▽＾)",
         "(´▽`)", "(≧∇≦)", "(*≧ω≦)", "(￣▽￣)",
         "(•‿•)", "(☆▽☆)", "(๑˃ᴗ˂)", "ヽ(´▽`)/",
@@ -80,43 +80,43 @@ KAOMOJI_GROUPS = [
         "(¬‿¬)", "(￢‿￢)", "( ͡° ͜ʖ ͡°)", "(v‿v)",
         "(＾▽＾)/", "♪(´▽｀)", "(￣▽￣)ノ",
     ]),
-    ("사랑·애정", [
+    ("사랑·애정", "Love", [
         "(♡´▽`♡)", "(´,,•ω•,,)♡", "(*´з`)", "( ˘ ³˘)♥",
         "(♡˙︶˙♡)", "♡(｡- ω -)", "(´• ω •`)♡", "(>᎑<)♡",
         "σ(≧ε≦σ)♡", "♡＼(￣▽￣)／♡",
     ]),
-    ("슬픔·눈물", [
+    ("슬픔·눈물", "Sadness", [
         "(T_T)", "(ㅠ_ㅠ)", "(;_;)", "(._.)",
         "(个_个)", "(╥﹏╥)", "(ノ_<。)", "(っ˘̩╭╮˘̩)っ",
         "。･ﾟﾟ･(＞_＜)･ﾟﾟ･。", "(＃＞＜)", "(｡•́︿•̀｡)", "(-_-;)",
     ]),
-    ("화남·불만", [
+    ("화남·불만", "Anger", [
         "(¬_¬)", "(＃￣ω￣)", "(￣^￣)", "(－‸ლ)",
         "(╬ Ò﹏Ó)", "(￣ヘ￣)", "(ᗒᗣᗕ)՞", "凸(-_-)凸",
         "(≖_≖ )",
     ]),
-    ("놀람·혼란", [
+    ("놀람·혼란", "Surprise & confusion", [
         "(o_O)", "(⊙_⊙)", "(O_O;)", "Σ(°△°)",
         "(@_@)", "(*_*)", "(x_x)", "(°ロ°)!",
         "(¯ . ¯;)", "(→_→)",
     ]),
-    ("무심·피곤", [
+    ("무심·피곤", "Tired & unbothered", [
         "(-_-)", "(－_－)zzZ", "(=_=)", "(￣o￣)zzZ",
         "( ´ー`)", "(ー_ー﹡)", "(´･ω･`)", "┐(￣ヘ￣)┌",
         "(¯\\_(ツ)_/¯)", "╮(╯▽╰)╭",
     ]),
-    ("동작·기타", [
+    ("동작·기타", "Actions & misc", [
         "(ง•̀_•́)ง", "(๑•̀ㅂ•́)و✧", "(╯°□°)╯︵┻━┻", "┬─┬ノ(º_ºノ)",
         "(ノ°∀°)ノ⌒･*", "m(_ _)m", "(・_・)ノ", "(0^◇^0)/",
         "☆ミ(o*･ω･)ﾉ", "ε=ε=┌(;･∀･)┘", "(p´∀`q)", "(￣ε￣＠)",
         "( ˘ω˘ )☞",
     ]),
-    ("동물", [
+    ("동물", "Animals", [
         "ʕ•ᴥ•ʔ", "ʕ￫ᴥ￩ʔ", "(=^･^=)", "(=^･ω･^)y＝",
         "", "V(=^･ω･^=)v", "(･ω･)つ⊂(･ω･)", "／(≧ x ≦)＼",
         "(￢ω￢)", "🐾ʕ·ᴥ·ʔ",
     ]),
-    ("장식·인사", [
+    ("장식·인사", "Decorations & greetings", [
         "☆*:.｡.o(≧▽≦)o.｡.:*☆", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "✧*。(ˊᗜˋ*)✧*。", "(๑•᎑•๑)",
         "(,,>᎑<,,)", "( ˶ˆᗜˆ˵ )", "(・∀・)", "(｡•̀ᴗ-)✧",
     ]),
@@ -140,22 +140,22 @@ def klist(items, per_line=12):
     return "\n".join(lines)
 
 CATEGORIES = [
-    ("스마일리", "😀", SMILEYS, False),
-    ("사람·동작", "👋", PEOPLE, False),
-    ("동물·자연", "🐶", NATURE, False),
-    ("음식", "🍎", FOOD, False),
-    ("여행·장소", "🚗", TRAVEL, False),
-    ("활동", "⚽", ACTIVITY, False),
-    ("사물", "💡", OBJECTS, False),
-    ("기호", "❤️", SYMBOLS, False),
-    ("깃발", "🏳", FLAGS, False),
+    ("스마일리", "Smileys", "😀", SMILEYS, False),
+    ("사람·동작", "People", "👋", PEOPLE, False),
+    ("동물·자연", "Animals & nature", "🐶", NATURE, False),
+    ("음식", "Food & drink", "🍎", FOOD, False),
+    ("여행·장소", "Travel & places", "🚗", TRAVEL, False),
+    ("활동", "Activities", "⚽", ACTIVITY, False),
+    ("사물", "Objects", "💡", OBJECTS, False),
+    ("기호", "Symbols", "❤️", SYMBOLS, False),
+    ("깃발", "Flags", "🏳", FLAGS, False),
 ]
 
 cat_src = []
-for title, tab, items, wide in CATEGORIES:
+for title, title_en, tab, items, wide in CATEGORIES:
     wide_arg = ", wide = true" if wide else ""
     cat_src.append(
-        f'        Category(\n            "{title}",\n            "{tab}",\n'
+        f'        Category(\n            loc("{title}", "{title_en}"),\n            "{tab}",\n'
         f"            listOf(\n{klist(items)}\n            ){wide_arg},\n        ),"
     )
 categories_block = "\n".join(cat_src)
@@ -163,11 +163,11 @@ skin_block = klist(SKIN_BASES)
 
 template = pathlib_read = open("scripts/emoji_template.kt.in").read()
 kg_src = []
-for title, items in KAOMOJI_GROUPS:
-    kg_src.append(f'        "{title}" to listOf(\n{klist(items, per_line=4)}\n        ),')
+for title, title_en, items in KAOMOJI_GROUPS:
+    kg_src.append(f'        loc("{title}", "{title_en}") to listOf(\n{klist(items, per_line=4)}\n        ),')
 kaomoji_block = "\n".join(kg_src)
 out = (template.replace("@CATEGORIES@", categories_block)
        .replace("@SKIN_BASES@", skin_block)
        .replace("@KAOMOJI@", kaomoji_block))
 open("app/src/main/java/dev/badalab/yeonfeel/ime/EmojiData.kt", "w").write(out)
-print("generated:", sum(len(c[2]) for c in CATEGORIES), "emojis")
+print("generated:", sum(len(c[3]) for c in CATEGORIES), "emojis")
