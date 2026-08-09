@@ -207,6 +207,29 @@ class SettingComponents(private val activity: Activity) {
         return row
     }
 
+    /** 배경 위에 두는 작은 밑줄 텍스트 버튼 — 카드 밖 보조 진입점 (중앙 정렬). */
+    fun linkButton(text: String, onClick: () -> Unit): View {
+        val label = TextView(activity).apply {
+            this.text = text
+            textSize = 13f
+            setTextColor(SUB_TEXT)
+            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(14), dp(12), dp(14))
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(8)
+            }
+        }
+        addPressEffect(label, cornerDp = 12)
+        column.addView(label)
+        return label
+    }
+
     fun card(vararg rows: View): View {
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
