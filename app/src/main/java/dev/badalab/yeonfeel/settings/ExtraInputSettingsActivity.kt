@@ -24,6 +24,6 @@ class ExtraInputSettingsActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 }

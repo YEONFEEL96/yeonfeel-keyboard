@@ -38,7 +38,6 @@ object KeyboardLayouts {
             }
         }
 
-    /** 스페이스바 오른쪽 기호 키 표시 여부. */
     var favoriteSymbolEnabled: Boolean = true
         set(value) {
             if (field != value) {
@@ -47,7 +46,6 @@ object KeyboardLayouts {
             }
         }
 
-    /** 스페이스바 왼쪽 기호 키 표시 여부. */
     var leftSymbolEnabled: Boolean = true
         set(value) {
             if (field != value) {
@@ -56,7 +54,6 @@ object KeyboardLayouts {
             }
         }
 
-    /** 스페이스바 왼쪽 기호 키의 기호. */
     var leftSymbol: Char = ','
         set(value) {
             if (field != value) {
@@ -388,7 +385,6 @@ object KeyboardLayouts {
         )
     }
 
-    /** 컴팩트 기호의 123 페이지: 3x4 숫자 패드. */
     private fun compactNumberRows(): List<List<Key>> = listOf(
         charRow("123") + Key(KeyType.DELETE, "⌫"),
         charRow("456") + Key(KeyType.SPACE, "", ' '),

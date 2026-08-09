@@ -82,7 +82,7 @@ class SymbolPickerActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
         refreshChips()
     }
 

@@ -31,7 +31,7 @@ class BackspaceSpeedActivity : Activity() {
         ui.bindRadioGroup(radios) { selected -> settings.backspaceSpeed = selected }
         ui.card(*radios.values.toTypedArray())
 
-        setContentView(ui.root())
+        ui.show()
     }
 
     /** "느리게  80ms" — ms 부분은 작은 글씨·보조색으로. */

@@ -77,20 +77,16 @@ class KeyboardView(
             relayoutKeys()
         }
 
-    /** 스페이스바 좌우 스와이프로 언어를 바꿀 수 있는지. */
     var languageSwipeEnabled: Boolean = false
     var onLanguageSwipe: (() -> Unit)? = null
 
-    /** 언어 팝업에 표시할 현재/다음 언어 이름. 서비스가 갱신한다. */
     var languageName: String = "한국어"
     var nextLanguageName: String = "English"
 
-    /** 한/영 키 롱프레스 목록용: 전체 언어 이름과 현재 인덱스. 서비스가 갱신한다. */
     var languageList: List<String> = listOf("한국어", "English")
     var currentLanguageIndex: Int = 0
     var onLanguageSelected: ((Int) -> Unit)? = null
 
-    // 한/영 키 롱프레스 언어 목록 팝업
     private class LangListState(
         val pointerId: Int,
         val panel: RectF,
@@ -182,7 +178,6 @@ class KeyboardView(
         langKeyPointerId = -1
     }
 
-    // 스페이스 홀드 시 언어 팝업
     private var langPopupWindow: android.widget.PopupWindow? = null
     private var langDragOffset = 0f
     private var spaceLastDx = 0f
@@ -202,14 +197,12 @@ class KeyboardView(
             canvas.drawPath(bgPath, previewBgPaint)
             canvas.drawPath(bgPath, previewBorderPaint)
 
-            // 임계값을 넘으면 다음 언어를 온전히 중앙에 보여준다
             val willSwitch = kotlin.math.abs(spaceLastDx) > dp(SPACE_SWIPE_THRESHOLD_DP)
             val label = if (willSwitch) nextLanguageName else languageName
             langTextPaint.color = theme.text
             val y = height / 2f - (langTextPaint.ascent() + langTextPaint.descent()) / 2
             canvas.drawText(label, width / 2f, y, langTextPaint)
 
-            // 좌우 스와이프 방향 화살표
             val cy = height / 2f
             val arrow = dp(5f)
             val leftX = dp(16f)
@@ -318,7 +311,6 @@ class KeyboardView(
     var hapticEnabled: Boolean = true
     var hapticStrength: Int = 50
 
-    /** 키 입력 소리 (시스템 키 클릭음). */
     var soundEnabled: Boolean = false
 
     private val audioManager: android.media.AudioManager? =
@@ -335,7 +327,6 @@ class KeyboardView(
         runCatching { audioManager?.playSoundEffect(effect, KEY_SOUND_VOLUME) }
     }
 
-    /** 누른 키를 크게 보여주는 미리보기 팝업. */
     var keyPreviewEnabled: Boolean = true
 
 
@@ -448,7 +439,6 @@ class KeyboardView(
     private var spaceSwiped = false
     private var deletePointerId = -1
 
-    // 롱프레스 변형 문자(분수 등) 팝업 상태
     private class VariantPopupState(
         val pointerId: Int,
         val options: List<String>,
@@ -487,7 +477,6 @@ class KeyboardView(
             null
         }
 
-    /** 롱프레스 시간이 지나면 글자 대신 우상단 숫자를 입력한다. */
     private fun commitPendingDigit() {
         val pending = pendingVariant ?: return
         val digit = naratgulDigit(pending.key) ?: return
@@ -505,7 +494,6 @@ class KeyboardView(
         }
     }
 
-    /** 백스페이스 반복 간격(ms). 설정에서 조절한다. */
     var deleteRepeatIntervalMs: Long = 50L
 
     private val repeatHandler = Handler(Looper.getMainLooper())
@@ -516,7 +504,6 @@ class KeyboardView(
         }
     }
 
-    // ㅋ 등 반복 입력 키: 꾹 누르면 연속 입력된다.
     private var repeatCharKey: Key? = null
     private var repeatCharPointerId = -1
     private val repeatCharRunnable = object : Runnable {
@@ -688,7 +675,6 @@ class KeyboardView(
                     }
                     val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
                     canvas.drawText(key.label, rect.centerX(), y, paint)
-                    // 나랏글: 길게 누르면 입력되는 숫자를 우상단에 작게 표시한다.
                     naratgulDigit(key)?.let { digit ->
                         canvas.drawText(
                             digit.toString(),
@@ -702,7 +688,6 @@ class KeyboardView(
         }
     }
 
-    /** 시프트: 집 모양 화살표 외곽선. 활성 상태면 액센트 색으로 채운다. */
     private fun drawShiftIcon(canvas: Canvas, rect: RectF) {
         val u = dp(1f)
         val path = Path().apply {
@@ -724,7 +709,6 @@ class KeyboardView(
         }
     }
 
-    /** 삭제: 왼쪽이 뾰족한 오각형 + 가운데 ×. */
     private fun drawDeleteIcon(canvas: Canvas, rect: RectF) {
         val u = dp(1f)
         val body = Path().apply {
@@ -744,7 +728,6 @@ class KeyboardView(
         }
     }
 
-    /** 엔터: ↵ 모양 꺾인 화살표. */
     private fun drawEnterIcon(canvas: Canvas, rect: RectF) {
         val u = dp(1f)
         canvas.withTranslation(rect.centerX(), rect.centerY()) {
@@ -823,12 +806,10 @@ class KeyboardView(
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(longPressRunnable, longPressDelayMs)
                     }
-                    // 한/영 키: 짧게 누르면 토글, 길게 누르면 언어 목록
                     key.type == KeyType.LANG -> {
                         langKeyPointerId = pointerId
                         repeatHandler.postDelayed(langListRunnable, longPressDelayMs)
                     }
-                    // ㅋ 등은 꾹 누르면 반복 입력된다.
                     (key.type == KeyType.CHAR || key.type == KeyType.GHOST) &&
                         key.char in REPEATABLE_CHARS -> {
                         onKeyListener(key)
@@ -1110,7 +1091,6 @@ class KeyboardView(
         private const val CHAR_REPEAT_START_MS = 400L
         private const val CHAR_REPEAT_INTERVAL_MS = 60L
 
-        /** 꾹 누르면 반복 입력되는 문자. */
         private val REPEATABLE_CHARS = setOf('ㅋ')
 
         /** 나랏글 키 우상단 숫자: 길게 누르면 해당 숫자가 입력된다. */

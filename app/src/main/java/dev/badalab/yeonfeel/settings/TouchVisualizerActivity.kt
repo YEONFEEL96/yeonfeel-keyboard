@@ -39,7 +39,7 @@ class TouchVisualizerActivity : Activity() {
                 )
             },
         )
-        setContentView(ui.root())
+        ui.show()
     }
 
     @SuppressLint("ViewConstructor")

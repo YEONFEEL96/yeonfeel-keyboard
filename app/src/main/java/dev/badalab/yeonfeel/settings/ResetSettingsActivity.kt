@@ -50,7 +50,7 @@ class ResetSettingsActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 
     private fun confirm(titleRes: Int, action: () -> Unit) {

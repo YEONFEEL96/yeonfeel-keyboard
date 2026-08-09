@@ -38,7 +38,7 @@ class SettingComponents(private val activity: Activity) {
      * 클릭 리스너와 함께 동작한다.
      */
     @SuppressLint("ClickableViewAccessibility")
-    private fun addPressEffect(view: View, cornerDp: Int = 0) {
+    private fun addPressEffect(view: View, cornerDp: Int = 0, visualTarget: View = view) {
         // 시스템 pressed 상태는 스크롤 판정 때문에 지연되므로 터치 즉시 직접 씌운다.
         val overlay = GradientDrawable().apply {
             setColor(0x26000000)
@@ -46,8 +46,8 @@ class SettingComponents(private val activity: Activity) {
         }
         var fadeOut: android.animation.ValueAnimator? = null
         // 행 자체를 줄이면 어두운 영역도 함께 줄어 가장자리가 비어 보이므로 내용만 줄인다.
-        val contents: List<View> = if (view is android.view.ViewGroup && view.childCount > 0) {
-            (0 until view.childCount).map(view::getChildAt)
+        fun contents(): List<View> = if (visualTarget is android.view.ViewGroup && visualTarget.childCount > 0) {
+            (0 until visualTarget.childCount).map(visualTarget::getChildAt)
         } else {
             emptyList()
         }
@@ -56,24 +56,24 @@ class SettingComponents(private val activity: Activity) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     fadeOut?.cancel()
                     overlay.alpha = 255
-                    view.foreground = overlay
-                    contents.forEach { it.animate().scaleX(0.98f).scaleY(0.98f).setDuration(80).start() }
+                    visualTarget.foreground = overlay
+                    contents().forEach { it.animate().scaleX(0.98f).scaleY(0.98f).setDuration(80).start() }
                 }
                 android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                     fadeOut = android.animation.ValueAnimator.ofInt(255, 0).apply {
                         duration = 140
                         addUpdateListener {
                             overlay.alpha = it.animatedValue as Int
-                            view.invalidate()
+                            visualTarget.invalidate()
                         }
                         addListener(object : android.animation.AnimatorListenerAdapter() {
                             override fun onAnimationEnd(animation: android.animation.Animator) {
-                                view.foreground = null
+                                visualTarget.foreground = null
                             }
                         })
                         start()
                     }
-                    contents.forEach { it.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
+                    contents().forEach { it.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
                 }
             }
             false
@@ -83,12 +83,38 @@ class SettingComponents(private val activity: Activity) {
     private val column = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(12), 0, dp(12), dp(24))
+        // 섹션이 조건부로 나타나고 사라질 때 주변 콘텐츠는 밀리기만 하고 새 섹션만 페이드된다.
+        layoutTransition = android.animation.LayoutTransition()
     }
 
     fun root(): View = ScrollView(activity).apply {
         fitsSystemWindows = true
         setBackgroundColor(BG)
         addView(column)
+    }
+
+    /**
+     * 화면을 표시한다. 재구성 시에는 기존 스크롤 루트를 유지한 채 내용만 바꿔
+     * 헤더 위치·스크롤 상태가 보존되고, 새 내용이 위에서 펼쳐지듯 나타난다.
+     */
+    fun show(custom: View? = null) {
+        if (custom != null) {
+            activity.setContentView(custom)
+            return
+        }
+        val content = activity.findViewById<android.view.ViewGroup>(android.R.id.content)
+        val existing = content.findViewWithTag<ScrollView>(ROOT_TAG)
+        if (existing == null) {
+            activity.setContentView(root().apply { tag = ROOT_TAG })
+            return
+        }
+        existing.removeAllViews()
+        existing.addView(column)
+        column.alpha = 0f
+        column.translationY = dp(-8).toFloat()
+        column.animate().alpha(1f).translationY(0f).setDuration(160)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
     }
 
     fun header(
@@ -134,16 +160,42 @@ class SettingComponents(private val activity: Activity) {
         column.addView(row)
     }
 
-    fun caption(text: String) {
-        column.addView(TextView(activity).apply {
+    /** 카드 밖 소제목. [actionIcon]을 주면 제목 옆에 작은 액션 버튼이 붙는다 (예: 초기화). */
+    fun caption(text: String, actionIcon: Int? = null, onAction: (() -> Unit)? = null): View {
+        val label = TextView(activity).apply {
             this.text = text
             textSize = 13f
             setTextColor(SUB_TEXT)
-            setPadding(dp(20), dp(4), dp(20), dp(10))
-        })
+        }
+        if (actionIcon == null) {
+            label.setPadding(dp(20), dp(4), dp(20), dp(10))
+            column.addView(label)
+            return label
+        }
+        val row = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(20), dp(4), dp(20), dp(10))
+                label.layoutParams =
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                addView(label)
+                addView(
+                    android.widget.ImageView(activity).apply {
+                        setImageResource(actionIcon)
+                        imageTintList = ColorStateList.valueOf(SUB_TEXT)
+                        setPadding(dp(4), dp(4), dp(4), dp(4))
+                        layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                        setOnClickListener { onAction?.invoke() }
+                        // 아이콘 크기에 맞는 원형 하이라이트
+                        addPressEffect(this, cornerDp = 12)
+                    },
+                )
+            }
+        column.addView(row)
+        return row
     }
 
-    fun card(vararg rows: View) {
+    fun card(vararg rows: View): View {
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -174,6 +226,7 @@ class SettingComponents(private val activity: Activity) {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { bottomMargin = dp(16) },
         )
+        return card
     }
 
     fun textRow(label: String, subLabel: String? = null, onClick: (() -> Unit)? = null): View {
@@ -264,7 +317,8 @@ class SettingComponents(private val activity: Activity) {
                 setPadding(0, dp(2), 0, 0)
             })
         }
-        addPressEffect(textColumn, cornerDp = 10)
+        // 텍스트 영역을 누르면 행 전체가 어두워지게 한다 (스위치는 자체 피드백 유지).
+        addPressEffect(textColumn, visualTarget = row)
         row.addView(textColumn)
         // 하위 화면 이동 + 토글이 공존하는 행은 토글 왼쪽에 세로 디바이더를 둔다.
         row.addView(View(activity).apply {
@@ -299,9 +353,9 @@ class SettingComponents(private val activity: Activity) {
         min: Int = 0,
         valueFormatter: ((Int) -> String)? = null,
         onChange: (Int) -> Unit,
-    ): View {
+    ): SliderRowView {
         val thumbRadius = dp(11)
-        val row = LinearLayout(activity).apply {
+        val row = SliderRowView(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20) - thumbRadius, dp(14), dp(20) - thumbRadius, dp(14))
         }
@@ -315,6 +369,7 @@ class SettingComponents(private val activity: Activity) {
         row.addView(
             LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(thumbRadius, 0, thumbRadius, 0)
                 addView(TextView(activity).apply {
                     text = label
@@ -338,6 +393,7 @@ class SettingComponents(private val activity: Activity) {
             }
         }
         row.addView(android.widget.SeekBar(activity).apply {
+            row.applyValue = { value -> progress = value - min }
             this.max = max - min
             progress = initial - min
             progressDrawable = track
@@ -356,7 +412,6 @@ class SettingComponents(private val activity: Activity) {
                     if (fromUser) onChange(actual)
                 }
 
-                // 핸들을 잡는 동안 트랙 선이 부드럽게 두꺼워지는 피드백.
                 override fun onStartTrackingTouch(bar: android.widget.SeekBar?) =
                     animateThickness(dp(7).toFloat())
 
@@ -365,6 +420,14 @@ class SettingComponents(private val activity: Activity) {
             })
         })
         return row
+    }
+
+    /** 슬라이더 행 뷰: [setValue]로 화면 재구성 없이 값만 갱신할 수 있다 (onChange는 호출 안 됨). */
+    class SliderRowView(context: android.content.Context) : LinearLayout(context) {
+        internal var applyValue: ((Int) -> Unit)? = null
+        fun setValue(value: Int) {
+            applyValue?.invoke(value)
+        }
     }
 
     /**
@@ -497,36 +560,50 @@ class SettingComponents(private val activity: Activity) {
         dialog.show()
     }
 
-    fun radioRow(label: CharSequence, checked: Boolean): RadioButton = RadioButton(activity).apply {
-        text = label
-        textSize = 17f
-        setTextColor(TEXT)
-        isChecked = checked
-        buttonTintList = ColorStateList.valueOf(ACCENT)
-        // RadioButton은 패딩을 무시하고 버튼 드로어블을 뷰 왼쪽 끝에 그리므로
-        // 마진으로 카드 안 좌우 여백을 맞춘다.
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply {
-            marginStart = dp(20)
-            marginEnd = dp(20)
+    /** 라디오 항목 행. 터치는 행이 받고 라디오 버튼은 상태 표시만 한다 (효과가 행 전체를 덮도록). */
+    fun radioRow(label: CharSequence, checked: Boolean): View {
+        val radio = RadioButton(activity).apply {
+            text = label
+            textSize = 17f
+            setTextColor(TEXT)
+            isChecked = checked
+            buttonTintList = ColorStateList.valueOf(ACCENT)
+            // RadioButton은 패딩을 무시하고 버튼 드로어블을 뷰 왼쪽 끝에 그리므로
+            // 마진으로 카드 안 좌우 여백을 맞춘다.
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                marginStart = dp(20)
+                marginEnd = dp(20)
+            }
+            setPadding(dp(8), dp(16), dp(12), dp(16))
+            isClickable = false
+            isFocusable = false
+            // 행 pressed 상태가 전파되며 뜨는 기본 원형 리플이 행 하이라이트와 겹치지 않게 없앤다.
+            background = null
         }
-        setPadding(dp(8), dp(16), dp(12), dp(16))
-        addPressEffect(this, cornerDp = 10)
+        return LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(radio)
+            addPressEffect(this)
+        }
     }
 
-    /** 라디오 버튼들을 상호 배타로 묶는다. 선택 시 [onSelect]가 호출된다. */
-    fun <T> bindRadioGroup(radios: Map<T, RadioButton>, onSelect: (T) -> Unit) {
-        radios.forEach { (value, radio) ->
-            radio.setOnClickListener {
-                radios.values.forEach { it.isChecked = it === radio }
+    /** 라디오 행들을 상호 배타로 묶는다. 선택 시 [onSelect]가 호출된다. */
+    fun <T> bindRadioGroup(rows: Map<T, View>, onSelect: (T) -> Unit) {
+        fun radioOf(row: View): RadioButton =
+            row as? RadioButton ?: (row as android.view.ViewGroup).getChildAt(0) as RadioButton
+        rows.forEach { (value, row) ->
+            row.setOnClickListener {
+                rows.values.forEach { radioOf(it).isChecked = it === row }
                 onSelect(value)
             }
         }
     }
 
     companion object {
+        private const val ROOT_TAG = "setting_root"
         const val BG = 0xFFF1F2F6.toInt()
         const val CARD = 0xFFFFFFFF.toInt()
         const val TEXT = 0xFF1B1D22.toInt()

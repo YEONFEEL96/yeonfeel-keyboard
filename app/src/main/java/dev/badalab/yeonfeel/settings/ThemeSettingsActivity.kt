@@ -35,6 +35,6 @@ class ThemeSettingsActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 }

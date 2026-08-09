@@ -43,7 +43,7 @@ class SymbolSettingsActivity : Activity() {
             ),
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 
     private fun openPicker(side: String) {

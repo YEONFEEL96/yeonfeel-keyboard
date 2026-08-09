@@ -84,7 +84,7 @@ class LanguageSettingsActivity : Activity() {
         ui.bindRadioGroup(radios) { selected -> settings.languageSwitchMethod = selected }
         ui.card(*radios.values.toTypedArray())
 
-        setContentView(ui.root())
+        ui.show()
     }
 
     private fun openLayoutSettings(language: String) {

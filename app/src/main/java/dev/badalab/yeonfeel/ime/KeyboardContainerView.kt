@@ -54,7 +54,6 @@ class KeyboardContainerView(
     private var clipboardHeader: View? = null
     private var adjustOverlay: MarginAdjustOverlay? = null
 
-    // 이모지 검색 모드 상태
     private var emojiSearchOpen = false
     private var emojiSearchResultsRow: View? = null
     private var emojiSearchQueryView: TextView? = null
@@ -78,7 +77,16 @@ class KeyboardContainerView(
     private lateinit var layoutButton: android.widget.ImageView
     private lateinit var clipboardButton: android.widget.ImageView
     private lateinit var emojiButton: android.widget.ImageView
+    private lateinit var editButton: android.widget.ImageView
     private val toolbarButtons = linkedMapOf<String, android.widget.ImageView>()
+    private val toolbarItemIcons = linkedMapOf(
+        "settings" to R.drawable.ic_toolbar_settings,
+        "layout" to R.drawable.ic_toolbar_keyboard,
+        "clipboard" to R.drawable.ic_toolbar_clipboard,
+        "emoji" to R.drawable.ic_toolbar_emoji,
+    )
+    private var currentToolbarOrder = KeyboardSettings.TOOLBAR_ORDER_DEFAULT
+    private var toolbarEditPanel: View? = null
 
     init {
         orientation = VERTICAL
@@ -86,7 +94,6 @@ class KeyboardContainerView(
         toolbar.orientation = HORIZONTAL
         toolbar.gravity = Gravity.CENTER_VERTICAL
         toolbar.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply {
-            // 툴바와 키 영역 사이 여백
             bottomMargin = dp(6)
         }
         settingsButton = toolbarIcon(
@@ -109,6 +116,10 @@ class KeyboardContainerView(
         toolbarButtons["layout"] = layoutButton
         toolbarButtons["clipboard"] = clipboardButton
         toolbarButtons["emoji"] = emojiButton
+        editButton = toolbarIcon(
+            R.drawable.ic_toolbar_chevron_down,
+            context.getString(R.string.toolbar_edit_desc),
+        ) { toggleToolbarEditPanel() }
         setupToolbarReorder()
         applyToolbarOrder(KeyboardSettings.TOOLBAR_ORDER_DEFAULT)
         addView(toolbar)
@@ -162,28 +173,25 @@ class KeyboardContainerView(
         setBackgroundColor(theme.background)
         keyboardWrapper.setBackgroundColor(theme.background)
         toolbar.setBackgroundColor(theme.specialKey)
-        // 툴바 아이콘은 본문 텍스트보다 연한 보조색으로
         toolbarButtons.values.forEach {
             it.imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
         }
+        editButton.imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
         applyToolbarOrder(settings.toolbarOrder)
         showKeyboard()
     }
 
-    /** 툴바 아이콘 순서 적용. 목록에 없는 아이콘은 뒤에 붙인다. */
+    /** 툴바 아이콘 순서·표시 적용. 목록에 없는 항목은 숨겨지고 편집 패널에서 다시 추가한다. */
     private fun applyToolbarOrder(orderCsv: String) {
+        currentToolbarOrder = orderCsv
         toolbar.removeAllViews()
-        val added = mutableSetOf<String>()
         orderCsv.split(',').map { it.trim() }.forEach { id ->
-            toolbarButtons[id]?.let {
-                toolbar.addView(it)
-                added.add(id)
-            }
+            toolbarButtons[id]?.let { toolbar.addView(it) }
         }
-        toolbarButtons.forEach { (id, view) -> if (id !in added) toolbar.addView(view) }
+        toolbar.addView(View(context), LayoutParams(0, 0, 1f))
+        toolbar.addView(editButton)
     }
 
-    /** 아이콘을 길게 눌러 드래그하면 순서를 바꾼다. */
     private fun setupToolbarReorder() {
         toolbarButtons.forEach { (id, view) ->
             view.tag = id
@@ -214,16 +222,19 @@ class KeyboardContainerView(
                 android.view.DragEvent.ACTION_DROP -> {
                     val dragged = event.localState as? View ?: return@setOnDragListener false
                     toolbar.removeView(dragged)
+                    // 스페이서·편집 버튼(태그 없음)은 건너뛰고 아이콘 사이 위치만 센다.
                     var index = 0
                     for (i in 0 until toolbar.childCount) {
                         val child = toolbar.getChildAt(i)
-                        if (event.x > child.x + child.width / 2f) index = i + 1
+                        if (child.tag == null) continue
+                        if (event.x > child.x + child.width / 2f) index++
                     }
                     toolbar.addView(dragged, index)
                     val order = (0 until toolbar.childCount)
                         .mapNotNull { toolbar.getChildAt(it).tag as? String }
                         .joinToString(",")
                     callbacks.onToolbarOrderChanged(order)
+                    applyToolbarOrder(order)
                     true
                 }
                 android.view.DragEvent.ACTION_DRAG_ENDED -> {
@@ -246,6 +257,9 @@ class KeyboardContainerView(
         toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
         adjustOverlay?.let { contentFrame.removeView(it) }
         adjustOverlay = null
+        toolbarEditPanel?.let { contentFrame.removeView(it) }
+        toolbarEditPanel = null
+        editButton.rotation = 0f
         clipboardMode = ClipboardMode.NORMAL
         clipboardSelected.clear()
         emojiSearchResultsRow?.let { removeView(it) }
@@ -266,13 +280,22 @@ class KeyboardContainerView(
         marginBottomDp = bottomDp
         marginSideDp = sideDp
         keyboardHeightDp = heightDp
-        keyboardView.heightDp = heightDp
+        // 가로 모드에서 세로용 높이를 그대로 쓰면 화면 대부분을 덮어
+        // 앱이 입력창을 가릴 수 없다고 판단해 키보드를 즉시 숨긴다 — 화면 절반으로 제한.
+        val config = resources.configuration
+        val effectiveHeightDp =
+            if (config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                minOf(heightDp, (config.screenHeightDp / 2).coerceAtLeast(140))
+            } else {
+                heightDp
+            }
+        keyboardView.heightDp = effectiveHeightDp
         // 하단에는 시스템 내비게이션 바 인셋을 더해 제스처 영역과 겹치지 않게 한다.
         keyboardWrapper.setPadding(dp(sideDp), dp(topDp), dp(sideDp), dp(bottomDp) + navInsetPx)
         // 콘텐츠 영역 높이를 키보드 높이로 고정 — 패널(클립보드·이모지) 내용이
         // 길어도 창이 위로 자라지 않고 패널 안에서 스크롤된다.
         contentFrame.layoutParams = (contentFrame.layoutParams as LayoutParams).apply {
-            height = dp(heightDp + topDp + bottomDp) + navInsetPx
+            height = dp(effectiveHeightDp + topDp + bottomDp) + navInsetPx
         }
     }
 
@@ -315,12 +338,104 @@ class KeyboardContainerView(
             overlay,
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
         )
+        fadeIn(overlay)
+    }
+
+    /** 툴바 편집: 키보드 영역에 전체 항목을 펼쳐 놓고 눌러서 툴바에 추가/제거한다. */
+    private fun toggleToolbarEditPanel() {
+        val wasOpen = toolbarEditPanel != null
+        showKeyboard()
+        if (wasOpen) {
+            fadeIn(keyboardView)
+            return
+        }
+
+        val panel = buildToolbarEditPanel()
+        toolbarEditPanel = panel
+        keyboardView.visibility = INVISIBLE
+        editButton.rotation = 180f
+        contentFrame.addView(
+            panel,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
+        )
+        fadeIn(panel)
+    }
+
+    private fun buildToolbarEditPanel(): View {
+        val active = currentToolbarOrder.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        val panel = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setBackgroundColor(theme.background)
+            setPadding(dp(16), dp(10), dp(16), dp(marginBottomDp) + navBarInset())
+        }
+        panel.addView(TextView(context).apply {
+            text = context.getString(R.string.toolbar_edit_hint)
+            setTextColor(theme.subText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setPadding(dp(4), 0, 0, dp(12))
+        })
+        val grid = LinearLayout(context).apply { orientation = HORIZONTAL }
+        toolbarItemIcons.forEach { (id, iconRes) ->
+            lateinit var applyCellState: (Boolean) -> Unit
+            val cell = LinearLayout(context).apply {
+                orientation = VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(0, dp(12), 0, dp(12))
+                setOnClickListener {
+                    // 누른 셀과 툴바만 갱신한다 — 패널 전체를 다시 그리지 않는다.
+                    val current = currentToolbarOrder.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                    val nowIn = id in current
+                    val orderCsv = (if (nowIn) current - id else current + id).joinToString(",")
+                    callbacks.onToolbarOrderChanged(orderCsv)
+                    applyToolbarOrder(orderCsv)
+                    applyCellState(!nowIn)
+                }
+            }
+            applyCellState = { inBar ->
+                cell.background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    if (inBar) {
+                        setColor(theme.specialKey)
+                    } else {
+                        setStroke(dp(1), theme.subText and 0x50FFFFFF.toInt())
+                    }
+                }
+                cell.animate().alpha(if (inBar) 1f else 0.55f).setDuration(140).start()
+            }
+            applyCellState(id in active)
+            cell.addView(
+                android.widget.ImageView(context).apply {
+                    setImageResource(iconRes)
+                    imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                },
+                LayoutParams(dp(26), dp(26)),
+            )
+            cell.addView(TextView(context).apply {
+                text = toolbarButtons[id]?.contentDescription
+                setTextColor(theme.subText)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(6), 0, 0)
+            })
+            grid.addView(
+                cell,
+                LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = dp(4)
+                    marginEnd = dp(4)
+                },
+            )
+        }
+        panel.addView(grid)
+        return panel
     }
 
     private fun toggleEmojiPanel() {
         val wasOpen = emojiPanel != null
         showKeyboard()
-        if (wasOpen) return
+        if (wasOpen) {
+            fadeIn(keyboardView)
+            return
+        }
 
         val panel = buildEmojiPanel()
         emojiPanel = panel
@@ -332,6 +447,7 @@ class KeyboardContainerView(
         // 헤더와 탭 스트립을 여백 없이 붙이되, 없앤 6dp를 헤더 높이에 더해
         // 키보드 모드와 전체 높이를 똑같이 유지한다 (전환 시 높이 흔들림 방지).
         attachHeader(buildEmojiHeader(), gapBelow = false, heightDp = 50)
+        fadeIn(clipboardHeader, panel)
     }
 
     private fun buildEmojiHeader(): View {
@@ -345,6 +461,7 @@ class KeyboardContainerView(
         header.addView(
             headerImage(R.drawable.ic_toolbar_keyboard, context.getString(R.string.clipboard_back_to_keyboard)) {
                 showKeyboard()
+                fadeIn(keyboardView)
             },
         )
         header.addView(TextView(context).apply {
@@ -408,12 +525,10 @@ class KeyboardContainerView(
             addView(content)
         }
 
-        // 카테고리 탭 바 (상단)
         val tabs = mutableListOf<TextView>()
         fun highlightTab(active: Int) {
             tabs.forEachIndexed { index, tab ->
                 tab.background = if (index == active) {
-                    // 바 높이보다 작게 — 원이 바에 꽉 차면 어색해 보인다.
                     android.graphics.drawable.InsetDrawable(
                         android.graphics.drawable.GradientDrawable().apply {
                             shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -451,7 +566,6 @@ class KeyboardContainerView(
             tabRow.addView(tab)
         }
         highlightTab(0)
-        // 스크롤 위치에 따라 활성 탭을 갱신한다.
         emojiScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
             var active = 0
             blocks.forEachIndexed { index, block ->
@@ -460,7 +574,6 @@ class KeyboardContainerView(
             highlightTab(active)
         }
 
-        // 맨 왼쪽 검색 아이콘
         tabRow.addView(
             headerImage(R.drawable.ic_icon_search, context.getString(R.string.emoji_search_hint)) {
                 openEmojiSearch()
@@ -477,7 +590,6 @@ class KeyboardContainerView(
         panel.addView(
             android.widget.HorizontalScrollView(context).apply {
                 isHorizontalScrollBarEnabled = false
-                // 탭 바 섹션은 헤더보다 살짝 연한 회색으로 구분한다.
                 setBackgroundColor(blendColor(theme.specialKey, theme.background, 0.5f))
                 addView(tabRow)
             },
@@ -494,7 +606,6 @@ class KeyboardContainerView(
      * 검색 칸으로 바뀐다. 그 아래 결과 스트립 + 일반 키보드로 입력한다.
      */
     private fun openEmojiSearch() {
-        // 키보드는 즉시 나타나고, 그 위 검색 컴포넌트만 페이드인한다.
         showKeyboard()
         emojiSearchOpen = true
         attachHeader(buildEmojiSearchHeader(), gapBelow = true, heightDp = 40)
@@ -506,7 +617,6 @@ class KeyboardContainerView(
         updateEmojiSearch("")
     }
 
-    /** 새로 붙은 컴포넌트를 살짝 페이드인한다 (레이아웃 이동 애니메이션 없이). */
     private fun fadeIn(vararg views: View?) {
         views.filterNotNull().forEach { v ->
             v.alpha = 0f
@@ -527,7 +637,6 @@ class KeyboardContainerView(
         list.removeAllViews()
         val found = EmojiData.search(text)
         if (found.isEmpty()) {
-            // 결과가 없을 때는 중앙 정렬 가이드 문구를 보여준다.
             list.addView(
                 TextView(context).apply {
                     this.text = context.getString(R.string.emoji_search_empty)
@@ -552,7 +661,6 @@ class KeyboardContainerView(
         }
     }
 
-    /** 검색 스트립 단독 헤더: 탭 스트립 자리에 검색 칸이 들어오고, 제목 줄은 없앤다. */
     private fun buildEmojiSearchHeader(): View {
         val searchRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
@@ -580,7 +688,6 @@ class KeyboardContainerView(
             headerImage(R.drawable.ic_icon_close, context.getString(R.string.clipboard_cancel)) {
                 showKeyboard()
                 toggleEmojiPanel()
-                // 이모지 패널 복귀도 헤더·패널만 페이드인.
                 fadeIn(clipboardHeader, emojiPanel)
             },
         )
@@ -610,7 +717,6 @@ class KeyboardContainerView(
 
     private fun headerImage(drawableRes: Int, description: String, onClick: () -> Unit) =
         toolbarIcon(drawableRes, description, onClick).apply {
-            // 툴바 아이콘과 같은 옅은 색으로 통일한다.
             imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
             (layoutParams as MarginLayoutParams).apply {
                 marginStart = dp(4)
@@ -644,7 +750,10 @@ class KeyboardContainerView(
     private fun toggleClipboardPanel() {
         val wasOpen = clipboardPanel != null
         showKeyboard()
-        if (wasOpen) return
+        if (wasOpen) {
+            fadeIn(keyboardView)
+            return
+        }
 
         val panel = buildClipboardPanel()
         clipboardPanel = panel
@@ -655,6 +764,7 @@ class KeyboardContainerView(
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
         )
         attachClipboardHeader()
+        fadeIn(clipboardHeader, panel)
     }
 
     /** 클립보드 헤더가 툴바 자리를 대체한다. */
@@ -670,7 +780,6 @@ class KeyboardContainerView(
             description: String,
             onClick: () -> Unit,
         ) = toolbarIcon(drawableRes, description, onClick).apply {
-            // 툴바 아이콘과 같은 옅은 색으로 통일한다.
             imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
             (layoutParams as MarginLayoutParams).apply {
                 marginStart = dp(4)
@@ -684,10 +793,10 @@ class KeyboardContainerView(
             setBackgroundColor(theme.specialKey)
             setPadding(dp(8), 0, dp(8), 0)
         }
-        // 좌측: 키보드 아이콘(누르면 키보드로 복귀) + 제목
         header.addView(
             headerIcon(R.drawable.ic_toolbar_keyboard, context.getString(R.string.clipboard_back_to_keyboard)) {
                 showKeyboard()
+                fadeIn(keyboardView)
             },
         )
         header.addView(TextView(context).apply {
@@ -869,9 +978,48 @@ class KeyboardContainerView(
         scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
         setPadding(dp(8), dp(6), dp(8), dp(6))
         setOnClickListener { onClick() }
+        addIconPressEffect(this)
         layoutParams = LayoutParams(dp(40), dp(36)).apply {
             marginStart = dp(10)
             marginEnd = dp(10)
+        }
+    }
+
+    /** 아이콘 버튼용 누름 효과: 아이콘 크기에 맞는 작은 원형 하이라이트가 즉시 나타난다. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun addIconPressEffect(view: View) {
+        val overlay = android.graphics.drawable.InsetDrawable(
+            android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(0x22000000)
+            },
+            dp(1),
+        )
+        var fadeOut: android.animation.ValueAnimator? = null
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    fadeOut?.cancel()
+                    overlay.alpha = 255
+                    view.foreground = overlay
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    fadeOut = android.animation.ValueAnimator.ofInt(255, 0).apply {
+                        duration = 140
+                        addUpdateListener {
+                            overlay.alpha = it.animatedValue as Int
+                            view.invalidate()
+                        }
+                        addListener(object : android.animation.AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: android.animation.Animator) {
+                                view.foreground = null
+                            }
+                        })
+                        start()
+                    }
+                }
+            }
+            false
         }
     }
 

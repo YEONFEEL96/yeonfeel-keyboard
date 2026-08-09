@@ -77,7 +77,7 @@ class SettingsActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 
     private fun currentThemeName(): String = buildString {

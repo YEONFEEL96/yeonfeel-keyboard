@@ -35,7 +35,7 @@ class GestureFeedbackActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 
     private fun currentSpeedName(): String = getString(

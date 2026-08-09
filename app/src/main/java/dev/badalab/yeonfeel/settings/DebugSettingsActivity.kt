@@ -39,7 +39,6 @@ class DebugSettingsActivity : Activity() {
                 startActivity(Intent(this, TouchVisualizerActivity::class.java))
             },
             ui.textRow(getString(R.string.debug_touch_clear)) {
-                // 실수로 지우지 않도록 하단 확인 모달을 거친다.
                 ui.confirmBottom(
                     title = getString(R.string.debug_touch_clear),
                     message = getString(R.string.reset_confirm_message),
@@ -55,6 +54,6 @@ class DebugSettingsActivity : Activity() {
             },
         )
 
-        setContentView(ui.root())
+        ui.show()
     }
 }

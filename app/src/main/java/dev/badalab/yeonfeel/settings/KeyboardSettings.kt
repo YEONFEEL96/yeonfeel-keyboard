@@ -3,49 +3,37 @@ package dev.badalab.yeonfeel.settings
 import android.content.Context
 import android.content.SharedPreferences
 
-/** 백스페이스 길게 누를 때 반복 속도. */
 enum class BackspaceSpeed(val intervalMs: Long) {
     SLOW(80),
     NORMAL(50),
     FAST(30),
 }
 
-/** 테마 모드. */
 enum class ThemeMode {
-    /** 시스템 다크 모드 설정을 따른다 */
     SYSTEM,
     DARK,
     LIGHT,
 }
 
-/** 고대비 색상 스타일. */
 enum class HighContrastStyle {
-    /** 기본: 다크/라이트에 따라 흑백 + 테두리 */
     DEFAULT,
 
-    /** 노란 키패드에 검은 글자 */
     YELLOW_BLACK,
 
-    /** 검은 키패드에 흰 글자 */
     BLACK_WHITE,
 
-    /** 검은 키패드에 노란 글자 */
     BLACK_YELLOW,
 }
 
-/** 언어 변경 방법. */
 enum class LanguageSwitchMethod {
-    /** 한/영 버튼으로만 변경 */
     BUTTON,
 
-    /** 한/영 버튼 + 스페이스바 좌우 스와이프 */
     BUTTON_AND_SWIPE,
 
     /** 스페이스바 좌우 스와이프로만 변경 (한/영 버튼 숨김) */
     SWIPE,
 }
 
-/** 한국어 자판 종류. */
 enum class KoreanLayoutType {
     /** 표준 두벌식 (KS X 5002) */
     DUBEOLSIK,
@@ -66,7 +54,6 @@ enum class KoreanLayoutType {
     NARATGUL_CENTER,
 }
 
-/** 영어 자판 종류. */
 enum class EnglishLayoutType {
     QWERTY,
 
@@ -86,7 +73,6 @@ class KeyboardSettings(context: Context) {
         }.getOrDefault(ThemeMode.LIGHT)
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value.name).apply()
 
-    /** 키보드 상단 툴바 표시 여부. */
     var showToolbar: Boolean
         get() = prefs.getBoolean(KEY_SHOW_TOOLBAR, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_TOOLBAR, value).apply()
@@ -142,22 +128,18 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_ENGLISH_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_ENGLISH_ENABLED, value).apply()
 
-    /** 스페이스바 오른쪽 기호 키(즐겨찾기) 표시 여부. */
     var favoriteSymbolEnabled: Boolean
         get() = prefs.getBoolean(KEY_FAVORITE_SYMBOL_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_FAVORITE_SYMBOL_ENABLED, value).apply()
 
-    /** 스페이스바 오른쪽 기호 키에 표시할 즐겨찾기 기호 (한 글자). */
     var favoriteSymbol: String
         get() = prefs.getString(KEY_FAVORITE_SYMBOL, ".")?.takeIf { it.isNotEmpty() } ?: "."
         set(value) = prefs.edit().putString(KEY_FAVORITE_SYMBOL, value.take(1)).apply()
 
-    /** 스페이스바 왼쪽 기호 키 표시 여부. */
     var leftSymbolEnabled: Boolean
         get() = prefs.getBoolean(KEY_LEFT_SYMBOL_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_LEFT_SYMBOL_ENABLED, value).apply()
 
-    /** 스페이스바 왼쪽 기호 키에 표시할 기호 (한 글자). */
     var leftSymbol: String
         get() = prefs.getString(KEY_LEFT_SYMBOL, ",")?.takeIf { it.isNotEmpty() } ?: ","
         set(value) = prefs.edit().putString(KEY_LEFT_SYMBOL, value.take(1)).apply()
@@ -194,7 +176,6 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_TOUCH_STATS, true)
         set(value) = prefs.edit().putBoolean(KEY_TOUCH_STATS, value).apply()
 
-    /** 누른 키를 크게 보여주는 미리보기 팝업. */
     var keyPreviewEnabled: Boolean
         get() = prefs.getBoolean(KEY_KEY_PREVIEW, true)
         set(value) = prefs.edit().putBoolean(KEY_KEY_PREVIEW, value).apply()
@@ -205,17 +186,14 @@ class KeyboardSettings(context: Context) {
         }.getOrDefault(BackspaceSpeed.NORMAL)
         set(value) = prefs.edit().putString(KEY_BACKSPACE_SPEED, value.name).apply()
 
-    /** 키 입력 소리 사용 여부. */
     var soundEnabled: Boolean
         get() = prefs.getBoolean(KEY_SOUND_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_SOUND_ENABLED, value).apply()
 
-    /** 키 입력 햅틱 피드백 사용 여부. */
     var hapticEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_HAPTIC_ENABLED, value).apply()
 
-    /** 햅틱 강도 (0~100). */
     var hapticStrength: Int
         get() = prefs.getInt(KEY_HAPTIC_STRENGTH, 50)
         set(value) = prefs.edit().putInt(KEY_HAPTIC_STRENGTH, value.coerceIn(0, 100)).apply()
@@ -248,7 +226,6 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_KEYBOARD_HEIGHT, HEIGHT_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_KEYBOARD_HEIGHT, value).apply()
 
-    /** 모든 키보드 설정을 기본값으로 되돌린다. */
     fun resetAll() = prefs.edit().clear().apply()
 
     companion object {

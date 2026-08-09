@@ -94,7 +94,7 @@ class HighContrastSettingsActivity : Activity() {
             addView(ui.root())
             addView(input, android.widget.FrameLayout.LayoutParams(1, 1, Gravity.BOTTOM))
         }
-        setContentView(root)
+        ui.show(root)
         if (showPreview) input.post { showPreviewKeyboard() }
     }
 

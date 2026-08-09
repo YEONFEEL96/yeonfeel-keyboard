@@ -34,28 +34,44 @@ class YeonfeelImeService : InputMethodService() {
     private lateinit var clipboardManager: ClipboardManager
 
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { captureClip() }
+    private val ioExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** 클립보드 복호화는 느리므로 백그라운드에서 읽고 메인에서 반영한다. */
+    private fun reloadStoresAsync() {
+        ioExecutor.execute {
+            val entries = clipboardStore.load()
+            mainHandler.post {
+                clipboardHistory.restore(entries)
+                touchStats.reload()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         settings = KeyboardSettings(this)
         clipboardStore = SecureClipboardStore(this)
         touchStats = dev.badalab.yeonfeel.debug.TouchStatsStore(this)
-        clipboardHistory.restore(clipboardStore.load())
+        reloadStoresAsync()
         clipboardManager = getSystemService(ClipboardManager::class.java)
         clipboardManager.addPrimaryClipChangedListener(clipListener)
     }
 
     override fun onDestroy() {
         clipboardManager.removePrimaryClipChangedListener(clipListener)
+        ioExecutor.shutdown()
         super.onDestroy()
     }
+
+    /** 가로 모드에서 전체 화면(extract) 모드로 전환되며 키보드가 사라지는 것을 막는다. */
+    override fun onEvaluateFullscreenMode(): Boolean = false
 
     override fun onCreateInputView(): View {
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
         view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
             if (settings.touchStatsEnabled && key.type != KeyType.SPACER) {
-                // 글자·고스트 키는 문자로, 기능 키는 타입 이름으로 식별한다.
                 val keyId = when (key.type) {
                     KeyType.CHAR, KeyType.GHOST -> key.char.toString()
                     else -> key.type.name
@@ -98,9 +114,31 @@ class YeonfeelImeService : InputMethodService() {
         updateLanguageNames()
         lastSpaceTime = 0
         updateAutoCapitalize()
-        // 설정 화면에서 데이터를 삭제한 경우를 반영한다
-        clipboardHistory.restore(clipboardStore.load())
-        touchStats.reload()
+        // 설정 화면에서 데이터를 삭제한 경우를 반영한다. 표시를 막지 않게 비동기로.
+        reloadStoresAsync()
+    }
+
+    /**
+     * 사용자가 커서를 직접 옮기면 조합 중이던 글자를 그 자리에서 확정한다.
+     * 확정하지 않으면 다음 입력이 이전 조합 위치에서 일어난다.
+     */
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(
+            oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
+        )
+        if (composer.isComposing &&
+            (candidatesStart == -1 || newSelStart < candidatesStart || newSelStart > candidatesEnd)
+        ) {
+            composer.reset()
+            currentInputConnection?.finishComposingText()
+        }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -317,7 +355,6 @@ class YeonfeelImeService : InputMethodService() {
         HangulComposer.isHangulJamo(c) || c == ChunjiinComposer.KEY_ARAEA ||
             c == NaratgulComposer.KEY_ADD_STROKE || c == NaratgulComposer.KEY_DOUBLE
 
-    // MZ 모드: ㅋ 연타 카운트
     private var kiekStreak = 0
 
     /** MZ 모드가 켜져 있으면 ㅋ 3연타부터 30% 확률로 ㅎ을 대신 입력한다. */
@@ -354,7 +391,6 @@ class YeonfeelImeService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val now = System.currentTimeMillis()
         if (settings.doubleSpacePeriod && now - lastSpaceTime < doubleSpaceMs && canDoubleSpacePeriod(ic)) {
-            // 스페이스 두 번 → 마침표+공백
             ic.deleteSurroundingText(1, 0)
             ic.commitText(". ", 1)
             lastSpaceTime = 0

@@ -15,6 +15,8 @@
     <string name="toolbar_clipboard_desc">클립보드</string>
     <string name="toolbar_emoji_desc">이모지</string>
     <string name="emoji_search_hint">이모지 검색</string>
+    <string name="toolbar_edit_desc">툴바 편집</string>
+    <string name="toolbar_edit_hint">항목을 눌러 툴바에 추가하거나 제거합니다.</string>
     <string name="emoji_search_empty">이모지가 여기에 표시됩니다</string>
 
     <string name="clipboard_back_to_keyboard">키보드로 돌아가기</string>
@@ -108,7 +110,7 @@
     <string name="language_switch_method_title">언어 변경 방법</string>
     <string name="switch_method_button">언어 버튼으로 변경</string>
     <string name="switch_method_button_swipe">언어 버튼 + 스페이스바 좌우로 밀어서 변경</string>
-    <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경 (언어 버튼 숨김)</string>
+    <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경</string>
     <string name="settings_number_row">숫자 열 표시</string>
     <string name="settings_show_toolbar">키보드 툴바 표시</string>
     <string name="settings_mz_mode">MZ 모드 (ㅋㅋㅎㅋㅋㅎㅋ)</string>
