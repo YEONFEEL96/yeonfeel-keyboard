@@ -201,26 +201,6 @@ class HangulComposerTest {
     }
 
     @Test
-    fun `세벌식 - 역할 명시 자모 조합`() {
-        // 초성ㅎ+ㅏ+종성ㄴ, 초성ㄱ+ㅡ+종성ㄹ → 한글
-        assertEquals("한글", type("한글"))
-    }
-
-    @Test
-    fun `세벌식 - 받침 뒤 모음은 도깨비불 없이 새 글자`() {
-        // 간 + ㅏ → "간ㅏ" (두벌식과 달리 받침이 이동하지 않는다)
-        assertEquals("간ㅏ", type("간ᅡ"))
-    }
-
-    @Test
-    fun `세벌식 - 겹받침 직접 입력과 조합`() {
-        // 앉: 초성ㅇ+ㅏ+종성ㄴ+종성ㅈ (조합)
-        assertEquals("앉", type("안ᆽ"))
-        // 닭: 초성ㄷ+ㅏ+종성ㄺ (한 키)
-        assertEquals("닭", type("닭"))
-    }
-
-    @Test
     fun `flush는 조합 중 글자를 확정하고 상태를 비운다`() {
         val composer = HangulComposer()
         "ㄱㅏ".forEach { composer.input(it) }

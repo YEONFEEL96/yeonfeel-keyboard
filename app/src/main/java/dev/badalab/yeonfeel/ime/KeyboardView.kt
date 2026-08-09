@@ -556,9 +556,8 @@ class KeyboardView(
     private fun hasCompactNumberRow(): Boolean = when {
         // 컴팩트 기호(3x4)는 숫자 열 없이 4열이 전체 높이를 나눈다.
         mode == LayoutMode.SYMBOLS -> !compactSymbols
-        // 세벌식·3x4 자판(천지인/나랏글)은 숫자 열 자체를 얹지 않는다.
+        // 3x4 자판(천지인/나랏글)은 숫자 열 자체를 얹지 않는다.
         mode == LayoutMode.KOREAN && koreanLayout in setOf(
-            KoreanLayoutType.SEBEOLSIK_390,
             KoreanLayoutType.CHUNJIIN,
             KoreanLayoutType.NARATGUL,
             KoreanLayoutType.NARATGUL_CENTER,

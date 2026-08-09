@@ -30,8 +30,6 @@ class LayoutSettingsActivity : Activity() {
                     ui.radioRow(getString(R.string.korean_layout_dubeolsik), layout == KoreanLayoutType.DUBEOLSIK),
                 KoreanLayoutType.DANMOEUM to
                     ui.radioRow(getString(R.string.korean_layout_danmoeum), layout == KoreanLayoutType.DANMOEUM),
-                KoreanLayoutType.SEBEOLSIK_390 to
-                    ui.radioRow(getString(R.string.korean_layout_sebeolsik), layout == KoreanLayoutType.SEBEOLSIK_390),
                 KoreanLayoutType.CHUNJIIN to
                     ui.radioRow(getString(R.string.korean_layout_chunjiin), layout == KoreanLayoutType.CHUNJIIN),
                 KoreanLayoutType.NARATGUL to

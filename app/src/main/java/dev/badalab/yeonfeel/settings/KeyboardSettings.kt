@@ -41,9 +41,6 @@ enum class KoreanLayoutType {
     /** 단모음: 두벌식에서 복모음 키를 빼고 모음 연타로 입력 (ㅏㅏ→ㅑ) */
     DANMOEUM,
 
-    /** 세벌식 390: 초성·중성·종성 분리 입력 */
-    SEBEOLSIK_390,
-
     /** 천지인: ㅣㆍㅡ 모음 조합 + 자음 연타 (2011년 특허 개방) */
     CHUNJIIN,
 

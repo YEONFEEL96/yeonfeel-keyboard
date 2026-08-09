@@ -98,7 +98,6 @@ class LanguageSettingsActivity : Activity() {
         when (settings.koreanLayout) {
             KoreanLayoutType.DUBEOLSIK -> R.string.korean_layout_name_dubeolsik
             KoreanLayoutType.DANMOEUM -> R.string.korean_layout_name_danmoeum
-            KoreanLayoutType.SEBEOLSIK_390 -> R.string.korean_layout_name_sebeolsik
             KoreanLayoutType.CHUNJIIN -> R.string.korean_layout_name_chunjiin
             KoreanLayoutType.NARATGUL -> R.string.korean_layout_name_naratgul
             KoreanLayoutType.NARATGUL_CENTER -> R.string.korean_layout_name_naratgul_center

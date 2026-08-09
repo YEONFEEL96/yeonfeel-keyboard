@@ -57,7 +57,6 @@
     <string name="korean_layout_title">한국어 자판</string>
     <string name="korean_layout_dubeolsik">두벌식 (표준)</string>
     <string name="korean_layout_danmoeum">단모음</string>
-    <string name="korean_layout_sebeolsik">세벌식 390</string>
     <string name="korean_layout_chunjiin">천지인</string>
     <string name="korean_layout_naratgul">나랏글</string>
     <string name="korean_layout_naratgul_center">나랏글 (중앙)</string>
@@ -69,7 +68,6 @@
     <string name="multi_tap_delay_value">%1$dms</string>
     <string name="korean_layout_name_dubeolsik">두벌식</string>
     <string name="korean_layout_name_danmoeum">단모음</string>
-    <string name="korean_layout_name_sebeolsik">세벌식 390</string>
     <string name="korean_layout_name_chunjiin">천지인</string>
     <string name="korean_layout_name_naratgul">나랏글</string>
     <string name="korean_layout_name_naratgul_center">나랏글 중앙</string>

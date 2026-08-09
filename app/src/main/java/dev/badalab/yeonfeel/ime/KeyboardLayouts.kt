@@ -124,8 +124,6 @@ object KeyboardLayouts {
                     if (shifted) letterRows("ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ", showLangKey)
                     else letterRows("ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ", "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ", "ㅋㅌㅊㅍㅠㅜㅡ", showLangKey)
                 KoreanLayoutType.DANMOEUM -> danmoeumRows(showLangKey)
-                // 세벌식은 맨 윗줄이 자모 열이므로 숫자 열 옵션과 무관하게 자체 4열을 쓴다.
-                KoreanLayoutType.SEBEOLSIK_390 -> return sebeol390Rows(shifted, showLangKey)
                 // 3x4 자판은 숫자 열을 얹지 않고 그 높이만큼 키가 커진다.
                 KoreanLayoutType.CHUNJIIN -> return chunjiinRows(showLangKey)
                 KoreanLayoutType.NARATGUL -> return naratgulRows(showLangKey)
@@ -163,41 +161,6 @@ object KeyboardLayouts {
         },
         bottomRow(showLangKey),
     )
-
-    /**
-     * 세벌식 390. Key.char는 역할이 구분되는 한글 자모 블록 코드포인트
-     * (초성 U+1100~, 중성 U+1161~, 종성 U+11A8~)이고 라벨은 호환 자모다.
-     * 배열 출처: 한글문화원 세벌식 390 (libhangul 데이터 기준).
-     */
-    private fun sebeol390Rows(shifted: Boolean, showLangKey: Boolean): List<List<Key>> {
-        fun row(spec: List<Pair<String, Int>>): List<Key> =
-            spec.map { (label, code) -> Key(KeyType.CHAR, label, code.toChar()) }
-
-        val rows = if (!shifted) {
-            listOf(
-                row(listOf("ㅎ" to 0x11C2, "ㅆ" to 0x11BB, "ㅂ" to 0x11B8, "ㅛ" to 0x116D, "ㅠ" to 0x1172, "ㅑ" to 0x1163, "ㅖ" to 0x1168, "ㅢ" to 0x1174, "ㅜ" to 0x116E, "ㅋ" to 0x110F)),
-                row(listOf("ㅅ" to 0x11BA, "ㄹ" to 0x11AF, "ㅕ" to 0x1167, "ㅐ" to 0x1162, "ㅓ" to 0x1165, "ㄹ" to 0x1105, "ㄷ" to 0x1103, "ㅁ" to 0x1106, "ㅊ" to 0x110E, "ㅍ" to 0x1111)),
-                row(listOf("ㅇ" to 0x11BC, "ㄴ" to 0x11AB, "ㅣ" to 0x1175, "ㅏ" to 0x1161, "ㅡ" to 0x1173, "ㄴ" to 0x1102, "ㅇ" to 0x110B, "ㄱ" to 0x1100, "ㅈ" to 0x110C, "ㅂ" to 0x1107)),
-                buildList {
-                    add(Key(KeyType.SHIFT, "⇧", widthWeight = 1.5f))
-                    addAll(row(listOf("ㅁ" to 0x11B7, "ㄱ" to 0x11A8, "ㅔ" to 0x1166, "ㅗ" to 0x1169, "ㅜ" to 0x116E, "ㅅ" to 0x1109, "ㅎ" to 0x1112)))
-                    add(Key(KeyType.DELETE, "⌫", widthWeight = 1.5f))
-                },
-            )
-        } else {
-            listOf(
-                row(listOf("ㅈ" to 0x11BD, "ㅆ" to 0x11BB, "ㅂ" to 0x11B8, "ㅛ" to 0x116D, "ㅠ" to 0x1172, "ㅑ" to 0x1163, "ㅖ" to 0x1168, "ㅢ" to 0x1174, "ㅜ" to 0x116E, "ㅋ" to 0x110F)),
-                row(listOf("ㅍ" to 0x11C1, "ㅌ" to 0x11C0, "ㅋ" to 0x11BF, "ㅒ" to 0x1164, "ㅓ" to 0x1165, "ㄹ" to 0x1105, "ㄷ" to 0x1103, "ㅁ" to 0x1106, "ㅊ" to 0x110E, "ㅍ" to 0x1111)),
-                row(listOf("ㄷ" to 0x11AE, "ㄶ" to 0x11AD, "ㄺ" to 0x11B0, "ㄲ" to 0x11A9, "ㅡ" to 0x1173, "ㄴ" to 0x1102, "ㅇ" to 0x110B, "ㄱ" to 0x1100, "ㅈ" to 0x110C, "ㅂ" to 0x1107)),
-                buildList {
-                    add(Key(KeyType.SHIFT, "⇧", widthWeight = 1.5f))
-                    addAll(row(listOf("ㅊ" to 0x11BE, "ㅄ" to 0x11B9, "ㄻ" to 0x11B1, "ㅀ" to 0x11B6, "ㅜ" to 0x116E, "ㅅ" to 0x1109, "ㅎ" to 0x1112)))
-                    add(Key(KeyType.DELETE, "⌫", widthWeight = 1.5f))
-                },
-            )
-        }
-        return rows + listOf(bottomRow(showLangKey))
-    }
 
     private val numberRow = charRow("1234567890")
     private val shiftedNumberRow = charRow("!@#$%^&*()")

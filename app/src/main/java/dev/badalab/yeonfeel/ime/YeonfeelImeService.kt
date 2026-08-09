@@ -30,6 +30,9 @@ class YeonfeelImeService : InputMethodService() {
     private lateinit var touchStats: dev.badalab.yeonfeel.debug.TouchStatsStore
     private var container: KeyboardContainerView? = null
     private var mode = LayoutMode.KOREAN
+
+    /** 비밀번호류 입력란 여부. 타점 수집·키 미리보기·MZ 모드를 끈다. */
+    private var sensitiveField = false
     private lateinit var settings: KeyboardSettings
     private lateinit var clipboardManager: ClipboardManager
 
@@ -64,6 +67,21 @@ class YeonfeelImeService : InputMethodService() {
         super.onDestroy()
     }
 
+    private fun isPasswordInput(inputType: Int): Boolean {
+        val cls = inputType and android.text.InputType.TYPE_MASK_CLASS
+        val variation = inputType and android.text.InputType.TYPE_MASK_VARIATION
+        return when (cls) {
+            android.text.InputType.TYPE_CLASS_TEXT -> variation in setOf(
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+                android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+            )
+            android.text.InputType.TYPE_CLASS_NUMBER ->
+                variation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            else -> false
+        }
+    }
+
     /** 가로 모드에서 전체 화면(extract) 모드로 전환되며 키보드가 사라지는 것을 막는다. */
     override fun onEvaluateFullscreenMode(): Boolean = false
 
@@ -71,7 +89,7 @@ class YeonfeelImeService : InputMethodService() {
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
         view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
-            if (settings.touchStatsEnabled && key.type != KeyType.SPACER) {
+            if (settings.touchStatsEnabled && !sensitiveField && key.type != KeyType.SPACER) {
                 val keyId = when (key.type) {
                     KeyType.CHAR, KeyType.GHOST -> key.char.toString()
                     else -> key.type.name
@@ -99,6 +117,7 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        sensitiveField = isPasswordInput(info?.inputType ?: 0)
         composer.reset()
         composer = when (settings.koreanLayout) {
             KoreanLayoutType.CHUNJIIN -> chunjiinComposer
@@ -118,6 +137,8 @@ class YeonfeelImeService : InputMethodService() {
         if (mode == LayoutMode.KOREAN && !settings.koreanEnabled) mode = LayoutMode.ENGLISH
         container?.let {
             it.applySettings(settings)
+            // 비밀번호 입력란에서는 어깨너머·화면 녹화로 노출되는 키 미리보기를 끈다.
+            if (sensitiveField) it.keyboardView.keyPreviewEnabled = false
             it.keyboardView.mode = mode
             it.keyboardView.shifted = false
         }
@@ -377,7 +398,7 @@ class YeonfeelImeService : InputMethodService() {
 
     /** MZ 모드가 켜져 있으면 ㅋ 3연타부터 30% 확률로 ㅎ을 대신 입력한다. */
     private fun applyMzMode(c: Char): Char {
-        if (!settings.mzModeEnabled) return c
+        if (!settings.mzModeEnabled || sensitiveField) return c
         if (c == 'ㅋ') {
             kiekStreak++
             if (kiekStreak >= 3 && kotlin.random.Random.nextFloat() < 0.3f) return 'ㅎ'
