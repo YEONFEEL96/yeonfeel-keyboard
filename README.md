@@ -1,35 +1,94 @@
-# 연필키보드 (YEONFEEL Keyboard)
+# YEONFEEL Keyboard
 
-안드로이드용 한글 키보드(IME). 한글 입력 품질, AI 기능, 커스터마이징에 집중한다. 로드맵은 [PLAN.md](PLAN.md) 참고.
+YEONFEEL Keyboard is an Android input method (IME) developed with a focus
+on Korean input quality; English input is supported as well. It was written from
+scratch in collaboration with Claude, for phones whose stock keyboards
+handle Korean poorly. The design goal is a keyboard that works entirely offline: the app
+requests no `INTERNET` permission, so no input, clipboard content, or usage
+data can leave the device. The release APK is about 1.2 MB and has no runtime
+dependency beyond `androidx.core`.
 
+## Input
 
-## 빌드 및 실행
+Six layouts are included: 두벌식 (standard), 단모음 (10-key short vowel),
+천지인, 나랏글, 나랏글 중앙, and English QWERTY/Dvorak. The 3x4 layouts
+follow the national-standard arrangements, with long-press digit input and
+compact symbol pages.
+
+The composition automata live in `hangul/` as pure Kotlin with no Android
+dependencies and are covered by JVM unit tests, including edge cases and
+key rollover during fast typing.
+
+Smaller input options include an auto-replacement of the common misspelling
+됬 with 됐, double-tap shift for caps lock, spacebar language switching,
+configurable multi-tap timing, and backspace undo for auto-corrections.
+
+## Correction (experimental, off by default)
+
+Two correction features can be enabled in the 실험실 menu. Both run on the
+device.
+
+- Touch correction builds a per-key Gaussian model of where the user
+  actually taps, and re-scores ambiguous touches near key boundaries.
+- Word correction proposes replacements using keyboard-adjacency edit
+  distance over a 28,000-word frequency lexicon. A bloom filter of 660,000
+  known words prevents real words from being replaced.
+
+## Data handling
+
+- Clipboard history is encrypted at rest with an Android Keystore key
+  (AES-256-GCM). The key is hardware-backed where the device supports it.
+- Password fields disable key preview, touch-data collection, and all
+  text-transforming options.
+- Touch-correction samples are stored per key with no ordering and no
+  timestamps beyond day granularity, and are deleted after 7 days. Typed
+  text cannot be reconstructed from the stored file.
+
+## Customization
+
+- Light, dark, and four high-contrast themes; three key-text sizes.
+- Adjustable keyboard height, margins, and long-press delay through a
+  drag-to-adjust overlay.
+- Split keyboard for landscape and large screens, one-handed mode, and an
+  editable toolbar.
+- An optional terminal tool row (Esc, Tab, Ctrl, Alt, arrow keys) for SSH
+  clients.
+- An emoji panel with 1,082 emojis, skin-tone memory, and 초성 search, plus
+  a kaomoji panel grouped by mood.
+
+## Building and running
 
 ```sh
-./gradlew test assembleDebug          # 단위 테스트 + 디버그 APK
+./gradlew test assembleDebug          # unit tests + debug APK
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-설치 후 "연필키보드" 앱을 열어 안내에 따라 키보드를 활성화한다.
+Use the project's Gradle wrapper (Gradle 8.13); newer standalone Gradle
+versions are incompatible with the AGP version in use. After installing,
+open the YEONFEEL Keyboard app and follow the prompts to enable the
+keyboard.
+minSdk is 23.
 
-## 라이선스
-
-- 앱 코드: [Apache License 2.0](LICENSE)
-- 서드파티 자산(Lucide 아이콘 — ISC, 한국어 빈도 데이터 — CC BY-SA 4.0):
-  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 참고. 특히
-  `app/src/main/assets/ko_freq.txt`·`ko_known.bloom`은 ShareAlike 조건에 따라
-  코드와 별도로 CC BY-SA 4.0이 적용된다.
-
-## 구조
+## Project layout
 
 ```
 app/src/main/java/dev/badalab/yeonfeel/
-├── hangul/HangulComposer.kt   # 두벌식 조합 오토마타 (순수 Kotlin, Android 의존성 없음)
-├── ime/YeonfeelImeService.kt  # InputMethodService — InputConnection 연동
-├── ime/KeyboardView.kt        # 키보드 렌더링·터치 처리
-├── ime/KeyboardLayouts.kt     # 한글/영문/기호 레이아웃 정의
-└── MainActivity.kt            # 키보드 활성화 도우미
+├── hangul/       # Composition automata and word corrector (pure Kotlin, JVM-tested)
+├── ime/          # InputMethodService, rendering, layouts, touch model
+├── clipboard/    # Keystore-encrypted clipboard history
+├── settings/     # Settings screens (View-based UI kit)
+└── debug/        # Touch-sample store
+scripts/          # Generators for emoji data and the correction lexicon
 ```
 
-- 한국어 빈도 사전: [FrequencyWords](https://github.com/hermitdave/FrequencyWords)
-  (OpenSubtitles 2018, CC BY-SA 4.0 — 위 라이선스 절 참고)
+## License
+
+App code is licensed under the [Apache License 2.0](LICENSE).
+
+Third-party assets are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): Lucide icons (ISC) and
+the Korean frequency data derived from
+[FrequencyWords](https://github.com/hermitdave/FrequencyWords)
+(OpenSubtitles 2018). The derived files `app/src/main/assets/ko_freq.txt`
+and `ko_known.bloom` remain under CC BY-SA 4.0, separately from the app
+code.
