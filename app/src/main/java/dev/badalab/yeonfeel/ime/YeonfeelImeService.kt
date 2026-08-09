@@ -101,7 +101,9 @@ class YeonfeelImeService : InputMethodService() {
         dubeolComposer.doubleTapDoubling = settings.koreanLayout == KoreanLayoutType.DANMOEUM
         val multiTapDelay = settings.multiTapDelayMs.toLong()
         dubeolComposer.multiTapTimeoutMs = multiTapDelay
-        chunjiinComposer.multiTapTimeoutMs = multiTapDelay
+        // 천지인 자동 방식: 연타 대기가 사실상 무한 — 같은 키는 스페이스바로 끊기 전까지 계속 사이클.
+        chunjiinComposer.multiTapTimeoutMs =
+            if (settings.chunjiinSpaceCommits) Long.MAX_VALUE else multiTapDelay
         naratgulComposer.multiTapTimeoutMs = multiTapDelay
         // 설정에서 꺼진 언어가 현재 모드면 켜진 언어로 강제 전환한다.
         if (mode == LayoutMode.ENGLISH && !settings.englishEnabled) mode = LayoutMode.KOREAN
@@ -397,6 +399,14 @@ class YeonfeelImeService : InputMethodService() {
 
     private fun onSpace() {
         val ic = currentInputConnection ?: return
+        // 천지인 옵션: 조합 중 첫 스페이스바는 띄어쓰기 대신 조합만 끊는다 (통용 관습).
+        if (settings.chunjiinSpaceCommits && mode == LayoutMode.KOREAN &&
+            settings.koreanLayout == KoreanLayoutType.CHUNJIIN && composer.isComposing
+        ) {
+            finishComposition()
+            lastSpaceTime = 0
+            return
+        }
         val now = System.currentTimeMillis()
         if (settings.doubleSpacePeriod && now - lastSpaceTime < doubleSpaceMs && canDoubleSpacePeriod(ic)) {
             ic.deleteSurroundingText(1, 0)

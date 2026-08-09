@@ -61,6 +61,9 @@
     <string name="korean_layout_chunjiin">천지인</string>
     <string name="korean_layout_naratgul">나랏글</string>
     <string name="korean_layout_naratgul_center">나랏글 (중앙)</string>
+    <string name="chunjiin_space_title">천지인 입력 방식</string>
+    <string name="chunjiin_input_space">스페이스바로 조합 끊기</string>
+    <string name="chunjiin_input_auto">연타 판정 시간 이후 자동 입력</string>
     <string name="multi_tap_delay_title">입력 지연시간</string>
     <string name="multi_tap_delay_label">연타 판정 시간 (단모음 쌍자음·천지인·나랏글)</string>
     <string name="multi_tap_delay_value">%1$dms</string>

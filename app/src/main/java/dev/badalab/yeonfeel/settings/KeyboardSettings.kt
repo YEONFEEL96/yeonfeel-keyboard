@@ -221,6 +221,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getString(KEY_REMEMBERED_SYMBOL, ",")?.takeIf { it.isNotEmpty() } ?: ","
         set(value) = prefs.edit().putString(KEY_REMEMBERED_SYMBOL, value.take(1)).apply()
 
+    /** 천지인: 조합 중 첫 스페이스바가 띄어쓰기 대신 조합만 끊을지 (통용 관습). */
+    var chunjiinSpaceCommits: Boolean
+        get() = prefs.getBoolean(KEY_CHUNJIIN_SPACE_COMMITS, true)
+        set(value) = prefs.edit().putBoolean(KEY_CHUNJIIN_SPACE_COMMITS, value).apply()
+
     var keyFontSize: KeyFontSize
         get() = runCatching {
             KeyFontSize.valueOf(prefs.getString(KEY_FONT_SIZE, null) ?: "")
@@ -276,6 +281,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_ENGLISH_LAYOUT = "english_layout"
         private const val KEY_FONT_SIZE = "key_font_size"
         private const val KEY_REMEMBERED_SYMBOL = "remembered_symbol_3x4"
+        private const val KEY_CHUNJIIN_SPACE_COMMITS = "chunjiin_space_commits"
         private const val KEY_SHIFT_NUMBER_SYMBOLS = "shift_number_row_symbols"
         private const val KEY_FAVORITE_SYMBOL = "favorite_symbol"
         private const val KEY_FAVORITE_SYMBOL_ENABLED = "favorite_symbol_enabled"
