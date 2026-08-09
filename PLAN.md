@@ -15,6 +15,7 @@
 - [ ] TalkBack 지원 (ExploreByTouchHelper, lift-to-type)
 - [ ] 정식 릴리스 키스토어 (현재 디버그 키 — build.gradle TODO)
 - [ ] 개인정보처리방침 + Play 데이터 안전 섹션
+
 - [x] 특허/FTO 검토 — 천지인·나랏글은 2011년 국가표준화로 특허 무상 개방, 원특허 존속기간(20년)도 만료
 
 ## 1.x 후보
