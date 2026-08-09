@@ -250,7 +250,10 @@ object KeyboardLayouts {
         )
     }
 
-    /** 천지인 (12키 + 기능 열). 자음 키는 연타 사이클, 모음은 ㅣㆍㅡ 조합. */
+    /**
+     * 천지인 (국가표준 3x4 배치): 글자 3열 + 오른쪽 기능 열의 4x4 그리드.
+     * 자음 키는 연타 사이클, 모음은 ㅣㆍㅡ 조합. 글자 키 길게 누르면 우상단 숫자 입력.
+     */
     private fun chunjiinRows(showLangKey: Boolean): List<List<Key>> = listOf(
         listOf(
             Key(KeyType.CHAR, "ㅣ", 'ㅣ'),
@@ -262,21 +265,25 @@ object KeyboardLayouts {
             Key(KeyType.CHAR, "ㄱㅋ", 'ㄱ'),
             Key(KeyType.CHAR, "ㄴㄹ", 'ㄴ'),
             Key(KeyType.CHAR, "ㄷㅌ", 'ㄷ'),
-            Key(KeyType.CHAR, "!", '!'),
+            Key(KeyType.ENTER, "⏎"),
         ),
         listOf(
             Key(KeyType.CHAR, "ㅂㅍ", 'ㅂ'),
             Key(KeyType.CHAR, "ㅅㅎ", 'ㅅ'),
             Key(KeyType.CHAR, "ㅈㅊ", 'ㅈ'),
-            Key(KeyType.CHAR, "?", '?'),
+            Key(KeyType.CHAR, ".,?!", '.'),
         ),
-        listOf(
-            Key(KeyType.CHAR, ",", ','),
-            Key(KeyType.CHAR, "ㅇㅁ", 'ㅇ'),
-            Key(KeyType.CHAR, ".", '.'),
-            Key(KeyType.ENTER, "⏎"),
-        ),
-        bottomRow(showLangKey),
+        buildList {
+            if (showLangKey) {
+                add(Key(KeyType.SYMBOLS, "!#1", widthWeight = 0.5f))
+                add(Key(KeyType.LANG, "한/영", widthWeight = 0.5f))
+            } else {
+                add(Key(KeyType.SYMBOLS, "!#1"))
+            }
+            add(Key(KeyType.CHAR, "ㅇㅁ", 'ㅇ'))
+            add(Key(KeyType.SPACE, "", ' '))
+            add(Key(KeyType.CHAR, ",", ','))
+        },
     )
 
     /**
@@ -378,8 +385,8 @@ object KeyboardLayouts {
             listOf(
                 Key(KeyType.PAGE, "123", PAGE_TO_NUMPAD),
                 Key(KeyType.SYMBOLS, "가"),
-                Key(KeyType.PAGE, "${page.coerceIn(0, 2) + 1}/3", PAGE_CYCLE, widthWeight = 1.5f),
-                Key(KeyType.SPACE, "", ' ', widthWeight = 2.5f),
+                Key(KeyType.PAGE, "${page.coerceIn(0, 2) + 1}/3", PAGE_CYCLE, widthWeight = 2f),
+                Key(KeyType.SPACE, "", ' ', widthWeight = 2f),
                 Key(KeyType.CHAR, ",", ','),
             ),
         )
@@ -387,13 +394,14 @@ object KeyboardLayouts {
 
     private fun compactNumberRows(): List<List<Key>> = listOf(
         charRow("123") + Key(KeyType.DELETE, "⌫"),
-        charRow("456") + Key(KeyType.SPACE, "", ' '),
-        charRow("789") + Key(KeyType.ENTER, "⏎"),
+        charRow("456") + Key(KeyType.ENTER, "⏎"),
+        charRow("789") + Key(KeyType.CHAR, ".,-/", '.'),
         listOf(
-            Key(KeyType.PAGE, "!#1", PAGE_TO_SYMBOLS),
+            Key(KeyType.PAGE, "!@#", PAGE_TO_SYMBOLS, widthWeight = 0.5f),
+            Key(KeyType.SYMBOLS, "가", widthWeight = 0.5f),
             Key(KeyType.CHAR, "0", '0'),
-            Key(KeyType.CHAR, ".", '.'),
-            Key(KeyType.SYMBOLS, "가"),
+            Key(KeyType.SPACE, "", ' '),
+            Key(KeyType.CHAR, ",", ','),
         ),
     )
 

@@ -467,15 +467,15 @@ class KeyboardView(
         else -> false
     }
 
-    /** 나랏글 자판에서 이 키를 길게 눌렀을 때 입력될 숫자 (없으면 null). */
-    private fun naratgulDigit(key: Key): Char? =
-        if (mode == LayoutMode.KOREAN && key.type == KeyType.CHAR &&
-            (koreanLayout == KoreanLayoutType.NARATGUL || koreanLayout == KoreanLayoutType.NARATGUL_CENTER)
-        ) {
-            NARATGUL_DIGITS[key.char]
-        } else {
-            null
+    /** 3x4 자판에서 이 키를 길게 눌렀을 때 입력될 숫자 (없으면 null). */
+    private fun naratgulDigit(key: Key): Char? {
+        if (mode != LayoutMode.KOREAN || key.type != KeyType.CHAR) return null
+        return when (koreanLayout) {
+            KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER -> NARATGUL_DIGITS[key.char]
+            KoreanLayoutType.CHUNJIIN -> CHUNJIIN_DIGITS[key.char]
+            else -> null
         }
+    }
 
     private fun commitPendingDigit() {
         val pending = pendingVariant ?: return
@@ -992,10 +992,12 @@ class KeyboardView(
             variants.forEach { add(it.toString()) }
         }
         val anchor = pending.rect
-        val columns = minOf(4, options.size)
+        // 단일 문자 후보는 키가 큰 3x4 자판에서도 작은 고정 셀(6열)로 촘촘히 배치한다.
+        val compact = options.all { it.length == 1 }
+        val columns = minOf(if (compact) 6 else 4, options.size)
         val rows = (options.size + columns - 1) / columns
-        val cellWidth = maxOf(anchor.width(), dp(44f))
-        val cellHeight = maxOf(anchor.height(), dp(44f))
+        val cellWidth = if (compact) dp(40f) else maxOf(anchor.width(), dp(44f))
+        val cellHeight = if (compact) dp(42f) else maxOf(anchor.height(), dp(44f))
         val pad = dp(6f)
         val panelWidth = pad * 2 + columns * cellWidth
         val panelHeight = pad * 2 + rows * cellHeight
@@ -1093,12 +1095,18 @@ class KeyboardView(
 
         private val REPEATABLE_CHARS = setOf('ㅋ')
 
-        /** 나랏글 키 우상단 숫자: 길게 누르면 해당 숫자가 입력된다. */
+        /** 3x4 자판 키 우상단 숫자: 길게 누르면 해당 숫자가 입력된다. */
         private val NARATGUL_DIGITS = mapOf(
             'ㄱ' to '1', 'ㄴ' to '2', 'ㅏ' to '3',
             'ㄹ' to '4', 'ㅁ' to '5', 'ㅗ' to '6',
             'ㅅ' to '7', 'ㅇ' to '8', 'ㅣ' to '9',
             'ㅡ' to '0',
+        )
+        private val CHUNJIIN_DIGITS = mapOf(
+            'ㅣ' to '1', 'ㆍ' to '2', 'ㅡ' to '3',
+            'ㄱ' to '4', 'ㄴ' to '5', 'ㄷ' to '6',
+            'ㅂ' to '7', 'ㅅ' to '8', 'ㅈ' to '9',
+            'ㅇ' to '0',
         )
 
         /** 숫자 키 롱프레스: 위첨자(첫 후보, 기본 선택) + 유니코드 분수. */
@@ -1142,6 +1150,10 @@ class KeyboardView(
             'ㅔ' to "ㅖ",
         )
 
+        /** 기호 키 롱프레스에 공통으로 띄우는 자주 쓰는 기호. */
+        private const val QUICK_SYMBOLS = "@-/:#,?!'$"
+        private const val QUICK_SYMBOL_TARGETS = "!?.,()@:;/-*_%~^#'\"$"
+
         private val KEY_VARIANTS: Map<Char, String> = buildMap {
             putAll(NUMBER_VARIANTS)
             putAll(KOREAN_VARIANTS)
@@ -1151,6 +1163,9 @@ class KeyboardView(
                     base.uppercaseChar(),
                     variants.map { if (it == 'ß') 'ẞ' else it.uppercaseChar() }.joinToString(""),
                 )
+            }
+            QUICK_SYMBOL_TARGETS.forEach { c ->
+                if (c !in this) put(c, QUICK_SYMBOLS.filter { it != c })
             }
         }
     }

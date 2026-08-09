@@ -299,6 +299,21 @@ class KeyboardContainerView(
         }
     }
 
+    /**
+     * 좌우 가장자리 키를 빠르게 칠 때 백 스와이프로 오인되어 키보드가 닫히는 것을 막는다.
+     * 시스템이 가장자리당 최대 200dp 높이까지만 제외를 허용하므로 아래쪽부터 적용된다.
+     */
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val strip = dp(32)
+            systemGestureExclusionRects = listOf(
+                android.graphics.Rect(0, 0, strip, h),
+                android.graphics.Rect(w - strip, 0, w, h),
+            )
+        }
+    }
+
     override fun onApplyWindowInsets(insets: android.view.WindowInsets): android.view.WindowInsets {
         val newInset =
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {

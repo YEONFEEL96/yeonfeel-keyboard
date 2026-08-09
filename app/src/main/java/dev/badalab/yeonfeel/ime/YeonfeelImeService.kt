@@ -302,7 +302,9 @@ class YeonfeelImeService : InputMethodService() {
                     // 3x4 나랏글 계열에서 들어온 기호 키보드는 컴팩트 배치를 쓴다.
                     view.compactSymbols = mode == LayoutMode.KOREAN &&
                         settings.koreanLayout in setOf(
-                            KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER,
+                            KoreanLayoutType.NARATGUL,
+                            KoreanLayoutType.NARATGUL_CENTER,
+                            KoreanLayoutType.CHUNJIIN,
                         )
                 }
                 view.mode = if (view.mode == LayoutMode.SYMBOLS) mode else LayoutMode.SYMBOLS
