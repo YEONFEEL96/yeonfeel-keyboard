@@ -501,7 +501,7 @@ class YeonfeelImeService : InputMethodService() {
 
     private var kiekStreak = 0
 
-    /** 유머 모드: ㅋ 3연타부터 노친네(40% ㄱ)·MZ(30% ㅎ) 치환. 비밀번호 필드 제외. */
+    /** 유머 모드: ㅋ 3연타부터 레트로(40% ㄱ)·MZ(30% ㅎ) 치환. 비밀번호 필드 제외. */
     private fun applyMzMode(c: Char): Char {
         if (sensitiveField || !(settings.mzModeEnabled || settings.oldieModeEnabled)) return c
         if (c == 'ㅋ') {

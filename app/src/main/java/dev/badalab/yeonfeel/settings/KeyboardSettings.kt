@@ -281,7 +281,7 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_TERMINAL_ROW, false)
         set(value) = prefs.edit().putBoolean(KEY_TERMINAL_ROW, value).apply()
 
-    /** 노친네 모드 (유머): ㅋ 연타에 ㄱ을 랜덤으로 섞는다. */
+    /** 레트로 모드 (유머): ㅋ 연타에 ㄱ을 랜덤으로 섞는다 (피처폰 10키 오타 모사). */
     var oldieModeEnabled: Boolean
         get() = prefs.getBoolean(KEY_OLDIE_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_OLDIE_MODE, value).apply()

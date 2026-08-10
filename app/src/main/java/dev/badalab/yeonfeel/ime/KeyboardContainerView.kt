@@ -425,6 +425,8 @@ class KeyboardContainerView(
     }
 
     fun showKeyboard() {
+        // 키보드가 다시 뜰 때 하단 바 높이를 재확인한다(회전·기기별 지연 대비).
+        androidx.core.view.ViewCompat.getRootWindowInsets(this)?.let { updateNavInset(it) }
         clipboardPanel?.let { contentFrame.removeView(it) }
         clipboardPanel = null
         emojiPanel?.let { contentFrame.removeView(it) }
@@ -521,19 +523,31 @@ class KeyboardContainerView(
         }
     }
 
-    override fun onApplyWindowInsets(insets: android.view.WindowInsets): android.view.WindowInsets {
-        val newInset =
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
-            } else {
-                @Suppress("DEPRECATION")
-                insets.systemWindowInsetBottom
-            }
+    /**
+     * 하단 시스템 바(내비게이션 바·제스처 바, 삼성은 IME 전용 띠) 높이를 비운다.
+     * targetSdk 35+ 에서 IME 창은 edge-to-edge 로 그려지므로 이 인셋을 앱이 직접
+     * 적용해야 겹치지 않는다. OEM 편차를 줄이려 AndroidX 리스너로 받고,
+     * navigationBars 와 tappableElement 중 큰 값을 쓴다.
+     */
+    private fun updateNavInset(insets: androidx.core.view.WindowInsetsCompat) {
+        val nav = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+        val tappable = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.tappableElement())
+        val newInset = maxOf(nav.bottom, tappable.bottom)
         if (newInset != navInsetPx) {
             navInsetPx = newInset
             applyMargins(marginTopDp, marginBottomDp, marginSideDp, keyboardHeightDp)
         }
-        return super.onApplyWindowInsets(insets)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+            updateNavInset(insets)
+            insets
+        }
+        androidx.core.view.ViewCompat.requestApplyInsets(this)
+        // 리스너가 즉시 불리지 않는 기기를 위해 현재 인셋을 직접 한 번 읽는다(폴백).
+        androidx.core.view.ViewCompat.getRootWindowInsets(this)?.let { updateNavInset(it) }
     }
 
     /** 설정 화면에서 요청된 여백 조정 진입 (열려 있지 않을 때만). */
