@@ -4,7 +4,6 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
 
 /**
  * 키 타점 수집 저장소. 오타 보정 모델의 기초 데이터.
@@ -13,8 +12,10 @@ import java.io.FileOutputStream
  * 데이터를 통째로 읽어도 입력한 문장을 복원할 수 없다. 만료 관리를 위해
  * 일(day) 단위 날짜만 남기며, [RETENTION_DAYS]가 지난 표본은 버린다.
  *
- * 저장은 JSONL append — 새 표본만 파일 끝에 붙이고, 만료·상한으로
- * 파일이 메모리보다 크게 부풀면 압축 재작성한다. 기기 밖 전송은 없다.
+ * 저장은 키별로 묶어 파일 전체를 다시 쓰는 방식이다 — 입력 순서가 디스크에
+ * 남지 않도록, append가 아니라 [persist]에서 키 그룹 순서를 섞어 재작성한다.
+ * 임시 파일에 쓴 뒤 rename 하므로 쓰기 도중 프로세스가 죽어도 기존 파일이
+ * 온전히 남는다. 기기 밖 전송은 없다.
  */
 class TouchStatsStore(context: Context) {
 
@@ -34,9 +35,10 @@ class TouchStatsStore(context: Context) {
     )
 
     private val file = File(context.filesDir, FILE_NAME)
+    private val tmpFile = File(context.filesDir, "$FILE_NAME.tmp")
     private val legacyFile = File(context.filesDir, LEGACY_FILE_NAME)
     private val samples = HashMap<String, MutableList<Sample>>()
-    private val pending = mutableListOf<Sample>()
+    private var unsavedCount = 0
     private var loadedMtime = 0L
 
     init {
@@ -47,12 +49,13 @@ class TouchStatsStore(context: Context) {
     fun add(sample: Sample) {
         val stamped = if (sample.day == 0L) sample.copy(day = today()) else sample
         insert(stamped)
-        pending.add(stamped)
-        if (pending.size >= SAVE_INTERVAL) appendPending()
+        if (++unsavedCount >= SAVE_INTERVAL) persist()
     }
 
     @Synchronized
-    fun flush() = appendPending()
+    fun flush() {
+        if (unsavedCount > 0) persist()
+    }
 
     @Synchronized
     fun all(): List<Sample> = samples.values.flatten()
@@ -68,8 +71,9 @@ class TouchStatsStore(context: Context) {
     @Synchronized
     fun clear() {
         samples.clear()
-        pending.clear()
+        unsavedCount = 0
         file.delete()
+        tmpFile.delete()
         legacyFile.delete()
         loadedMtime = 0L
     }
@@ -79,15 +83,16 @@ class TouchStatsStore(context: Context) {
     fun reload(): Boolean {
         val mtime = if (file.exists()) file.lastModified() else 0L
         if (mtime == loadedMtime && !legacyFile.exists()) return false
+        // 아직 디스크에 없는 표본이 있으면 먼저 반영해 잃지 않는다.
+        if (unsavedCount > 0) persist()
         samples.clear()
-        pending.clear()
+        unsavedCount = 0
         load()
         return true
     }
 
     private fun load() {
         val cutoff = today() - RETENTION_DAYS
-        var linesRead = 0
         var migrated = false
 
         // 구버전(JSON 배열) 마이그레이션: 오늘 날짜로 흡수 후 새 형식으로 재작성
@@ -106,7 +111,6 @@ class TouchStatsStore(context: Context) {
             if (file.exists()) {
                 file.forEachLine { line ->
                     if (line.isBlank()) return@forEachLine
-                    linesRead++
                     runCatching {
                         val sample = parse(JSONObject(line))
                         if (sample.day >= cutoff) insert(sample)
@@ -116,10 +120,8 @@ class TouchStatsStore(context: Context) {
         }
         loadedMtime = if (file.exists()) file.lastModified() else 0L
 
-        // 만료·상한으로 버린 줄이 많으면 파일을 메모리 상태로 압축한다.
-        if (migrated || linesRead > totalCountUnlocked() * COMPACT_RATIO + COMPACT_SLACK) {
-            compact()
-        }
+        // 만료된 표본을 버렸다면 파일을 지금 상태로 다시 써 정리한다.
+        if (migrated) persist()
     }
 
     private fun parse(obj: JSONObject): Sample = Sample(
@@ -148,29 +150,23 @@ class TouchStatsStore(context: Context) {
         if (list.size > PER_KEY_LIMIT) list.removeAt(0)
     }
 
-    private fun appendPending() {
-        if (pending.isEmpty()) return
+    /**
+     * 파일 전체를 키 그룹 단위로 재작성한다. 그룹 순서를 섞어 입력 순서가
+     * 디스크에 드러나지 않게 하고, 임시 파일 rename 으로 원자적으로 교체한다.
+     */
+    private fun persist() {
         runCatching {
-            FileOutputStream(file, true).bufferedWriter().use { writer ->
-                pending.forEach { writer.appendLine(lineOf(it)) }
-            }
-            loadedMtime = file.lastModified()
-        }
-        pending.clear()
-    }
-
-    private fun compact() {
-        runCatching {
-            file.bufferedWriter().use { writer ->
-                samples.values.forEach { list ->
+            tmpFile.bufferedWriter().use { writer ->
+                samples.values.shuffled().forEach { list ->
                     list.forEach { writer.appendLine(lineOf(it)) }
                 }
             }
-            loadedMtime = file.lastModified()
+            if (tmpFile.renameTo(file) || (file.delete() && tmpFile.renameTo(file))) {
+                loadedMtime = file.lastModified()
+            }
         }
+        unsavedCount = 0
     }
-
-    private fun totalCountUnlocked(): Int = samples.values.sumOf { it.size }
 
     private fun today(): Long = System.currentTimeMillis() / DAY_MS
 
@@ -181,7 +177,5 @@ class TouchStatsStore(context: Context) {
         private const val SAVE_INTERVAL = 20
         private const val RETENTION_DAYS = 7L
         private const val DAY_MS = 86_400_000L
-        private const val COMPACT_RATIO = 1.5
-        private const val COMPACT_SLACK = 200
     }
 }

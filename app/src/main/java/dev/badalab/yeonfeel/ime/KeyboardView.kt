@@ -142,6 +142,7 @@ class KeyboardView(
     }
 
     private fun showLanguageListPopup() {
+        if (langListPopup != null) return // 이미 떠 있으면 두 번째를 만들지 않는다 (누수 방지)
         if (langKeyPointerId == -1 || languageList.size < 2) return
         val key = pressedByPointer[langKeyPointerId] ?: return
         val bound = keyBounds.firstOrNull { it.key == key } ?: return
@@ -254,6 +255,7 @@ class KeyboardView(
     }
 
     private fun showLanguagePopup() {
+        if (langPopupWindow != null) return // 분할 스페이스 등으로 두 번 호출돼도 하나만 띄운다
         if (spacePointerId == -1 || variantPopup != null) return
         val spaceKey = pressedByPointer[spacePointerId] ?: return
         val bound = keyBounds.firstOrNull { it.key == spaceKey } ?: return
@@ -334,6 +336,9 @@ class KeyboardView(
             field = value
             relayoutKeys()
         }
+
+    /** 실제로 분할 배치가 적용되는지 — 3x4 자판은 분할하지 않는다. */
+    val splitActive: Boolean get() = splitEnabled && !is3x4Board()
 
     /** 분할 중앙 간격 비율 (행 전체 폭 가중치 대비). 레이아웃 조정 핸들로 바뀐다. */
     var splitGapRatio: Float = 0.45f
@@ -1260,6 +1265,7 @@ class KeyboardView(
     }
 
     private fun showVariantPopup() {
+        if (variantPopupWindow != null) return // 다른 손가락으로 이미 변형 팝업이 떠 있으면 무시
         val pending = pendingVariant ?: return
         val variants = (KEY_VARIANTS[pending.key.char] ?: "") +
             (landscapeTopDigit(pending.key)?.toString() ?: "")
@@ -1362,8 +1368,9 @@ class KeyboardView(
     }
 
     override fun onDetachedFromWindow() {
-        repeatHandler.removeCallbacks(repeatDelete)
-        cancelPendingVariant()
+        // 팝업·반복 핸들러·눌림 상태를 모두 정리한다. 하나라도 남으면 숨겨진 뒤에도
+        // 문자가 계속 삽입되거나(반복 키), 뜬 팝업이 서비스를 붙잡아 누수된다.
+        clearTouchState()
         super.onDetachedFromWindow()
     }
 

@@ -42,6 +42,9 @@ class MainActivity : Activity() {
             EditText(this).apply {
                 hint = getString(R.string.test_field_hint)
                 background = null
+                // 테마 색을 명시하지 않으면 다크 카드 위에서 검은 글자가 되어 안 보인다.
+                setTextColor(SettingComponents.TEXT)
+                setHintTextColor(SettingComponents.SUB_TEXT)
                 setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
             },
         )

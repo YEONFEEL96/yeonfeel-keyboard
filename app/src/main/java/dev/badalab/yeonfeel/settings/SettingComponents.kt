@@ -31,12 +31,14 @@ class SettingComponents(private val activity: Activity) {
                     android.content.res.Configuration.UI_MODE_NIGHT_YES
         }
         applyPalette(dark)
-        // 시스템 액션바 없이 커스텀 헤더만 쓰므로 상태 바를 배경색에 맞춘다.
-        @Suppress("DEPRECATION")
-        activity.window.statusBarColor = BG
-        @Suppress("DEPRECATION")
-        activity.window.decorView.systemUiVisibility =
-            if (dark) 0 else View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        // 창 배경을 팔레트 색으로 칠해 화면 전환 시 흰 플래시와 밝은 기본 배경을 없앤다.
+        activity.window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(BG))
+        // targetSdk 35+ 에서 statusBarColor·systemUiVisibility 는 무시되므로
+        // WindowInsetsController 로 상태 바 아이콘 명암만 배경에 맞춰 뒤집는다.
+        androidx.core.view.WindowInsetsControllerCompat(
+            activity.window,
+            activity.window.decorView,
+        ).isAppearanceLightStatusBars = !dark
     }
 
     fun dp(v: Int): Int = (v * density).toInt()

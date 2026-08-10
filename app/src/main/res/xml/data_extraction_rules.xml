@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  클라우드 백업과 기기 간 이전(D2D) 양쪽에서 앱 저장소를 제외한다.
+  암호화 클립보드(clipboard.bin)는 Keystore 키가 기기에 묶여 있어 옮겨도
+  복호화할 수 없고, 타점 통계(touch_stats.jsonl)는 입력 습관 지문이라
+  기기 밖으로 나가면 안 된다. SharedPreferences 설정도 함께 제외한다.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+    </device-transfer>
+</data-extraction-rules>

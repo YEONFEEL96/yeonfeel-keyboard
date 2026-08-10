@@ -53,11 +53,18 @@ class MarginAdjustOverlay(
     private val density = resources.displayMetrics.density
 
     /**
-     * 높이 상한은 절대값이 아니라 화면에서 동적으로 계산한다 —
-     * 위 핸들을 끌어올리는 만큼 커지되, 앱 영역이 보이도록 상단 일부만 남긴다.
+     * 높이 상한은 화면에서 동적으로 계산한다 — 위 핸들을 끌어올리는 만큼 커지되
+     * 앱 영역이 보이도록 상단 일부를 남긴다. 가로에서는 KeyboardContainerView가
+     * 키 높이를 화면 40%로 제한하므로(effectiveHeightDp) 그 상한과 일치시킨다.
      */
-    private val maxHeightDp: Int =
-        (resources.displayMetrics.heightPixels / density).toInt() - RESERVED_SCREEN_TOP_DP
+    private val maxHeightDp: Int = run {
+        val cfg = resources.configuration
+        if (cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            (cfg.screenHeightDp * 2 / 5).coerceAtLeast(120)
+        } else {
+            (resources.displayMetrics.heightPixels / density).toInt() - RESERVED_SCREEN_TOP_DP
+        }
+    }
 
     private val highlightPaint = Paint().apply { color = 0x80FFFFFF.toInt() }
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -104,7 +111,10 @@ class MarginAdjustOverlay(
      */
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
-        val height = ((heightDp + topDp + bottomDp) * density).toInt()
+        // 가로에서 저장 높이가 화면 상한을 넘으면 키 영역은 상한으로 그려지므로
+        // 오버레이도 같은 높이로 맞춰 핸들이 실제 가장자리에 오게 한다.
+        val drawnHeight = minOf(heightDp, maxHeightDp)
+        val height = ((drawnHeight + topDp + bottomDp) * density).toInt()
         setMeasuredDimension(width, height)
     }
 
@@ -236,10 +246,14 @@ class MarginAdjustOverlay(
                     }
                     // 아래 가장자리만 이동: 위 가장자리 고정.
                     Handle.BOTTOM -> {
-                        val d = (-dyDp).coerceIn(
-                            maxOf(-startBottom, startHeight - maxHeightDp),
-                            minOf(KeyboardSettings.MARGIN_BOTTOM_MAX - startBottom, startHeight - KeyboardSettings.HEIGHT_MIN),
+                        // 가로 등 startHeight가 maxHeightDp보다 큰 경우 lo>hi로 뒤집힐 수
+                        // 있어 상한을 lo 이상으로 고정한다 (빈 범위 예외 방지).
+                        val lo = maxOf(-startBottom, startHeight - maxHeightDp)
+                        val hi = minOf(
+                            KeyboardSettings.MARGIN_BOTTOM_MAX - startBottom,
+                            startHeight - KeyboardSettings.HEIGHT_MIN,
                         )
+                        val d = (-dyDp).coerceIn(lo, maxOf(lo, hi))
                         bottomDp = startBottom + d
                         heightDp = startHeight - d
                     }

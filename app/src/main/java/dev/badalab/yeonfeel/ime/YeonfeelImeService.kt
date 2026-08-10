@@ -78,7 +78,16 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onDestroy() {
         clipboardManager.removePrimaryClipChangedListener(clipListener)
+        // 남은 표본을 마지막으로 반영한 뒤 종료한다 (io 큐가 순서대로 처리).
+        val tail = pendingTouchSample
+        pendingTouchSample = null
+        ioExecutor.execute {
+            tail?.let { touchStats.add(it) }
+            touchStats.flush()
+        }
         ioExecutor.shutdown()
+        // 파괴 이후 도착할 mainHandler.post 콜백을 제거한다.
+        mainHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
 
@@ -121,11 +130,12 @@ class YeonfeelImeService : InputMethodService() {
                 val sample =
                     dev.badalab.yeonfeel.debug.TouchStatsStore.Sample(board, keyId, ax, ay, rx, ry)
                 // 지연 커밋: 바로 백스페이스가 따라오면 오타 탭으로 보고 표본을 버린다.
+                // 파일 쓰기는 입력 핸들러를 막지 않도록 io 스레드로 넘긴다(스토어는 @Synchronized).
                 if (key.type == KeyType.DELETE) {
                     pendingTouchSample = null
-                    touchStats.add(sample)
+                    ioExecutor.execute { touchStats.add(sample) }
                 } else {
-                    pendingTouchSample?.let { touchStats.add(it) }
+                    pendingTouchSample?.let { s -> ioExecutor.execute { touchStats.add(s) } }
                     pendingTouchSample = sample
                 }
             }
@@ -208,9 +218,12 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         finishComposition()
-        pendingTouchSample?.let { touchStats.add(it) }
+        val tail = pendingTouchSample
         pendingTouchSample = null
-        touchStats.flush()
+        ioExecutor.execute {
+            tail?.let { touchStats.add(it) }
+            touchStats.flush()
+        }
         super.onFinishInputView(finishingInput)
     }
 
@@ -323,7 +336,10 @@ class YeonfeelImeService : InputMethodService() {
     }
 
     private fun persistClipboard() {
-        clipboardStore.save(clipboardHistory.entries(System.currentTimeMillis()))
+        // Keystore 암복호화 + 파일 쓰기는 바인더 왕복이라 메인 스레드에서 ANR 위험이
+        // 있어 io 스레드로 넘긴다. 스토어·이력 모두 @Synchronized 라 안전하다.
+        val snapshot = clipboardHistory.entries(System.currentTimeMillis())
+        ioExecutor.execute { clipboardStore.save(snapshot) }
     }
 
     // 이모지 검색 모드: 키 입력을 앱이 아니라 검색어 버퍼로 보낸다.

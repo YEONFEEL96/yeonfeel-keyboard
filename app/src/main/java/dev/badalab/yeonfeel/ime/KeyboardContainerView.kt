@@ -460,23 +460,29 @@ class KeyboardContainerView(
 
     private var navInsetPx = 0
 
+    private fun isLandscape(): Boolean =
+        resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    /** 가로는 화면 대부분을 덮지 않도록 키 높이를 화면 40%로 제한한다. */
+    private fun effectiveHeightDp(heightDp: Int): Int =
+        if (isLandscape()) {
+            minOf(heightDp, (resources.configuration.screenHeightDp * 2 / 5).coerceAtLeast(120))
+        } else {
+            heightDp
+        }
+
+    /** 가로는 세로 공간이 귀해 제스처 바 위 여백을 최소화한다 (인셋은 유지). */
+    private fun effectiveBottomDp(bottomDp: Int): Int =
+        if (isLandscape()) minOf(bottomDp, 10) else bottomDp
+
     private fun applyMargins(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {
         marginTopDp = topDp
         marginBottomDp = bottomDp
         marginSideDp = sideDp
         keyboardHeightDp = heightDp
-        // 가로 모드에서 세로용 높이를 그대로 쓰면 화면 대부분을 덮어
-        // 앱이 입력창을 가릴 수 없다고 판단해 키보드를 즉시 숨긴다 — 화면 40%로 제한.
         val config = resources.configuration
-        val landscape = config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val effectiveHeightDp =
-            if (landscape) {
-                minOf(heightDp, (config.screenHeightDp * 2 / 5).coerceAtLeast(120))
-            } else {
-                heightDp
-            }
-        // 가로는 세로 공간이 귀해 제스처 바 위 여백을 최소화한다 (인셋은 유지).
-        val effectiveBottomDp = if (landscape) minOf(bottomDp, 10) else bottomDp
+        val effectiveHeightDp = effectiveHeightDp(heightDp)
+        val effectiveBottomDp = effectiveBottomDp(bottomDp)
         keyboardView.heightDp = effectiveHeightDp
         // 한 손 모드: 반대쪽에 여백을 몰아 키 영역을 한쪽으로 붙인다.
         val oneHandDp = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.OFF) {
@@ -540,9 +546,11 @@ class KeyboardContainerView(
         showKeyboard()
         if (wasAdjusting) return
 
+        // 저장값은 가로·세로가 공유하므로 커밋 시 원본 값을 그대로 넘긴다.
+        // 오버레이는 자체 onMeasure에서 화면 높이로 클램프해 off-screen 추적을 막는다.
         val overlay = MarginAdjustOverlay(
             context, marginTopDp, marginBottomDp, marginSideDp, keyboardHeightDp, theme,
-            splitActive = keyboardView.splitEnabled,
+            splitActive = keyboardView.splitActive,
             splitGapPercent = (keyboardView.splitGapRatio * 100).toInt(),
             listener = object : MarginAdjustOverlay.Listener {
                 override fun onMarginsChanged(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {

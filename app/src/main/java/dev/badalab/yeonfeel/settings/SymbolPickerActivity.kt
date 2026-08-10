@@ -67,6 +67,8 @@ class SymbolPickerActivity : Activity() {
             EditText(this).apply {
                 hint = getString(R.string.symbol_custom_hint)
                 background = null
+                setTextColor(SettingComponents.TEXT)
+                setHintTextColor(SettingComponents.SUB_TEXT)
                 setText(if (currentSymbol.first() in SYMBOLS) "" else currentSymbol)
                 setPadding(ui.dp(20), ui.dp(16), ui.dp(20), ui.dp(16))
                 addTextChangedListener(object : TextWatcher {
