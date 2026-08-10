@@ -1014,7 +1014,13 @@ class KeyboardView(
                     // 보조문자가 있으면 라벨은 가로 중앙을 유지한 채 살짝 아래로 내려 위쪽에 여백을 준다.
                     val labelDrop = if (digit != null) dp(3f) else 0f
                     val y = rect.centerY() + labelDrop - (paint.ascent() + paint.descent()) / 2
+                    // 한 손 모드 등으로 키가 좁아 라벨(예: 한/영)이 키 폭을 넘으면 축소해 그린다.
+                    val baseSize = paint.textSize
+                    val avail = rect.width() - dp(8f)
+                    val measured = paint.measureText(key.label)
+                    if (measured > avail && avail > 0f) paint.textSize = baseSize * (avail / measured)
                     canvas.drawText(key.label, rect.centerX(), y, paint)
+                    if (paint.textSize != baseSize) paint.textSize = baseSize
                     if (digit != null) {
                         canvas.drawText(
                             digit,
