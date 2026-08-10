@@ -328,6 +328,14 @@ class SettingComponents(private val activity: Activity) {
             setOnClickListener { toggle() }
         }
 
+        // TalkBack이 스위치로 인식하고 켜짐/꺼짐 상태를 읽도록 노드에 반영한다.
+        override fun onInitializeAccessibilityNodeInfo(info: android.view.accessibility.AccessibilityNodeInfo) {
+            super.onInitializeAccessibilityNodeInfo(info)
+            info.className = "android.widget.Switch"
+            info.isCheckable = true
+            info.isChecked = isChecked
+        }
+
         fun toggle() {
             isChecked = !isChecked
             onChange(isChecked, this)

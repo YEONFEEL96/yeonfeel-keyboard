@@ -147,4 +147,11 @@
     <string name="extra_double_space_period">Double-tap spacebar for a period</string>
     <string name="settings_section_margins">Keyboard margins</string>
     <string name="settings_margin_hint">Open \'Adjust layout\' in the keyboard toolbar and drag the arrows at the keyboard edges. Left and right move together to stay centered; top and bottom adjust separately.</string>
+
+    <string name="a11y_key_delete">Delete</string>
+    <string name="a11y_key_shift">Shift</string>
+    <string name="a11y_key_enter">Enter</string>
+    <string name="a11y_key_space">Space</string>
+    <string name="a11y_key_symbols">Symbols</string>
+    <string name="a11y_key_language">Switch language</string>
 </resources>

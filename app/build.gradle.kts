@@ -57,5 +57,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
+    // ExploreByTouchHelper — 커스텀 그린 키 그리드에 TalkBack 접근성 노드를 제공한다.
+    implementation("androidx.customview:customview:1.1.0")
     testImplementation("junit:junit:4.13.2")
 }

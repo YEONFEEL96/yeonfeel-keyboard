@@ -6,8 +6,10 @@ import android.graphics.Canvas
 import android.graphics.CornerPathEffect
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
@@ -17,6 +19,11 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.accessibility.AccessibilityEvent
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.customview.widget.ExploreByTouchHelper
+import dev.badalab.yeonfeel.R
 import dev.badalab.yeonfeel.settings.KeyboardSettings
 import dev.badalab.yeonfeel.settings.KoreanLayoutType
 
@@ -30,6 +37,16 @@ class KeyboardView(
     context: Context,
     var onKeyListener: (Key) -> Unit,
 ) : View(context) {
+
+    // TalkBack: 직접 그린 키마다 가상 접근성 노드를 만들어 탐색·클릭을 지원한다.
+    private val a11yHelper = KeyboardA11yHelper()
+
+    init {
+        ViewCompat.setAccessibilityDelegate(this, a11yHelper)
+    }
+
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean =
+        a11yHelper.dispatchHoverEvent(event) || super.dispatchHoverEvent(event)
 
     var mode: LayoutMode = LayoutMode.KOREAN
         set(value) {
@@ -769,6 +786,8 @@ class KeyboardView(
         if (boundsDirty) {
             rebuildBounds()
             boundsDirty = false
+            // 키 배치가 바뀌었으니 접근성 노드 트리도 다시 만들게 한다.
+            a11yHelper.invalidateRoot()
         }
         val radius = dp(8f)
         keyBounds.forEach { (key, rect) ->
@@ -1372,6 +1391,73 @@ class KeyboardView(
         // 문자가 계속 삽입되거나(반복 키), 뜬 팝업이 서비스를 붙잡아 누수된다.
         clearTouchState()
         super.onDetachedFromWindow()
+    }
+
+    /** onDraw 밖(접근성 질의)에서도 키 좌표가 필요하므로 필요 시 즉시 계산한다. */
+    private fun ensureBounds() {
+        if (boundsDirty && width > 0 && height > 0) {
+            rebuildBounds()
+            boundsDirty = false
+        }
+    }
+
+    /** 기능 키는 아이콘만 그려 라벨이 없으므로 TalkBack용 이름을 따로 만든다. */
+    private fun describeKey(key: Key): CharSequence = when (key.type) {
+        KeyType.DELETE -> context.getString(R.string.a11y_key_delete)
+        KeyType.SHIFT -> context.getString(R.string.a11y_key_shift)
+        KeyType.ENTER -> context.getString(R.string.a11y_key_enter)
+        KeyType.SPACE -> context.getString(R.string.a11y_key_space)
+        KeyType.SYMBOLS -> key.label.ifBlank { context.getString(R.string.a11y_key_symbols) }
+        KeyType.LANG -> key.label.ifBlank { context.getString(R.string.a11y_key_language) }
+        else -> key.label
+    }
+
+    private inner class KeyboardA11yHelper : ExploreByTouchHelper(this@KeyboardView) {
+        override fun getVirtualViewAt(x: Float, y: Float): Int {
+            ensureBounds()
+            keyBounds.forEachIndexed { i, b ->
+                if (b.key.type != KeyType.SPACER && b.rect.contains(x, y)) return i
+            }
+            return HOST_ID
+        }
+
+        override fun getVisibleVirtualViews(ids: MutableList<Int>) {
+            ensureBounds()
+            keyBounds.forEachIndexed { i, b ->
+                if (b.key.type != KeyType.SPACER) ids.add(i)
+            }
+        }
+
+        override fun onPopulateNodeForVirtualView(id: Int, node: AccessibilityNodeInfoCompat) {
+            val bound = keyBounds.getOrNull(id)
+            if (bound == null) {
+                node.contentDescription = ""
+                node.setBoundsInParent(Rect(0, 0, 1, 1))
+                return
+            }
+            node.contentDescription = describeKey(bound.key)
+            node.className = "android.widget.Button"
+            node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)
+            val r = bound.rect
+            node.setBoundsInParent(
+                Rect(r.left.toInt(), r.top.toInt(), r.right.toInt(), r.bottom.toInt()),
+            )
+        }
+
+        override fun onPerformActionForVirtualView(id: Int, action: Int, args: Bundle?): Boolean {
+            if (action == AccessibilityNodeInfoCompat.ACTION_CLICK) {
+                keyBounds.getOrNull(id)?.let {
+                    performKeyHaptic()
+                    onKeyListener(it.key)
+                    return true
+                }
+            }
+            return false
+        }
+
+        override fun onPopulateEventForVirtualView(id: Int, event: AccessibilityEvent) {
+            event.text.add(keyBounds.getOrNull(id)?.let { describeKey(it.key) } ?: "")
+        }
     }
 
     companion object {
