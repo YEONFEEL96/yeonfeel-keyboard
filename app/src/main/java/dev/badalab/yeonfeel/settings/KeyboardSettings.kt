@@ -85,6 +85,8 @@ enum class KeyFontSize(val scale: Float) {
 /** 키보드 사용자 설정. IME 서비스와 설정 화면이 공유한다. */
 class KeyboardSettings(context: Context) {
 
+    private val appContext = context.applicationContext
+
     private val prefs: SharedPreferences =
         context.getSharedPreferences("keyboard_settings", Context.MODE_PRIVATE)
 
@@ -291,10 +293,18 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SPLIT_LANDSCAPE, false)
         set(value) = prefs.edit().putBoolean(KEY_SPLIT_LANDSCAPE, value).apply()
 
-    /** 세로 화면에서 분할 키보드 사용 (폴더블·태블릿 대화면 전용). */
+    /**
+     * 세로 화면에서 분할 키보드 사용 (폴더블·태블릿 대화면 전용).
+     * 사용자가 한 번도 바꾸지 않았으면 아주 큰 화면(폴드 내부·10인치 태블릿 등)에서는
+     * 켜짐이 기본이다 — 대화면 세로에서 풀폭 키보드가 지나치게 늘어나는 것을 피한다.
+     * 커버·폰은 런타임에서 어차피 단일로 게이트되므로 기본값이 켜져도 영향이 없다.
+     */
     var splitPortrait: Boolean
-        get() = prefs.getBoolean(KEY_SPLIT_PORTRAIT, false)
+        get() = prefs.getBoolean(KEY_SPLIT_PORTRAIT, defaultSplitPortrait())
         set(value) = prefs.edit().putBoolean(KEY_SPLIT_PORTRAIT, value).apply()
+
+    private fun defaultSplitPortrait(): Boolean =
+        appContext.resources.configuration.smallestScreenWidthDp >= LARGE_SCREEN_SPLIT_DEFAULT_SW
 
     /** 분할 키보드 중앙 간격 (전체 폭 가중치 대비 %, 10~120). */
     var splitGapPercent: Int
@@ -335,6 +345,9 @@ class KeyboardSettings(context: Context) {
     companion object {
         /** 세로 분할 키보드를 제공하는 최소 smallestWidth(dp) — 폴드 내부·태블릿 기준. */
         const val LARGE_SCREEN_SW_DP = 600
+
+        /** 세로 분할을 기본 켜짐으로 두는 최소 smallestWidth(dp) — 아주 큰 화면 전용. */
+        const val LARGE_SCREEN_SPLIT_DEFAULT_SW = 720
         const val SPLIT_GAP_DEFAULT = 45
         const val SPLIT_GAP_MIN = 10
         const val SPLIT_GAP_MAX = 120
