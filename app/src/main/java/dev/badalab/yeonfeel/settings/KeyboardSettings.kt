@@ -333,6 +333,8 @@ class KeyboardSettings(context: Context) {
     fun resetAll() = prefs.edit().clear().apply()
 
     companion object {
+        /** 세로 분할 키보드를 제공하는 최소 smallestWidth(dp) — 폴드 내부·태블릿 기준. */
+        const val LARGE_SCREEN_SW_DP = 600
         const val SPLIT_GAP_DEFAULT = 45
         const val SPLIT_GAP_MIN = 10
         const val SPLIT_GAP_MAX = 120

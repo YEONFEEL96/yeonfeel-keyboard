@@ -58,7 +58,7 @@ class SettingsActivity : Activity() {
                 settings.splitLandscape,
             ) { checked, _ -> settings.splitLandscape = checked },
             *(
-                if (resources.configuration.smallestScreenWidthDp >= 600) {
+                if (resources.configuration.smallestScreenWidthDp >= KeyboardSettings.LARGE_SCREEN_SW_DP) {
                     arrayOf(
                         ui.switchRow(
                             getString(R.string.split_portrait_title),

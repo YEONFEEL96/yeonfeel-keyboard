@@ -254,8 +254,13 @@ class KeyboardContainerView(
         keyboardView.fontScale = settings.keyFontSize.scale
         val landscape = resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        // 세로 분할은 폭이 넓은 화면(내부 화면 등)에서만 적용한다. 폴드 커버 화면 세로는
+        // smallestScreenWidthDp가 600 미만이라 저장값과 무관하게 단일 키보드로 남는다.
+        // 이 폭 기준이 곧 내부/외부 화면을 구분하므로 별도 상태값 없이 분리가 성립한다.
+        val canSplitPortrait = resources.configuration.smallestScreenWidthDp >=
+            dev.badalab.yeonfeel.settings.KeyboardSettings.LARGE_SCREEN_SW_DP
         keyboardView.splitEnabled =
-            if (landscape) settings.splitLandscape else settings.splitPortrait
+            if (landscape) settings.splitLandscape else (canSplitPortrait && settings.splitPortrait)
         keyboardView.splitGapRatio = settings.splitGapPercent / 100f
         keyboardView.touchModelEnabled =
             settings.touchCorrectionEnabled && settings.touchCorrectionBasic
