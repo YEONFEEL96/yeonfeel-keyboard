@@ -339,7 +339,7 @@ class KeyboardView(
         textPaint.textSize = sp(20f) * fontScale
         bigTextPaint.textSize = sp(25f) * fontScale
         smallTextPaint.textSize = sp(13f) * fontScale
-        hintTextPaint.textSize = sp(11f) * fontScale
+        hintTextPaint.textSize = sp(9.5f) * fontScale
         previewTextPaint.textSize = sp(30f) * fontScale
         enterActionPaint.textSize = sp(14f) * fontScale
     }
@@ -386,6 +386,9 @@ class KeyboardView(
 
     var hapticEnabled: Boolean = true
 
+    /** 햅틱 세기 단계 (1~5). Composition 프리미티브의 scale 로 환산된다. */
+    var hapticStrength: Int = 3
+
     var soundEnabled: Boolean = false
 
     private val audioManager: android.media.AudioManager? =
@@ -414,32 +417,40 @@ class KeyboardView(
         }
 
     /**
-     * 키 입력 햅틱. performHapticFeedback(KEYBOARD_TAP)은 OEM이 상수를 약하게
-     * 매핑하면(예: Vivo FuntouchOS) 무음이 되므로, 시스템 정의 클릭 이펙트
-     * EFFECT_CLICK 을 직접 재생한다 — 제조사 튜닝(LRA)을 그대로 쓰되 기기 무관하게
-     * 또렷하다. 켜고 끄기는 우리 토글(hapticEnabled)이 담당한다.
+     * 키 입력 햅틱. LRA 기기에서는 Composition 프리미티브 CLICK 에 [HAPTIC_SCALE]
+     * 세기를 줘 OEM 튜닝을 유지하면서 조금 약하게 낸다. 미지원 기기는 약한 프리셋
+     * EFFECT_TICK(CLICK보다 가벼움)으로, 더 구형은 짧은 진동으로 폴백한다.
+     * performHapticFeedback(KEYBOARD_TAP)은 Vivo 등에서 무음이라 쓰지 않는다.
+     * 켜고 끄기는 우리 토글(hapticEnabled)이 담당한다.
      */
     private fun performKeyHaptic() {
         if (!hapticEnabled) return
         val vib = vibrator ?: return
         runCatching {
             when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                    vib.areAllPrimitivesSupported(
+                        android.os.VibrationEffect.Composition.PRIMITIVE_CLICK,
+                    ) ->
+                    vib.vibrate(
+                        android.os.VibrationEffect.startComposition()
+                            .addPrimitive(
+                                android.os.VibrationEffect.Composition.PRIMITIVE_CLICK,
+                                hapticStrength.coerceIn(1, 5) * 0.2f,
+                            )
+                            .compose(),
+                    )
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
                     vib.vibrate(
                         android.os.VibrationEffect.createPredefined(
-                            android.os.VibrationEffect.EFFECT_CLICK,
+                            android.os.VibrationEffect.EFFECT_TICK,
                         ),
                     )
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
-                    vib.vibrate(
-                        android.os.VibrationEffect.createOneShot(
-                            12L,
-                            android.os.VibrationEffect.DEFAULT_AMPLITUDE,
-                        ),
-                    )
+                    vib.vibrate(android.os.VibrationEffect.createOneShot(10L, 100))
                 else -> {
                     @Suppress("DEPRECATION")
-                    vib.vibrate(12L)
+                    vib.vibrate(10L)
                 }
             }
         }
@@ -496,7 +507,7 @@ class KeyboardView(
     }
     private val hintTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.RIGHT
-        textSize = sp(11f)
+        textSize = sp(9.5f)
     }
     private val previewBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val previewBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -610,11 +621,24 @@ class KeyboardView(
     private fun landscapeTopDigit(key: Key): Char? =
         if (key.type == KeyType.CHAR) landscapeTopDigits[key.char] else null
 
+    /** 각 키 우상단 보조문자 표시·롱프레스 입력 옵션 (삼성식 숫자·기호 힌트). */
+    var keyHintsEnabled: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /** 옵션이 켜졌을 때 이 키가 보여줄/롱프레스로 입력할 보조문자 (없으면 null). */
+    private fun keyHint(key: Key): Char? =
+        if (keyHintsEnabled && key.type == KeyType.CHAR && key.hint != ' ') key.hint else null
+
     private fun commitPendingDigit() {
         val pending = pendingVariant ?: return
-        val digit = naratgulDigit(pending.key) ?: landscapeTopDigit(pending.key) ?: return
+        val ch = naratgulDigit(pending.key) ?: landscapeTopDigit(pending.key)
+            ?: keyHint(pending.key) ?: return
         performKeyHaptic()
-        onKeyListener(Key(KeyType.CHAR, digit.toString(), digit))
+        onKeyListener(Key(KeyType.CHAR, ch.toString(), ch))
         cancelPendingVariant()
     }
 
@@ -986,22 +1010,16 @@ class KeyboardView(
                         key.label.length >= 4 -> smallTextPaint
                         else -> textPaint
                     }
-                    val y = rect.centerY() - (paint.ascent() + paint.descent()) / 2
-                    val digit = (naratgulDigit(key) ?: landscapeTopDigit(key))?.toString()
-                    var cx = rect.centerX()
-                    if (digit != null) {
-                        // 좁은 키에서 각주 숫자와 겹치면 본문 라벨을 왼쪽으로 밀어낸다.
-                        val hintLeft = rect.right - dp(6f) - hintTextPaint.measureText(digit)
-                        val labelHalf = paint.measureText(key.label) / 2
-                        val overflow = cx + labelHalf + dp(1f) - hintLeft
-                        if (overflow > 0) cx = maxOf(cx - overflow, rect.left + labelHalf)
-                    }
-                    canvas.drawText(key.label, cx, y, paint)
+                    val digit = (naratgulDigit(key) ?: landscapeTopDigit(key) ?: keyHint(key))?.toString()
+                    // 보조문자가 있으면 라벨은 가로 중앙을 유지한 채 살짝 아래로 내려 위쪽에 여백을 준다.
+                    val labelDrop = if (digit != null) dp(3f) else 0f
+                    val y = rect.centerY() + labelDrop - (paint.ascent() + paint.descent()) / 2
+                    canvas.drawText(key.label, rect.centerX(), y, paint)
                     if (digit != null) {
                         canvas.drawText(
                             digit,
-                            rect.right - dp(6f),
-                            rect.top + dp(5f) - hintTextPaint.ascent(),
+                            rect.right - dp(5f),
+                            rect.top + dp(4f) - hintTextPaint.ascent(),
                             hintTextPaint,
                         )
                     }
@@ -1132,14 +1150,15 @@ class KeyboardView(
                         deletePointerId = pointerId
                         repeatHandler.postDelayed(repeatDelete, 400L)
                     }
-                    // 우상단 숫자 키: 변형 팝업이 없는 키는 길게 누르면 바로 숫자 입력.
+                    // 나랏글 우상단 숫자 등 3x4 자판: 길게 누르면 바로 숫자 입력.
                     naratgulDigit(key) != null ||
                         (landscapeTopDigit(key) != null && !KEY_VARIANTS.containsKey(key.char)) -> {
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(digitLongPressRunnable, longPressDelayMs)
                     }
-                    // 변형 문자(분수 등)가 있는 키는 롱프레스와 구분하기 위해 UP에서 입력한다.
-                    key.type == KeyType.CHAR && KEY_VARIANTS.containsKey(key.char) -> {
+                    // 변형 문자·보조문자가 있는 키는 롱프레스 시 팝업을 띄우고 UP에서 입력한다.
+                    key.type == KeyType.CHAR &&
+                        (keyHint(key) != null || KEY_VARIANTS.containsKey(key.char)) -> {
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(longPressRunnable, longPressDelayMs)
                     }
@@ -1372,18 +1391,26 @@ class KeyboardView(
         if (variantPopupWindow != null) return // 다른 손가락으로 이미 변형 팝업이 떠 있으면 무시
         dismissAllKeyPreviews() // 미리보기 위에 변형 팝업이 겹치지 않게 정리
         val pending = pendingVariant ?: return
-        val variants = (KEY_VARIANTS[pending.key.char] ?: "") +
-            (landscapeTopDigit(pending.key)?.toString() ?: "")
-        if (variants.isEmpty()) return
-        // 한글 쌍자음 팝업은 원래 자음을 빼고 변형만 보여준다 (ㅂ 롱프레스 → ㅃ만).
-        val includeOriginal = pending.key.char !in KOREAN_VARIANTS
-        val options = buildList {
-            if (includeOriginal) add(pending.key.label)
-            variants.forEach { add(it.toString()) }
-            // 툴바 없이도 접근할 수 있게 그리드의 빈 두 칸을 단축키로 채운다.
-            if (pending.key.char == ',' && !pending.key.remember) {
-                add(SHORTCUT_CLIPBOARD.toString())
-                add(SHORTCUT_SETTINGS.toString())
+        // 보조문자 옵션이 켜지면 그 키의 롱프레스 팝업은 보조문자 하나만 보여준다
+        // (코너 글자 = 손 떼면 입력되는 결과).
+        val hint = keyHint(pending.key)
+        val options: List<String>
+        if (hint != null) {
+            options = listOf(hint.toString())
+        } else {
+            val variants = (KEY_VARIANTS[pending.key.char] ?: "") +
+                (landscapeTopDigit(pending.key)?.toString() ?: "")
+            if (variants.isEmpty()) return
+            // 한글 쌍자음 팝업은 원래 자음을 빼고 변형만 보여준다 (ㅂ 롱프레스 → ㅃ만).
+            val includeOriginal = pending.key.char !in KOREAN_VARIANTS
+            options = buildList {
+                if (includeOriginal) add(pending.key.label)
+                variants.forEach { add(it.toString()) }
+                // 툴바 없이도 접근할 수 있게 그리드의 빈 두 칸을 단축키로 채운다.
+                if (pending.key.char == ',' && !pending.key.remember) {
+                    add(SHORTCUT_CLIPBOARD.toString())
+                    add(SHORTCUT_SETTINGS.toString())
+                }
             }
         }
         val anchor = pending.rect
@@ -1422,7 +1449,8 @@ class KeyboardView(
             panel,
             cells,
             startX = downXByPointer[pending.pointerId] ?: anchor.centerX(),
-            selected = if (includeOriginal) 1 else 0,
+            // 원래 글자가 첫 셀이면 두 번째(첫 변형)를 기본 선택. 힌트/한글 쌍자음은 첫 셀.
+            selected = if (hint == null && pending.key.char !in KOREAN_VARIANTS) 1 else 0,
         )
         val location = IntArray(2)
         getLocationInWindow(location)

@@ -143,6 +143,11 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_NUMBER_ROW, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_NUMBER_ROW, value).apply()
 
+    /** 각 키 우상단에 숫자·기호 보조문자를 표시하고 롱프레스로 입력한다 (삼성식). */
+    var keyHintsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_KEY_HINTS, false)
+        set(value) = prefs.edit().putBoolean(KEY_KEY_HINTS, value).apply()
+
     var koreanEnabled: Boolean
         get() = prefs.getBoolean(KEY_KOREAN_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_KOREAN_ENABLED, value).apply()
@@ -216,6 +221,11 @@ class KeyboardSettings(context: Context) {
     var hapticEnabled: Boolean
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_HAPTIC_ENABLED, value).apply()
+
+    /** 햅틱 세기 단계 (1~5, 기본 3). */
+    var hapticStrength: Int
+        get() = prefs.getInt(KEY_HAPTIC_STRENGTH, 3)
+        set(value) = prefs.edit().putInt(KEY_HAPTIC_STRENGTH, value.coerceIn(1, 5)).apply()
 
 
     /** Shift 상태에서 숫자 열을 PC 자판 기호(!@#$…)로 바꿀지. */
@@ -370,6 +380,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_HIGH_CONTRAST_STYLE = "high_contrast_style"
         private const val KEY_HC_FORCE_KEYCAP = "high_contrast_force_keycap"
         private const val KEY_SHOW_NUMBER_ROW = "show_number_row"
+        private const val KEY_KEY_HINTS = "key_hints"
         private const val KEY_KOREAN_ENABLED = "korean_enabled"
         private const val KEY_ENGLISH_ENABLED = "english_enabled"
         private const val KEY_SWITCH_METHOD = "language_switch_method"
@@ -406,6 +417,7 @@ class KeyboardSettings(context: Context) {
         private const val KEY_BACKSPACE_SPEED = "backspace_speed"
         private const val KEY_SOUND_ENABLED = "sound_enabled"
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
+        private const val KEY_HAPTIC_STRENGTH = "haptic_strength"
         private const val KEY_MARGIN_TOP = "margin_top_dp"
         private const val KEY_MARGIN_BOTTOM = "margin_bottom_dp"
         private const val KEY_MARGIN_SIDE = "margin_side_dp"

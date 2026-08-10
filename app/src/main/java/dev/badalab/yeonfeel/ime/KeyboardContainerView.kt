@@ -244,6 +244,7 @@ class KeyboardContainerView(
         theme = KeyboardTheme.of(dark, settings.highContrast, settings.highContrastStyle)
         keyboardView.theme = theme
         keyboardView.showNumberRow = settings.showNumberRow
+        keyboardView.keyHintsEnabled = settings.keyHintsEnabled
         keyboardView.koreanLayout = settings.koreanLayout
         keyboardView.englishLayout = settings.englishLayout
         keyboardView.shiftNumberRowSymbols = settings.shiftNumberRowSymbols
@@ -271,6 +272,7 @@ class KeyboardContainerView(
         KeyboardLayouts.lastSymbol3x4 = settings.rememberedSymbol.first()
         keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
+        keyboardView.hapticStrength = settings.hapticStrength
         KeyboardLayouts.favoriteSymbol = settings.favoriteSymbol.first()
         KeyboardLayouts.favoriteSymbolEnabled = settings.favoriteSymbolEnabled
         KeyboardLayouts.leftSymbolEnabled = settings.leftSymbolEnabled

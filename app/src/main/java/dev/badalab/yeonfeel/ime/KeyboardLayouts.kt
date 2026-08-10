@@ -18,6 +18,8 @@ data class Key(
     val widthWeight: Float = 1f,
     /** 변형 팝업에서 고른 기호를 이 키에 기억한다 (천지인 우측 하단 기호 키). */
     val remember: Boolean = false,
+    /** 우상단 보조문자(옵션 켜짐 시 표시·롱프레스 입력). ' '이면 없음. */
+    val hint: Char = ' ',
 )
 
 enum class LayoutMode { KOREAN, ENGLISH, SYMBOLS, NUMBER }
@@ -157,8 +159,8 @@ object KeyboardLayouts {
      * Shift 키가 없으며 셋째 열 왼쪽은 빈 칸이다.
      */
     private fun danmoeumRows(showLangKey: Boolean): List<List<Key>> = listOf(
-        charRow("ㅂㅈㄷㄱㅅㅗㅐㅔ"),
-        charRow("ㅁㄴㅇㄹㅎㅓㅏㅣ"),
+        charRowHinted("ㅂㅈㄷㄱㅅㅗㅐㅔ", HINTS_ROW1),
+        charRowHinted("ㅁㄴㅇㄹㅎㅓㅏㅣ", HINTS_ROW2),
         buildList {
             // 셋째 열은 윗열 격자보다 살짝 왼쪽(ㅁ 방향)으로 어긋난 배열이 통용된다.
             // 빈 공간 오른쪽 절반은 ㅋ의 투명 확장 히트 영역으로 쓴다.
@@ -225,21 +227,31 @@ object KeyboardLayouts {
         add(Key(KeyType.ENTER, "⏎", widthWeight = 1.7f))
     }
 
+    /** 보조문자 힌트: 윗줄은 숫자, 아랫줄은 기호 (삼성 배치). 열 위치별로 부여한다. */
+    private const val HINTS_ROW1 = "1234567890"
+    private const val HINTS_ROW2 = "@#$%&-+()"
+    private const val HINTS_ROW3 = "*\"':;!?"
+
+    private fun charRowHinted(chars: String, hints: String): List<Key> =
+        chars.mapIndexed { i, c ->
+            Key(KeyType.CHAR, c.toString(), c, hint = hints.getOrElse(i) { ' ' })
+        }
+
     /**
      * 글쇠 폭을 균일하게 유지한다: 10키 열이 기준(1.0)이고,
      * 9키인 둘째 열은 양옆 반 칸 스페이서로 중앙 정렬한다 (통용 배치).
      */
     private fun letterRows(r1: String, r2: String, r3: String, showLangKey: Boolean): List<List<Key>> =
         listOf(
-            charRow(r1),
+            charRowHinted(r1, HINTS_ROW1),
             buildList {
                 add(spacer(0.5f))
-                addAll(charRow(r2))
+                addAll(charRowHinted(r2, HINTS_ROW2))
                 add(spacer(0.5f))
             },
             buildList {
                 add(Key(KeyType.SHIFT, "⇧", widthWeight = 1.5f))
-                addAll(charRow(r3))
+                addAll(charRowHinted(r3, HINTS_ROW3))
                 add(Key(KeyType.DELETE, "⌫", widthWeight = 1.5f))
             },
             bottomRow(showLangKey),
@@ -255,11 +267,11 @@ object KeyboardLayouts {
         val r2 = if (shifted) "AOEUIDHTNS" else "aoeuidhtns"
         val r3 = if (shifted) "QJKXBMWVZ" else "qjkxbmwvz"
         return listOf(
-            charRow(r1),
-            charRow(r2),
+            charRowHinted(r1, HINTS_ROW1),
+            charRowHinted(r2, HINTS_ROW2),
             buildList {
                 add(Key(KeyType.SHIFT, "⇧"))
-                addAll(charRow(r3))
+                addAll(charRowHinted(r3, HINTS_ROW3))
                 add(Key(KeyType.DELETE, "⌫"))
             },
             bottomRow(showLangKey),

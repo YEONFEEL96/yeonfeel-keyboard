@@ -112,6 +112,7 @@
     <string name="touch_feedback_menu">터치 피드백</string>
     <string name="feedback_sound">소리</string>
     <string name="feedback_vibration">진동</string>
+    <string name="feedback_haptic_strength">진동 세기</string>
     <string name="feedback_key_preview">누른 키 보여주기</string>
     <string name="gesture_backspace_speed">백스페이스 속도</string>
     <string name="speed_slow">느리게</string>
@@ -135,6 +136,7 @@
     <string name="switch_method_button_swipe">언어 버튼 + 스페이스바 좌우로 밀어서 변경</string>
     <string name="switch_method_swipe">스페이스바 좌우로 밀어서 변경</string>
     <string name="settings_number_row">숫자 열 표시</string>
+    <string name="settings_key_hints">보조문자 표시</string>
     <string name="settings_show_toolbar">키보드 툴바 표시</string>
     <string name="terminal_row_title">터미널 도구 줄</string>
     <string name="split_landscape_title">가로 화면 분할 키보드</string>
