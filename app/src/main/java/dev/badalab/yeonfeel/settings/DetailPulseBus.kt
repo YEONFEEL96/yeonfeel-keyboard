@@ -5,8 +5,9 @@ package dev.badalab.yeonfeel.settings
  * 눌렀을 때 리로드 대신 촉각 펄스(살짝 축소 후 복귀)를 재생하기 위한 버스.
  *
  * 상세 화면은 별도 액티비티라 좌측 목록이 직접 애니메이션할 수 없으므로,
- * Application의 라이프사이클 콜백이 resume 시 자기 루트 펄스를 등록하고
- * pause 시 해제한다. clearTop 규칙상 상세는 항상 하나뿐이라 소유자는 1개다.
+ * Application의 라이프사이클 콜백이 start 시 자기 루트 펄스를 등록하고 stop 시
+ * 해제한다 (2단에서 목록을 누르면 상세는 paused 되지만 여전히 보이므로 resume/pause가
+ * 아니라 start/stop을 쓴다). clearTop 규칙상 상세는 항상 하나뿐이라 소유자는 1개다.
  */
 object DetailPulseBus {
     private var owner: Any? = null

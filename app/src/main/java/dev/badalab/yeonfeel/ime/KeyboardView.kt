@@ -326,6 +326,7 @@ class KeyboardView(
         LayoutMode.KOREAN -> "KO_" + koreanLayout.name
         LayoutMode.ENGLISH -> "EN_" + englishLayout.name
         LayoutMode.SYMBOLS -> (if (compactSymbols) "SYMC_" else "SYM_") + symbolsPage
+        LayoutMode.NUMBER -> "NUM"
     }
 
     /** 키 라벨 글자 크기 배율 (작게/보통/크게 설정). */
@@ -342,6 +343,7 @@ class KeyboardView(
         smallTextPaint.textSize = sp(13f) * fontScale
         hintTextPaint.textSize = sp(11f) * fontScale
         previewTextPaint.textSize = sp(30f) * fontScale
+        enterActionPaint.textSize = sp(14f) * fontScale
     }
 
     /** 길게 누르기 판정 시간(ms). 접근성 설정에서 조절한다 (변형 팝업·숫자·언어 목록 공통). */
@@ -456,6 +458,27 @@ class KeyboardView(
     private val smallTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = sp(13f)
+    }
+
+    /** NUMBER 모드 숫자 키패드 변형 비트(전화·소수점·부호). 바뀌면 재배치. */
+    var numberVariant: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            relayoutKeys()
+        }
+
+    /** 엔터 키에 표시할 동작 라벨(다음/검색/완료 등). null이면 ⏎ 아이콘을 그린다. */
+    var enterActionLabel: CharSequence? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+    private val enterActionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(14f)
+        color = ACCENT
     }
     private val hintTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.RIGHT
@@ -636,16 +659,18 @@ class KeyboardView(
         mode == LayoutMode.SYMBOLS -> !compactSymbols
         // 3x4 자판(천지인/나랏글)은 숫자 열 자체를 얹지 않는다.
         mode == LayoutMode.KOREAN && is3x4Board() -> false
+        // 숫자 키패드는 자체가 숫자라 상단 숫자 열을 얹지 않는다.
+        mode == LayoutMode.NUMBER -> false
         else -> effectiveShowNumberRow()
     }
 
     private fun rebuildBounds() {
         val rows = KeyboardLayouts.rows(
             mode, shifted, effectiveShowNumberRow(), symbolsPage, showLangKey, koreanLayout,
-            shiftNumberRowSymbols, englishLayout, compactSymbols,
+            shiftNumberRowSymbols, englishLayout, compactSymbols, numberVariant,
         )
         landscapeTopDigits =
-            if (isLandscape() && mode != LayoutMode.SYMBOLS && !is3x4Board()) {
+            if (isLandscape() && mode != LayoutMode.SYMBOLS && mode != LayoutMode.NUMBER && !is3x4Board()) {
                 buildMap {
                     rows.firstOrNull()?.asSequence()
                         ?.filter { it.type == KeyType.CHAR }
@@ -668,7 +693,8 @@ class KeyboardView(
         val gapY = if (landscape) dp(4f) else dp(6.5f)
         val bounds = mutableListOf<KeyBounds>()
         var top = 0f
-        val split = splitEnabled && !is3x4Board()
+        // 숫자 키패드는 3~4열이라 분할하면 어색하므로 대화면에서도 분할하지 않는다.
+        val split = splitEnabled && !is3x4Board() && mode != LayoutMode.NUMBER
         val spaceLeftEdge = if (split) maxLeftBlockEnd(rows) else null
         rows.forEachIndexed { rowIdx, row ->
             val rowHeight = unit * heightWeights[rowIdx]
@@ -895,7 +921,16 @@ class KeyboardView(
                 }
                 KeyType.SHIFT -> drawShiftIcon(canvas, rect)
                 KeyType.DELETE -> drawDeleteIcon(canvas, rect)
-                KeyType.ENTER -> drawEnterIcon(canvas, rect)
+                KeyType.ENTER -> {
+                    val label = enterActionLabel
+                    if (label.isNullOrEmpty()) {
+                        drawEnterIcon(canvas, rect)
+                    } else {
+                        val y = rect.centerY() -
+                            (enterActionPaint.ascent() + enterActionPaint.descent()) / 2
+                        canvas.drawText(label, 0, label.length, rect.centerX(), y, enterActionPaint)
+                    }
+                }
                 else -> if (key.label.isNotEmpty()) {
                     // 키가 큰 3x4 자판 글자(".,?!" 포함)는 크게, 한/영·그 외 긴 라벨은 작게 표시한다.
                     val paint = when {
@@ -1405,7 +1440,8 @@ class KeyboardView(
     private fun describeKey(key: Key): CharSequence = when (key.type) {
         KeyType.DELETE -> context.getString(R.string.a11y_key_delete)
         KeyType.SHIFT -> context.getString(R.string.a11y_key_shift)
-        KeyType.ENTER -> context.getString(R.string.a11y_key_enter)
+        KeyType.ENTER ->
+            enterActionLabel?.takeIf { it.isNotEmpty() } ?: context.getString(R.string.a11y_key_enter)
         KeyType.SPACE -> context.getString(R.string.a11y_key_space)
         KeyType.SYMBOLS -> key.label.ifBlank { context.getString(R.string.a11y_key_symbols) }
         KeyType.LANG -> key.label.ifBlank { context.getString(R.string.a11y_key_language) }

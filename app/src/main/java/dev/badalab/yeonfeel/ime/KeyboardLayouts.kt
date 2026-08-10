@@ -20,7 +20,7 @@ data class Key(
     val remember: Boolean = false,
 )
 
-enum class LayoutMode { KOREAN, ENGLISH, SYMBOLS }
+enum class LayoutMode { KOREAN, ENGLISH, SYMBOLS, NUMBER }
 
 object KeyboardLayouts {
 
@@ -28,6 +28,11 @@ object KeyboardLayouts {
     const val PAGE_TO_NUMPAD = '\uE010'
     const val PAGE_TO_SYMBOLS = '\uE011'
     const val PAGE_CYCLE = '\uE012'
+
+    /** \uC22B\uC790 \uD0A4\uD328\uB4DC \uBCC0\uD615 \uBE44\uD2B8 (NUMBER \uBAA8\uB4DC \uC804\uC6A9): \uC804\uD654\u00B7\uC18C\uC218\uC810\u00B7\uBD80\uD638. */
+    const val NUM_PHONE = 1
+    const val NUM_DECIMAL = 2
+    const val NUM_SIGNED = 4
 
     private val cache = HashMap<String, List<List<Key>>>()
 
@@ -87,14 +92,15 @@ object KeyboardLayouts {
         shiftNumberRowSymbols: Boolean = true,
         englishLayout: EnglishLayoutType = EnglishLayoutType.QWERTY,
         compactSymbols: Boolean = false,
+        numberVariant: Int = 0,
     ): List<List<Key>> {
         val cacheKey =
             "$mode-$shifted-$showNumberRow-$symbolsPage-$showLangKey-$koreanLayout-" +
-                "$shiftNumberRowSymbols-$englishLayout-$compactSymbols"
+                "$shiftNumberRowSymbols-$englishLayout-$compactSymbols-$numberVariant"
         return cache.getOrPut(cacheKey) {
             build(
                 mode, shifted, showNumberRow, symbolsPage, showLangKey, koreanLayout,
-                shiftNumberRowSymbols, englishLayout, compactSymbols,
+                shiftNumberRowSymbols, englishLayout, compactSymbols, numberVariant,
             )
         }
     }
@@ -109,7 +115,9 @@ object KeyboardLayouts {
         shiftNumberRowSymbols: Boolean,
         englishLayout: EnglishLayoutType,
         compactSymbols: Boolean,
+        numberVariant: Int,
     ): List<List<Key>> {
+        if (mode == LayoutMode.NUMBER) return numberPadRows(numberVariant)
         if (mode == LayoutMode.SYMBOLS) {
             if (compactSymbols) return compactSymbolRows(symbolsPage)
             return if (symbolsPage == 1) {
@@ -135,7 +143,7 @@ object KeyboardLayouts {
                     else letterRows("qwertyuiop", "asdfghjkl", "zxcvbnm", showLangKey)
                 EnglishLayoutType.DVORAK -> dvorakRows(shifted, showLangKey)
             }
-            LayoutMode.SYMBOLS -> error("unreachable")
+            LayoutMode.SYMBOLS, LayoutMode.NUMBER -> error("unreachable")
         }
         if (!showNumberRow) return base
         // Shift 상태에서는 숫자 열이 PC 자판 기호로 바뀐다 (옵션).
@@ -164,6 +172,40 @@ object KeyboardLayouts {
 
     private val numberRow = charRow("1234567890")
     private val shiftedNumberRow = charRow("!@#$%^&*()")
+
+    /**
+     * 숫자 입력 필드용 키패드. 순수 숫자는 3열(삼성·기본 IME와 동일), 전화·소수점·부호
+     * 필드는 오른쪽에 기능 열을 붙여 + * # . - 를 추가한다.
+     */
+    private fun numberPadRows(variant: Int): List<List<Key>> {
+        fun d(c: Char) = Key(KeyType.CHAR, c.toString(), c)
+        if (variant and NUM_PHONE != 0) {
+            // 전화 다이얼패드: * 0 #, 오른쪽 기능 열은 삭제·+·,(다이얼 대기)·엔터.
+            return listOf(
+                listOf(d('1'), d('2'), d('3'), Key(KeyType.DELETE, "⌫")),
+                listOf(d('4'), d('5'), d('6'), d('+')),
+                listOf(d('7'), d('8'), d('9'), d(',')),
+                listOf(d('*'), d('0'), d('#'), Key(KeyType.ENTER, "⏎")),
+            )
+        }
+        val decimal = variant and NUM_DECIMAL != 0
+        val signed = variant and NUM_SIGNED != 0
+        if (!decimal && !signed) {
+            return listOf(
+                listOf(d('1'), d('2'), d('3')),
+                listOf(d('4'), d('5'), d('6')),
+                listOf(d('7'), d('8'), d('9')),
+                listOf(Key(KeyType.DELETE, "⌫"), d('0'), Key(KeyType.ENTER, "⏎")),
+            )
+        }
+        // 소수점·부호: 4열로 늘려 오른쪽 열에 삭제·기호·엔터를 둔다.
+        return listOf(
+            listOf(d('1'), d('2'), d('3'), Key(KeyType.DELETE, "⌫")),
+            listOf(d('4'), d('5'), d('6'), if (decimal) d('.') else spacer(1f)),
+            listOf(d('7'), d('8'), d('9'), if (signed) d('-') else spacer(1f)),
+            listOf(spacer(1f), d('0'), spacer(1f), Key(KeyType.ENTER, "⏎")),
+        )
+    }
 
     private fun charRow(chars: String): List<Key> =
         chars.map { Key(KeyType.CHAR, it.toString(), it) }

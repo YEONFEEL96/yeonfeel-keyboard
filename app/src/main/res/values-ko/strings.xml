@@ -154,4 +154,11 @@
     <string name="a11y_key_space">스페이스</string>
     <string name="a11y_key_symbols">기호</string>
     <string name="a11y_key_language">언어 전환</string>
+
+    <string name="ime_action_go">이동</string>
+    <string name="ime_action_search">검색</string>
+    <string name="ime_action_send">전송</string>
+    <string name="ime_action_next">다음</string>
+    <string name="ime_action_done">완료</string>
+    <string name="ime_action_previous">이전</string>
 </resources>

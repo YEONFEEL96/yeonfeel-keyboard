@@ -40,6 +40,12 @@ class YeonfeelImeService : InputMethodService() {
 
     /** 비밀번호류 입력란 여부. 타점 수집·키 미리보기·MZ 모드를 끈다. */
     private var sensitiveField = false
+
+    /** 앱이 개인화 학습을 거부한 필드(IME_FLAG_NO_PERSONALIZED_LEARNING) — 타점 수집·교정을 끈다. */
+    private var noLearnField = false
+
+    /** 자동완성·자동 대문자를 끄는 필드(NO_SUGGESTIONS·이메일·URL 등). */
+    private var noAutoTextHelp = false
     private lateinit var settings: KeyboardSettings
     private lateinit var clipboardManager: ClipboardManager
 
@@ -91,6 +97,73 @@ class YeonfeelImeService : InputMethodService() {
         super.onDestroy()
     }
 
+    /** 자동완성·자동 대문자를 끌 필드인지 — NO_SUGGESTIONS 플래그나 이메일·URL·필터 변형. */
+    private fun isNoAutoHelpField(inputType: Int): Boolean {
+        if (inputType and android.text.InputType.TYPE_MASK_CLASS !=
+            android.text.InputType.TYPE_CLASS_TEXT
+        ) {
+            return false
+        }
+        if (inputType and android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return true
+        return when (inputType and android.text.InputType.TYPE_MASK_VARIATION) {
+            android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+            android.text.InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
+            android.text.InputType.TYPE_TEXT_VARIATION_URI,
+            android.text.InputType.TYPE_TEXT_VARIATION_FILTER,
+            android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+            android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+            -> true
+            else -> false
+        }
+    }
+
+    /** 엔터 키에 표시할 동작 라벨 (다음/검색/완료 등). 없으면 null → ⏎ 아이콘. */
+    private fun enterActionLabel(info: EditorInfo?): CharSequence? {
+        info ?: return null
+        if (info.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0) return null
+        info.actionLabel?.let { return it }
+        return when (info.imeOptions and EditorInfo.IME_MASK_ACTION) {
+            EditorInfo.IME_ACTION_GO -> getString(R.string.ime_action_go)
+            EditorInfo.IME_ACTION_SEARCH -> getString(R.string.ime_action_search)
+            EditorInfo.IME_ACTION_SEND -> getString(R.string.ime_action_send)
+            EditorInfo.IME_ACTION_NEXT -> getString(R.string.ime_action_next)
+            EditorInfo.IME_ACTION_DONE -> getString(R.string.ime_action_done)
+            EditorInfo.IME_ACTION_PREVIOUS -> getString(R.string.ime_action_previous)
+            else -> null
+        }
+    }
+
+    /**
+     * 숫자 키패드를 띄울 입력 필드인지 — 숫자·전화 클래스 (웹 inputmode=numeric 포함).
+     * 날짜/시간은 '/'·':'·'-' 등 구분자가 필요해 숫자패드로는 입력이 막히므로 제외하고
+     * 일반 자판(기호 페이지로 구분자 입력)으로 둔다.
+     */
+    private fun isNumericInput(inputType: Int): Boolean =
+        when (inputType and android.text.InputType.TYPE_MASK_CLASS) {
+            android.text.InputType.TYPE_CLASS_NUMBER,
+            android.text.InputType.TYPE_CLASS_PHONE,
+            -> true
+            else -> false
+        }
+
+    /** 숫자 키패드 변형 비트 — 전화면 다이얼패드, 소수점·부호면 해당 기호 키를 추가한다. */
+    private fun numberVariant(inputType: Int): Int {
+        if (inputType and android.text.InputType.TYPE_MASK_CLASS ==
+            android.text.InputType.TYPE_CLASS_PHONE
+        ) {
+            return KeyboardLayouts.NUM_PHONE
+        }
+        var v = 0
+        if (inputType and android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL != 0) {
+            v = v or KeyboardLayouts.NUM_DECIMAL
+        }
+        if (inputType and android.text.InputType.TYPE_NUMBER_FLAG_SIGNED != 0) {
+            v = v or KeyboardLayouts.NUM_SIGNED
+        }
+        return v
+    }
+
     private fun isPasswordInput(inputType: Int): Boolean {
         val cls = inputType and android.text.InputType.TYPE_MASK_CLASS
         val variation = inputType and android.text.InputType.TYPE_MASK_VARIATION
@@ -121,7 +194,9 @@ class YeonfeelImeService : InputMethodService() {
                 } == true
         }
         view.keyboardView.onTapRecorded = { key, ax, ay, rx, ry ->
-            if (settings.touchStatsEnabled && !sensitiveField && key.type != KeyType.SPACER) {
+            if (settings.touchStatsEnabled && !sensitiveField && !noLearnField &&
+                key.type != KeyType.SPACER
+            ) {
                 val keyId = when (key.type) {
                     KeyType.CHAR, KeyType.GHOST -> key.char.toString()
                     else -> key.type.name
@@ -150,7 +225,13 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        sensitiveField = isPasswordInput(info?.inputType ?: 0)
+        val fieldInputType = info?.inputType ?: 0
+        sensitiveField = isPasswordInput(fieldInputType)
+        noLearnField =
+            (info?.imeOptions ?: 0) and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
+        noAutoTextHelp = isNoAutoHelpField(fieldInputType)
+        // 필드가 요구하는 엔터 동작 라벨(다음/검색/완료 등)을 엔터 키에 표시한다.
+        container?.keyboardView?.enterActionLabel = enterActionLabel(info)
         composer.reset()
         composer = when (settings.koreanLayout) {
             KoreanLayoutType.CHUNJIIN -> chunjiinComposer
@@ -170,11 +251,15 @@ class YeonfeelImeService : InputMethodService() {
         // 설정에서 꺼진 언어가 현재 모드면 켜진 언어로 강제 전환한다.
         if (mode == LayoutMode.ENGLISH && !settings.englishEnabled) mode = LayoutMode.KOREAN
         if (mode == LayoutMode.KOREAN && !settings.koreanEnabled) mode = LayoutMode.ENGLISH
+        // 숫자·전화 입력 필드에서는 숫자 키패드를 띄운다. 언어 기억(mode)은 그대로 두어
+        // 일반 필드로 돌아가면 이전 자판이 복원된다. OTP처럼 칸이 넘어가도 계속 숫자판이다.
+        val numericField = isNumericInput(fieldInputType)
         container?.let {
             it.applySettings(settings)
             // 비밀번호 입력란에서는 어깨너머·화면 녹화로 노출되는 키 미리보기를 끈다.
             if (sensitiveField) it.keyboardView.keyPreviewEnabled = false
-            it.keyboardView.mode = mode
+            it.keyboardView.numberVariant = if (numericField) numberVariant(fieldInputType) else 0
+            it.keyboardView.mode = if (numericField) LayoutMode.NUMBER else mode
             it.keyboardView.shifted = false
             it.keyboardView.capsLock = false
         }
@@ -588,7 +673,7 @@ class YeonfeelImeService : InputMethodService() {
     /** AI 보정(노이지 채널): 스페이스바로 어절이 끝날 때 사전 밖 어절을 교정한다. */
     private fun maybeAutoCorrect(ic: android.view.inputmethod.InputConnection) {
         lastCorrection = null
-        if (sensitiveField || mode != LayoutMode.KOREAN) return
+        if (sensitiveField || noLearnField || noAutoTextHelp || mode != LayoutMode.KOREAN) return
         if (!(settings.touchCorrectionEnabled && settings.touchCorrectionAi)) return
         val before = ic.getTextBeforeCursor(16, 0) ?: return
         val word = before.takeLastWhile { it in '가'..'힣' }.toString()
@@ -609,6 +694,8 @@ class YeonfeelImeService : InputMethodService() {
     /** 영문 모드에서 문장 시작이면 Shift를 자동으로 켠다. */
     private fun updateAutoCapitalize() {
         if (!settings.autoCapitalize || mode != LayoutMode.ENGLISH) return
+        // 이메일·URL·자동완성 끈 필드는 첫 글자 대문자화를 하지 않는다.
+        if (noAutoTextHelp) return
         val view = container?.keyboardView ?: return
         if (view.mode != LayoutMode.ENGLISH) return
         val ic = currentInputConnection ?: return

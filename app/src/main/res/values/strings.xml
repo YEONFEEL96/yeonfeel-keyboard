@@ -154,4 +154,11 @@
     <string name="a11y_key_space">Space</string>
     <string name="a11y_key_symbols">Symbols</string>
     <string name="a11y_key_language">Switch language</string>
+
+    <string name="ime_action_go">Go</string>
+    <string name="ime_action_search">Search</string>
+    <string name="ime_action_send">Send</string>
+    <string name="ime_action_next">Next</string>
+    <string name="ime_action_done">Done</string>
+    <string name="ime_action_previous">Prev</string>
 </resources>
