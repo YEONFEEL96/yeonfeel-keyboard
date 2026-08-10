@@ -29,19 +29,19 @@ class SettingsActivity : Activity() {
 
         ui.card(
             ui.textRow(getString(R.string.settings_language_section)) {
-                startActivity(Intent(this, LanguageSettingsActivity::class.java))
+                openDetail(LanguageSettingsActivity::class.java)
             },
             ui.textRow(getString(R.string.settings_section_theme), currentThemeName()) {
-                startActivity(Intent(this, ThemeSettingsActivity::class.java))
+                openDetail(ThemeSettingsActivity::class.java)
             },
             ui.textRow(getString(R.string.symbol_menu)) {
-                startActivity(Intent(this, SymbolSettingsActivity::class.java))
+                openDetail(SymbolSettingsActivity::class.java)
             },
             ui.textRow(getString(R.string.gesture_feedback_menu)) {
-                startActivity(Intent(this, GestureFeedbackActivity::class.java))
+                openDetail(GestureFeedbackActivity::class.java)
             },
             ui.textRow(getString(R.string.settings_accessibility)) {
-                startActivity(Intent(this, AccessibilitySettingsActivity::class.java))
+                openDetail(AccessibilitySettingsActivity::class.java)
             },
         )
 
@@ -70,32 +70,48 @@ class SettingsActivity : Activity() {
                 }
                 ),
             ui.textRow(getString(R.string.settings_section_margins)) {
-                startActivity(Intent(this, MarginSettingsActivity::class.java))
+                openDetail(MarginSettingsActivity::class.java)
             },
         )
 
         ui.caption(getString(R.string.settings_section_input))
         ui.card(
             ui.textRow(getString(R.string.extra_input_menu)) {
-                startActivity(Intent(this, ExtraInputSettingsActivity::class.java))
+                openDetail(ExtraInputSettingsActivity::class.java)
             },
         )
 
         ui.caption(getString(R.string.settings_section_general))
         ui.card(
             ui.textRow(getString(R.string.reset_menu)) {
-                startActivity(Intent(this, ResetSettingsActivity::class.java))
+                openDetail(ResetSettingsActivity::class.java)
             },
             ui.textRow(getString(R.string.debug_menu)) {
-                startActivity(Intent(this, DebugSettingsActivity::class.java))
+                openDetail(DebugSettingsActivity::class.java)
             },
         )
 
         ui.linkButton(getString(R.string.licenses_menu)) {
-            startActivity(Intent(this, LicensesActivity::class.java))
+            openDetail(LicensesActivity::class.java)
         }
 
         ui.show()
+    }
+
+    /**
+     * 상위 메뉴 열기. 2단 구성에서 이미 오른쪽에 떠 있는 화면을 다시 누르면
+     * 리로드하지 않고 그 패널에 촉각 펄스만 준다 (삼성 설정과 동일한 느낌).
+     *
+     * 임베딩된 액티비티의 Configuration 은 전체 화면이 아니라 자기 패널 크기를
+     * 반영하므로 폭으로 분할 여부를 판정하면 안 된다. 대신 "그 상세가 지금 오른쪽에
+     * 떠 있는가"(버스의 현재 클래스)로 판정한다 — 떠 있으면 곧 분할 상태다.
+     */
+    private fun openDetail(cls: Class<out android.app.Activity>) {
+        if (DetailPulseBus.currentClass() == cls) {
+            DetailPulseBus.pulse()
+        } else {
+            startActivity(Intent(this, cls))
+        }
     }
 
     private fun currentThemeName(): String = buildString {

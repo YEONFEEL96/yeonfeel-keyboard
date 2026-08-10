@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  설정 화면 2단 구성 규칙 (Activity Embedding).
+  SettingsActivity(목록)를 왼쪽에, 여기서 연 하위 설정 화면을 오른쪽에 나란히
+  둔다. 화면이 600dp 미만이면 규칙이 적용되지 않아 기존처럼 전체화면으로
+  쌓인다(폰·폴드 커버). 세로에서도 분할하도록 aspect ratio 제한을 푼다.
+-->
+<resources xmlns:window="http://schemas.android.com/apk/res-auto">
+    <SplitPairRule
+        window:splitMinWidthDp="600"
+        window:splitMinSmallestWidthDp="600"
+        window:splitMaxAspectRatioInPortrait="alwaysAllow"
+        window:splitRatio="0.45"
+        window:finishPrimaryWithSecondary="never"
+        window:finishSecondaryWithPrimary="always"
+        window:clearTop="true">
+        <SplitPairFilter
+            window:primaryActivityName="dev.badalab.yeonfeel.settings.SettingsActivity"
+            window:secondaryActivityName="dev.badalab.yeonfeel.settings.*" />
+    </SplitPairRule>
+</resources>

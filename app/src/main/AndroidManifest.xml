@@ -5,12 +5,18 @@
 
     <!-- IME는 입력 이력을 다루므로 백업·기기 이전 반출 경로를 모두 차단한다 -->
     <application
+        android:name=".YeonfeelApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <!-- 폴드·태블릿 설정 2단 구성 활성화 -->
+        <property
+            android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED"
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"

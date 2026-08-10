@@ -59,5 +59,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     // ExploreByTouchHelper — 커스텀 그린 키 그리드에 TalkBack 접근성 노드를 제공한다.
     implementation("androidx.customview:customview:1.1.0")
+    // Activity Embedding — 폴드·태블릿에서 설정을 2단(목록/상세)으로 나란히 표시한다.
+    implementation("androidx.window:window:1.3.0")
     testImplementation("junit:junit:4.13.2")
 }
