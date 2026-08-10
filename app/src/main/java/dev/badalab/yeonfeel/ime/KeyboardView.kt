@@ -405,17 +405,44 @@ class KeyboardView(
     var keyPreviewEnabled: Boolean = true
 
 
+    private val vibrator: android.os.Vibrator? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(android.os.Vibrator::class.java)
+        }
+
     /**
-     * 시스템 키보드 탭 햅틱을 재생한다 — 진폭은 앱이 정하지 않고 제조사 튜닝과
-     * 시스템 설정(터치 피드백)을 그대로 따른다. FLAG_IGNORE_VIEW_SETTING 으로
-     * 뷰 단위 설정과 무관하게 우리 토글(hapticEnabled)만으로 켜고 끈다.
+     * 키 입력 햅틱. performHapticFeedback(KEYBOARD_TAP)은 OEM이 상수를 약하게
+     * 매핑하면(예: Vivo FuntouchOS) 무음이 되므로, 시스템 정의 클릭 이펙트
+     * EFFECT_CLICK 을 직접 재생한다 — 제조사 튜닝(LRA)을 그대로 쓰되 기기 무관하게
+     * 또렷하다. 켜고 끄기는 우리 토글(hapticEnabled)이 담당한다.
      */
     private fun performKeyHaptic() {
         if (!hapticEnabled) return
-        performHapticFeedback(
-            android.view.HapticFeedbackConstants.KEYBOARD_TAP,
-            android.view.HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
-        )
+        val vib = vibrator ?: return
+        runCatching {
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                    vib.vibrate(
+                        android.os.VibrationEffect.createPredefined(
+                            android.os.VibrationEffect.EFFECT_CLICK,
+                        ),
+                    )
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
+                    vib.vibrate(
+                        android.os.VibrationEffect.createOneShot(
+                            12L,
+                            android.os.VibrationEffect.DEFAULT_AMPLITUDE,
+                        ),
+                    )
+                else -> {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(12L)
+                }
+            }
+        }
     }
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
