@@ -99,6 +99,11 @@ class MarginAdjustOverlay(
     private var resetRect = RectF()
     private var doneRect = RectF()
 
+    private fun maxSideDp(): Int = minOf(
+        KeyboardSettings.MARGIN_SIDE_MAX,
+        resources.configuration.screenWidthDp / 4,
+    )
+
     private fun dp(v: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics)
 
@@ -152,11 +157,13 @@ class MarginAdjustOverlay(
             drawHandle(canvas, point.first, point.second, horizontal)
         }
 
-        // 중앙의 초기화/완료 버튼
-        val pillW = dp(84f)
-        val pillH = dp(40f)
+        // 중앙의 초기화/완료 버튼. 분할 우측 블록·큰 여백처럼 영역이 좁으면 버튼도
+        // 줄여 영역 밖으로 넘치지 않게 하고, 좌우 핸들과 같은 높이에서 겹치지 않도록
+        // 살짝 아래에 둔다 (핸들 히트 반경 36dp 회피).
         val gap = dp(8f)
-        val cy = area.centerY()
+        val pillW = minOf(dp(84f), (area.width() - gap * 3) / 2)
+        val pillH = dp(40f)
+        val cy = (area.centerY() + dp(40f)).coerceAtMost(area.bottom - pillH / 2 - dp(8f))
         resetRect = RectF(area.centerX() - pillW - gap / 2, cy - pillH / 2, area.centerX() - gap / 2, cy + pillH / 2)
         doneRect = RectF(area.centerX() + gap / 2, cy - pillH / 2, area.centerX() + pillW + gap / 2, cy + pillH / 2)
 
@@ -257,8 +264,10 @@ class MarginAdjustOverlay(
                         bottomDp = startBottom + d
                         heightDp = startHeight - d
                     }
-                    Handle.LEFT -> sideDp = (startSide + dxDp).coerceIn(0, KeyboardSettings.MARGIN_SIDE_MAX)
-                    Handle.RIGHT -> sideDp = (startSide - dxDp).coerceIn(0, KeyboardSettings.MARGIN_SIDE_MAX)
+                    // 절대 상한(120dp)이 좁은 화면에서는 키 영역을 다 잡아먹으므로
+                    // 화면 폭의 1/4로도 함께 제한한다.
+                    Handle.LEFT -> sideDp = (startSide + dxDp).coerceIn(0, maxSideDp())
+                    Handle.RIGHT -> sideDp = (startSide - dxDp).coerceIn(0, maxSideDp())
                 }
                 listener.onMarginsChanged(topDp, bottomDp, sideDp, heightDp)
                 requestLayout()

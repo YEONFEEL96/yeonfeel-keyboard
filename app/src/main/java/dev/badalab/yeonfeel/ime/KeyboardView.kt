@@ -283,6 +283,7 @@ class KeyboardView(
         val location = IntArray(2)
         getLocationInWindow(location)
         val x = (bound.rect.centerX() - popupWidth / 2f).toInt()
+            .coerceIn(dp(2f).toInt(), maxOf(dp(2f).toInt(), width - popupWidth - dp(2f).toInt()))
         val y = (bound.rect.top - popupHeight - dp(8f)).toInt()
         val window = android.widget.PopupWindow(LangPopupContent(), popupWidth, popupHeight).apply {
             isClippingEnabled = false
@@ -895,7 +896,8 @@ class KeyboardView(
     private fun drawKeyPreview(canvas: Canvas, key: Key, rect: RectF) {
         val previewWidth = rect.width() * 1.45f
         val previewHeight = rect.height() * 1.6f
-        val cx = rect.centerX().coerceIn(previewWidth / 2 + dp(2f), width - previewWidth / 2 - dp(2f))
+        val cxLo = previewWidth / 2 + dp(2f)
+        val cx = rect.centerX().coerceIn(cxLo, maxOf(cxLo, width - previewWidth / 2 - dp(2f)))
         var top = rect.top - dp(4f) - previewHeight
         if (top < dp(2f)) top = dp(2f)
         val popup = RectF(cx - previewWidth / 2, top, cx + previewWidth / 2, top + previewHeight)
@@ -1338,9 +1340,16 @@ class KeyboardView(
         val anchor = pending.rect
         // 단일 문자 후보는 키가 큰 3x4 자판에서도 작은 고정 셀(6열)로 촘촘히 배치한다.
         val compact = options.all { it.length == 1 }
-        val columns = minOf(if (compact) 6 else 4, options.size)
+        val pad0 = dp(6f)
+        // 한 손 모드·큰 여백으로 뷰가 좁으면 열 수·셀 폭을 줄여 패널이 화면을 넘지 않게 한다.
+        val fitCols = ((width - pad0 * 2) / dp(40f)).toInt().coerceAtLeast(1)
+        val columns = minOf(if (compact) 6 else 4, options.size, if (compact) fitCols else 4)
         val rows = (options.size + columns - 1) / columns
-        val cellWidth = if (compact) dp(40f) else maxOf(anchor.width(), dp(44f))
+        val cellWidth = if (compact) {
+            minOf(dp(40f), (width - pad0 * 2) / columns)
+        } else {
+            maxOf(anchor.width(), dp(44f)).coerceAtMost((width - pad0 * 2) / columns)
+        }
         val cellHeight = if (compact) dp(42f) else maxOf(anchor.height(), dp(44f))
         val pad = dp(6f)
         val panelWidth = pad * 2 + columns * cellWidth

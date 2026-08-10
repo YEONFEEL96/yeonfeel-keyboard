@@ -182,7 +182,9 @@ class KeyboardContainerView(
             TextView(context).apply {
                 text = label
                 gravity = Gravity.CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                // 시스템 폰트 확대에도 36dp 행 안에서 한 줄을 유지하도록 dp 단위로 고정한다.
+                setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
+                maxLines = 1
                 setOnClickListener { onClick() }
                 addIconPressEffect(this)
                 terminalRow.addView(this, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
@@ -370,7 +372,7 @@ class KeyboardContainerView(
         orderCsv.split(',').map { it.trim() }.forEach { id ->
             toolbarButtons[id]?.let { toolbar.addView(it) }
         }
-        toolbar.addView(View(context), LayoutParams(0, 0, 1f))
+        // 아이콘·편집 버튼 모두 가중치 셀이라 균등 분배된다 (스페이서 불필요).
         toolbar.addView(editButton)
     }
 
@@ -499,6 +501,9 @@ class KeyboardContainerView(
         }
         val leftExtra = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.RIGHT) oneHandDp else 0
         val rightExtra = if (oneHandedMode == dev.badalab.yeonfeel.settings.OneHandedMode.LEFT) oneHandDp else 0
+        // 저장된 좌우 여백이 화면 폭 대비 과도하면(기기 변경·화면 확대) 1/4로 제한한다.
+        @Suppress("NAME_SHADOWING")
+        val sideDp = minOf(sideDp, config.screenWidthDp / 4)
         // 하단에는 시스템 내비게이션 바 인셋을 더해 제스처 영역과 겹치지 않게 한다.
         keyboardWrapper.setPadding(
             dp(sideDp + leftExtra),
@@ -686,6 +691,7 @@ class KeyboardContainerView(
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                 gravity = Gravity.CENTER
                 maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(dp(2), dp(6), dp(2), 0)
             })
             // 고정 높이로 모든 셀을 동일하게 맞춘다 (라벨은 한 줄 제한).
@@ -707,7 +713,14 @@ class KeyboardContainerView(
                 },
             )
         }
-        panel.addView(grid)
+        // 가로 모드 등 낮은 키보드 높이에서 둘째 줄이 잘리지 않도록 스크롤로 감싼다.
+        panel.addView(
+            android.widget.ScrollView(context).apply {
+                isVerticalScrollBarEnabled = false
+                addView(grid)
+            },
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+        )
         return panel
     }
 
@@ -793,6 +806,8 @@ class KeyboardContainerView(
             setTypeface(null, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(6), 0, 0, 0)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         })
         header.addView(
@@ -844,6 +859,8 @@ class KeyboardContainerView(
             setTypeface(null, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(6), 0, 0, 0)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         })
         header.addView(
@@ -886,7 +903,7 @@ class KeyboardContainerView(
                             gravity = Gravity.CENTER
                             maxLines = 1
                             setTextColor(theme.text)
-                            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp)
+                            setTextSize(TypedValue.COMPLEX_UNIT_DIP, textSp)
                             setOnClickListener { callbacks.onEmoji(shown) }
                             if (EmojiData.supportsSkinTone(emoji)) {
                                 setOnLongClickListener {
@@ -1002,13 +1019,15 @@ class KeyboardContainerView(
             }
             setPadding(dp(6), dp(4), dp(6), dp(4))
         }
+        // 화면이 252dp보다 좁으면(작은 기기·확대) 셀 폭을 줄여 팝업이 화면 안에 들어오게 한다.
+        val cellW = minOf(dp(40), (width - dp(20)) / 6)
         (0..5).forEach { tone ->
             val toned = EmojiData.applySkinTone(baseEmoji, tone)
             row.addView(
                 TextView(context).apply {
                     text = toned
                     gravity = Gravity.CENTER
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24f)
                     setOnClickListener {
                         callbacks.onEmoji(toned)
                         if (skinTone != tone) {
@@ -1020,10 +1039,10 @@ class KeyboardContainerView(
                         skinTonePopup = null
                     }
                 },
-                LayoutParams(dp(40), dp(46)),
+                LayoutParams(cellW, dp(46)),
             )
         }
-        val popupWidth = dp(6 * 40 + 12)
+        val popupWidth = cellW * 6 + dp(12)
         val popup = android.widget.PopupWindow(row, popupWidth, dp(54), false).apply {
             isOutsideTouchable = true
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0x00000000))
@@ -1104,7 +1123,7 @@ class KeyboardContainerView(
                 TextView(context).apply {
                     this.text = shown
                     gravity = Gravity.CENTER
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24f)
                     setOnClickListener { callbacks.onEmoji(shown) }
                 },
                 LayoutParams(dp(46), LayoutParams.MATCH_PARENT),
@@ -1169,7 +1188,8 @@ class KeyboardContainerView(
     private fun headerImage(drawableRes: Int, description: String, onClick: () -> Unit) =
         toolbarIcon(drawableRes, description, onClick).apply {
             imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
-            (layoutParams as MarginLayoutParams).apply {
+            // 헤더는 제목이 가중치를 가져가야 하므로 아이콘은 고정 크기로 되돌린다.
+            layoutParams = LayoutParams(dp(44), dp(36)).apply {
                 marginStart = dp(4)
                 marginEnd = dp(4)
             }
@@ -1233,7 +1253,7 @@ class KeyboardContainerView(
             onClick: () -> Unit,
         ) = toolbarIcon(drawableRes, description, onClick).apply {
             imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
-            (layoutParams as MarginLayoutParams).apply {
+            layoutParams = LayoutParams(dp(44), dp(36)).apply {
                 marginStart = dp(4)
                 marginEnd = dp(4)
             }
@@ -1257,6 +1277,8 @@ class KeyboardContainerView(
             setTypeface(null, Typeface.BOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             setPadding(dp(6), 0, 0, 0)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         })
         when (clipboardMode) {
@@ -1428,13 +1450,12 @@ class KeyboardContainerView(
         setImageResource(drawableRes)
         contentDescription = description
         scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-        setPadding(dp(8), dp(6), dp(8), dp(6))
+        setPadding(dp(10), dp(6), dp(10), dp(6))
         setOnClickListener { onClick() }
         addIconPressEffect(this)
-        layoutParams = LayoutParams(dp(40), dp(36)).apply {
-            marginStart = dp(10)
-            marginEnd = dp(10)
-        }
+        // 고정 폭이면 아이콘 수·화면 폭(예: S24 Ultra ~384dp)에 따라 툴바가 넘쳐
+        // 오른쪽 버튼이 잘린다. 가중치로 균등 분배해 항상 폭 안에 들어오게 한다.
+        layoutParams = LayoutParams(0, dp(36), 1f)
     }
 
     /** 아이콘 버튼용 누름 효과: 아이콘 크기에 맞는 작은 원형 하이라이트가 즉시 나타난다. */
