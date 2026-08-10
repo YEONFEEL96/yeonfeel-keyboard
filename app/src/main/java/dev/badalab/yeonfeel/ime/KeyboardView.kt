@@ -12,9 +12,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -388,7 +385,6 @@ class KeyboardView(
         }
 
     var hapticEnabled: Boolean = true
-    var hapticStrength: Int = 50
 
     var soundEnabled: Boolean = false
 
@@ -409,27 +405,17 @@ class KeyboardView(
     var keyPreviewEnabled: Boolean = true
 
 
-    private val vibrator: Vibrator? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getSystemService(VibratorManager::class.java)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Vibrator::class.java)
-        }
-
-    /** 강도 조절이 되는 기기에선 진폭으로, 아니면 짧은 진동으로 피드백한다. */
+    /**
+     * 시스템 키보드 탭 햅틱을 재생한다 — 진폭은 앱이 정하지 않고 제조사 튜닝과
+     * 시스템 설정(터치 피드백)을 그대로 따른다. FLAG_IGNORE_VIEW_SETTING 으로
+     * 뷰 단위 설정과 무관하게 우리 토글(hapticEnabled)만으로 켜고 끈다.
+     */
     private fun performKeyHaptic() {
-        if (!hapticEnabled || hapticStrength <= 0) return
-        val vib = vibrator ?: return
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val amplitude = (1 + hapticStrength * 2.54).toInt().coerceIn(1, 255)
-                vib.vibrate(VibrationEffect.createOneShot(HAPTIC_DURATION_MS, amplitude))
-            } else {
-                @Suppress("DEPRECATION")
-                vib.vibrate(HAPTIC_DURATION_MS)
-            }
-        }
+        if (!hapticEnabled) return
+        performHapticFeedback(
+            android.view.HapticFeedbackConstants.KEYBOARD_TAP,
+            android.view.HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
+        )
     }
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -1547,7 +1533,6 @@ class KeyboardView(
         private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
         private const val SPLIT_SIDE_MARGIN_RATIO = 0.03f
         private const val ACCENT = 0xFF3D8BFF.toInt()
-        private const val HAPTIC_DURATION_MS = 12L
         private const val KEY_SOUND_VOLUME = 0.5f
         private const val LANG_POPUP_DELAY_MS = 300L
         private const val SPACE_SWIPE_THRESHOLD_DP = 30f

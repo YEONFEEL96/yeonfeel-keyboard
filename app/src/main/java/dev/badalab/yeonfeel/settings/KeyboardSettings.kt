@@ -217,9 +217,6 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getBoolean(KEY_HAPTIC_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_HAPTIC_ENABLED, value).apply()
 
-    var hapticStrength: Int
-        get() = prefs.getInt(KEY_HAPTIC_STRENGTH, 50)
-        set(value) = prefs.edit().putInt(KEY_HAPTIC_STRENGTH, value.coerceIn(0, 100)).apply()
 
     /** Shift 상태에서 숫자 열을 PC 자판 기호(!@#$…)로 바꿀지. */
     var shiftNumberRowSymbols: Boolean
@@ -409,7 +406,6 @@ class KeyboardSettings(context: Context) {
         private const val KEY_BACKSPACE_SPEED = "backspace_speed"
         private const val KEY_SOUND_ENABLED = "sound_enabled"
         private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
-        private const val KEY_HAPTIC_STRENGTH = "haptic_strength"
         private const val KEY_MARGIN_TOP = "margin_top_dp"
         private const val KEY_MARGIN_BOTTOM = "margin_bottom_dp"
         private const val KEY_MARGIN_SIDE = "margin_side_dp"

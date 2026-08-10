@@ -113,7 +113,6 @@
     <string name="feedback_sound">Sound</string>
     <string name="feedback_vibration">Vibration</string>
     <string name="feedback_key_preview">Show key press preview</string>
-    <string name="feedback_haptic_strength">Haptic strength</string>
     <string name="gesture_backspace_speed">Backspace speed</string>
     <string name="speed_slow">Slow</string>
     <string name="speed_normal">Normal</string>

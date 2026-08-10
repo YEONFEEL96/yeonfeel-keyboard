@@ -271,7 +271,6 @@ class KeyboardContainerView(
         KeyboardLayouts.lastSymbol3x4 = settings.rememberedSymbol.first()
         keyboardView.soundEnabled = settings.soundEnabled
         keyboardView.hapticEnabled = settings.hapticEnabled
-        keyboardView.hapticStrength = settings.hapticStrength
         KeyboardLayouts.favoriteSymbol = settings.favoriteSymbol.first()
         KeyboardLayouts.favoriteSymbolEnabled = settings.favoriteSymbolEnabled
         KeyboardLayouts.leftSymbolEnabled = settings.leftSymbolEnabled
