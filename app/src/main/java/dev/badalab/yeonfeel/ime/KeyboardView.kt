@@ -834,18 +834,6 @@ class KeyboardView(
             }
             drawKeyContent(canvas, key, rect)
         }
-        if (keyPreviewEnabled && variantPopup == null && !is3x4Board()) {
-            for (pressed in pressedByPointer.values) {
-                if (pressed.type != KeyType.CHAR && pressed.type != KeyType.GHOST) continue
-                // 고스트(투명 보정 영역)는 실제 키 위치에서 미리보기를 띄운다.
-                val bound = if (pressed.type == KeyType.GHOST) {
-                    keyBounds.firstOrNull { it.key.type == KeyType.CHAR && it.key.char == pressed.char }
-                } else {
-                    keyBounds.firstOrNull { it.key == pressed }
-                } ?: continue
-                drawKeyPreview(canvas, bound.key, bound.rect)
-            }
-        }
     }
 
     private val clipboardShortcutIcon by lazy(LazyThreadSafetyMode.NONE) {
@@ -892,20 +880,64 @@ class KeyboardView(
         }
     }
 
-    /** 누른 키 위에 확대 키캡을 그린다 (뷰 안쪽으로 클램프). */
-    private fun drawKeyPreview(canvas: Canvas, key: Key, rect: RectF) {
-        val previewWidth = rect.width() * 1.45f
-        val previewHeight = rect.height() * 1.6f
-        val cxLo = previewWidth / 2 + dp(2f)
-        val cx = rect.centerX().coerceIn(cxLo, maxOf(cxLo, width - previewWidth / 2 - dp(2f)))
-        var top = rect.top - dp(4f) - previewHeight
-        if (top < dp(2f)) top = dp(2f)
-        val popup = RectF(cx - previewWidth / 2, top, cx + previewWidth / 2, top + previewHeight)
-        val radius = dp(12f)
-        canvas.drawRoundRect(popup, radius, radius, previewBgPaint)
-        canvas.drawRoundRect(popup, radius, radius, previewBorderPaint)
-        val y = popup.centerY() - (previewTextPaint.ascent() + previewTextPaint.descent()) / 2
-        canvas.drawText(key.label, popup.centerX(), y, previewTextPaint)
+    /**
+     * 누른 키 위의 확대 키캡. 캔버스는 IME 창 안에만 그릴 수 있어 맨 윗열에서
+     * 손가락 아래로 밀렸으므로, 창 밖(앱 영역)까지 올라가는 PopupWindow 로 띄운다.
+     * 포인터별로 하나씩 — 멀티터치 동시 미리보기를 유지한다.
+     */
+    private val keyPreviewPopups = HashMap<Int, android.widget.PopupWindow>()
+
+    private fun showKeyPreview(pointerId: Int, pressed: Key) {
+        if (!keyPreviewEnabled || is3x4Board() || variantPopup != null) return
+        if (pressed.type != KeyType.CHAR && pressed.type != KeyType.GHOST) return
+        // 고스트(투명 보정 영역)는 실제 키 위치에서 미리보기를 띄운다.
+        val bound = if (pressed.type == KeyType.GHOST) {
+            keyBounds.firstOrNull { it.key.type == KeyType.CHAR && it.key.char == pressed.char }
+        } else {
+            keyBounds.firstOrNull { it.key == pressed }
+        } ?: return
+        dismissKeyPreview(pointerId)
+        val previewWidth = (bound.rect.width() * 1.45f).toInt()
+        val previewHeight = (bound.rect.height() * 1.6f).toInt()
+        val window = android.widget.PopupWindow(
+            KeyPreviewContent(bound.key.label),
+            previewWidth,
+            previewHeight,
+        ).apply {
+            isClippingEnabled = false
+            isTouchable = false
+            isFocusable = false
+        }
+        val location = IntArray(2)
+        getLocationInWindow(location)
+        window.showAtLocation(
+            this,
+            Gravity.NO_GRAVITY,
+            (location[0] + bound.rect.centerX() - previewWidth / 2f).toInt(),
+            (location[1] + bound.rect.top - dp(4f) - previewHeight).toInt(),
+        )
+        keyPreviewPopups[pointerId] = window
+    }
+
+    private fun dismissKeyPreview(pointerId: Int) {
+        keyPreviewPopups.remove(pointerId)?.dismiss()
+    }
+
+    private fun dismissAllKeyPreviews() {
+        keyPreviewPopups.values.forEach { it.dismiss() }
+        keyPreviewPopups.clear()
+    }
+
+    private inner class KeyPreviewContent(private val label: String) : View(context) {
+        override fun onDraw(canvas: Canvas) {
+            val inset = previewBorderPaint.strokeWidth / 2f + 0.5f
+            val r = RectF(0f, 0f, width.toFloat(), height.toFloat()).apply { inset(inset, inset) }
+            val radius = dp(12f)
+            canvas.drawRoundRect(r, radius, radius, previewBgPaint)
+            canvas.drawRoundRect(r, radius, radius, previewBorderPaint)
+            val y = r.centerY() - (previewTextPaint.ascent() + previewTextPaint.descent()) / 2
+            canvas.drawText(label, r.centerX(), y, previewTextPaint)
+        }
     }
 
     private fun drawKeyContent(canvas: Canvas, key: Key, rect: RectF) {
@@ -1069,6 +1101,7 @@ class KeyboardView(
                 }
                 pressedByPointer[pointerId] = key
                 downXByPointer[pointerId] = x
+                showKeyPreview(pointerId, key)
                 performKeyHaptic()
                 performKeySound(key)
                 when {
@@ -1161,6 +1194,7 @@ class KeyboardView(
                 val pointerId = event.getPointerId(event.actionIndex)
                 val key = pressedByPointer.remove(pointerId)
                 downXByPointer.remove(pointerId)
+                dismissKeyPreview(pointerId)
                 pendingVariant?.let { pending ->
                     if (pending.pointerId == pointerId) {
                         val popup = variantPopup
@@ -1295,6 +1329,7 @@ class KeyboardView(
     }
 
     private fun clearTouchState() {
+        dismissAllKeyPreviews()
         pressedByPointer.clear()
         downXByPointer.clear()
         spacePointerId = -1
@@ -1322,6 +1357,7 @@ class KeyboardView(
 
     private fun showVariantPopup() {
         if (variantPopupWindow != null) return // 다른 손가락으로 이미 변형 팝업이 떠 있으면 무시
+        dismissAllKeyPreviews() // 미리보기 위에 변형 팝업이 겹치지 않게 정리
         val pending = pendingVariant ?: return
         val variants = (KEY_VARIANTS[pending.key.char] ?: "") +
             (landscapeTopDigit(pending.key)?.toString() ?: "")

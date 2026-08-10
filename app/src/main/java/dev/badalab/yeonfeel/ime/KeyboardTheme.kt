@@ -12,7 +12,7 @@ data class KeyboardTheme(
 ) {
     companion object {
         val DARK = KeyboardTheme(
-            background = 0xFF202329.toInt(),
+            background = 0xFF24272E.toInt(),
             key = 0xFF3A3D45.toInt(),
             specialKey = 0xFF2B2E36.toInt(),
             pressed = 0xFF5A5E6A.toInt(),
@@ -21,7 +21,7 @@ data class KeyboardTheme(
         )
 
         val LIGHT = KeyboardTheme(
-            background = 0xFFE8EAED.toInt(),
+            background = 0xFFEDEFF2.toInt(),
             key = 0xFFFFFFFF.toInt(),
             specialKey = 0xFFC9CDD4.toInt(),
             pressed = 0xFFA9AFBA.toInt(),

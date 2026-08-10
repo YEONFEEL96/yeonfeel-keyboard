@@ -1461,13 +1461,31 @@ class KeyboardContainerView(
     /** 아이콘 버튼용 누름 효과: 아이콘 크기에 맞는 작은 원형 하이라이트가 즉시 나타난다. */
     @SuppressLint("ClickableViewAccessibility")
     private fun addIconPressEffect(view: View) {
-        val overlay = android.graphics.drawable.InsetDrawable(
-            android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(0x22000000)
-            },
-            dp(1),
-        )
+        // 셀이 가로로 넓어도(가중치 분배 툴바) 타원으로 늘어나지 않도록,
+        // 짧은 변 기준의 정원을 뷰 중앙에 그린다.
+        val overlay = object : android.graphics.drawable.Drawable() {
+            private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            private var alphaValue = 255
+
+            override fun draw(canvas: android.graphics.Canvas) {
+                val b = bounds
+                val radius = minOf(b.width(), b.height()) / 2f - dp(1)
+                if (radius <= 0f) return
+                paint.color = 0x000000
+                paint.alpha = 0x22 * alphaValue / 255
+                canvas.drawCircle(b.exactCenterX(), b.exactCenterY(), radius, paint)
+            }
+
+            override fun setAlpha(alpha: Int) {
+                alphaValue = alpha
+                invalidateSelf()
+            }
+
+            override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) = Unit
+
+            @Deprecated("Deprecated in Java")
+            override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+        }
         var fadeOut: android.animation.ValueAnimator? = null
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
