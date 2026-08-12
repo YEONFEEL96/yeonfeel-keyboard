@@ -113,8 +113,13 @@ class SettingsActivity : Activity() {
         if (DetailPulseBus.currentClass() == cls) {
             DetailPulseBus.pulse()
         } else {
-            startActivity(Intent(this, cls))
+            // 목록에서 바로 연 1차 메뉴 표시 — 2단 우측 패널에선 뒤로 화살표를 숨긴다.
+            startActivity(Intent(this, cls).putExtra(EXTRA_FROM_MASTER, true))
         }
+    }
+
+    companion object {
+        const val EXTRA_FROM_MASTER = "from_master"
     }
 
     private fun currentThemeName(): String = buildString {

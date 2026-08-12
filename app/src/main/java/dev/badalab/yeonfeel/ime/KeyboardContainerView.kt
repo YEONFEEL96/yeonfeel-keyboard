@@ -320,7 +320,6 @@ class KeyboardContainerView(
                 addIconPressEffect(this)
             }
 
-        // 전환 화살표는 세로 중앙, 해제 버튼은 하단 모서리로 떨어뜨린다.
         val column = LinearLayout(context).apply {
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -638,7 +637,6 @@ class KeyboardContainerView(
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setPadding(dp(4), 0, 0, dp(12))
         })
-        // 4열 그리드를 유지하며 줄바꿈하고, 위에서부터 채운다.
         val grid = LinearLayout(context).apply { orientation = VERTICAL }
         var gridRow = LinearLayout(context).apply { orientation = HORIZONTAL }
         grid.addView(gridRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))

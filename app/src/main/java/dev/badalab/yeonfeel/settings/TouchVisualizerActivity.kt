@@ -137,7 +137,6 @@ class TouchVisualizerActivity : Activity() {
                 top += rowHeight
             }
 
-            // 타점
             val radius = 2.5f * resources.displayMetrics.density
             samples.forEach { sample ->
                 canvas.drawCircle(sample.ax * width, sample.ay * height, radius, dotPaint)

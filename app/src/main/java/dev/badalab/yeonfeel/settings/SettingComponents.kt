@@ -107,7 +107,7 @@ class SettingComponents(private val activity: Activity) {
 
     /**
      * 화면을 표시한다. 재구성 시에는 기존 스크롤 루트를 유지한 채 내용만 바꿔
-     * 헤더 위치·스크롤 상태가 보존되고, 새 내용이 위에서 펼쳐지듯 나타난다.
+     * 헤더 위치·스크롤 상태를 보존한다.
      */
     fun show(custom: View? = null) {
         if (custom != null) {
@@ -124,16 +124,24 @@ class SettingComponents(private val activity: Activity) {
         existing.setBackgroundColor(BG)
         existing.removeAllViews()
         existing.addView(column)
-        column.alpha = 0f
-        column.translationY = dp(-8).toFloat()
-        column.animate().alpha(1f).translationY(0f).setDuration(160)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .start()
+    }
+
+    /**
+     * 뒤로 화살표 표시 여부 기본값. 2단 우측 패널의 1차 메뉴(목록에서 바로 연 화면)는
+     * 왼쪽 목록이 곧 내비게이션이라 화살표를 숨긴다. 그 아래 뎁스나 폰(전체화면)은 표시.
+     */
+    private fun defaultShowBack(): Boolean {
+        val embedded = runCatching {
+            androidx.window.embedding.ActivityEmbeddingController.getInstance(activity)
+                .isActivityEmbedded(activity)
+        }.getOrDefault(false)
+        val fromMaster = activity.intent?.getBooleanExtra(SettingsActivity.EXTRA_FROM_MASTER, false) == true
+        return !(embedded && fromMaster)
     }
 
     fun header(
         title: String,
-        showBack: Boolean = true,
+        showBack: Boolean = defaultShowBack(),
         actionIcon: Int? = null,
         onAction: (() -> Unit)? = null,
     ) {

@@ -230,7 +230,6 @@ class YeonfeelImeService : InputMethodService() {
         noLearnField =
             (info?.imeOptions ?: 0) and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
         noAutoTextHelp = isNoAutoHelpField(fieldInputType)
-        // 필드가 요구하는 엔터 동작 라벨(다음/검색/완료 등)을 엔터 키에 표시한다.
         container?.keyboardView?.enterActionLabel = enterActionLabel(info)
         composer.reset()
         composer = when (settings.koreanLayout) {

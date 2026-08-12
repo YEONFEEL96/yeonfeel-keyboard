@@ -28,8 +28,9 @@ class ThemeSettingsActivity : Activity() {
         )
         ui.bindRadioGroup(radios) { selected ->
             settings.themeMode = selected
-            // 설정 화면 자체도 새 테마 팔레트로 다시 그린다.
-            buildUi()
+            // 2단 구성에서 양쪽 패널이 모두 새 팔레트로 다시 그려지도록 재생성한다
+            // (혼자 뜬 화면이면 이 화면만 재생성, 왼쪽 목록은 복귀 시 onResume 로 반영).
+            ThemeChangeBus.recreateAll()
         }
         ui.card(*radios.values.toTypedArray())
 

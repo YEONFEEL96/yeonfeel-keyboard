@@ -40,7 +40,6 @@ class ClipboardHistory(
         return items.sortedByDescending { it.pinned }
     }
 
-    /** 상단 고정 상태를 바꾼다. */
     @Synchronized
     fun setPinned(text: String, pinned: Boolean) {
         val index = items.indexOfFirst { it.text == text }

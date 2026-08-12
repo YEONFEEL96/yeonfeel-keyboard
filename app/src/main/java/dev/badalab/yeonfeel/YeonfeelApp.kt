@@ -8,6 +8,7 @@ import android.view.animation.OvershootInterpolator
 import androidx.window.embedding.RuleController
 import dev.badalab.yeonfeel.settings.DetailPulseBus
 import dev.badalab.yeonfeel.settings.SettingsActivity
+import dev.badalab.yeonfeel.settings.ThemeChangeBus
 
 /** 앱 시작 시 설정 2단 구성 규칙을 등록하고, 상세 화면의 재탭 펄스를 배선한다. */
 class YeonfeelApp : Application() {
@@ -29,6 +30,8 @@ class YeonfeelApp : Application() {
     private fun registerDetailPulseTracking() {
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) {
+                // 테마 변경 시 재생성 대상 — 두 패널(목록·상세) 모두 포함해야 한다.
+                if (activity !is MainActivity) ThemeChangeBus.register(activity)
                 if (activity is SettingsActivity || activity is MainActivity) return
                 DetailPulseBus.register(activity, activity.javaClass) {
                     pulse(activity.findViewById(android.R.id.content))
@@ -36,6 +39,7 @@ class YeonfeelApp : Application() {
             }
 
             override fun onActivityStopped(activity: Activity) {
+                ThemeChangeBus.unregister(activity)
                 DetailPulseBus.unregister(activity)
             }
 
