@@ -407,12 +407,17 @@ class YeonfeelImeService : InputMethodService() {
     private fun captureClip() {
         val clip = clipboardManager.primaryClip ?: return
         if (clip.itemCount == 0) return
-        val sensitiveKey = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ClipDescription.EXTRA_IS_SENSITIVE
+        // ClipDescription.getExtras()·EXTRA_IS_SENSITIVE 는 API 24+ 라 그 미만에선 건너뛴다.
+        val isSensitive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val sensitiveKey = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ClipDescription.EXTRA_IS_SENSITIVE
+            } else {
+                "android.content.extra.IS_SENSITIVE"
+            }
+            clip.description.extras?.getBoolean(sensitiveKey, false) ?: false
         } else {
-            "android.content.extra.IS_SENSITIVE"
+            false
         }
-        val isSensitive = clip.description.extras?.getBoolean(sensitiveKey, false) ?: false
         val text = clip.getItemAt(0).coerceToText(this)?.toString() ?: return
         if (clipboardHistory.add(text, isSensitive, System.currentTimeMillis())) {
             persistClipboard()
