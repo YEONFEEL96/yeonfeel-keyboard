@@ -47,7 +47,11 @@ class KeyboardContainerView(
         fun onClipboardPin(texts: List<String>, pinned: Boolean)
     }
 
-    val keyboardView = KeyboardView(context) { callbacks.onKey(it) }.apply {
+    val keyboardView = KeyboardView(context) {
+        // 타이핑을 시작하면 복사 알림 바는 접고 툴바로 돌아온다.
+        if (copiedBar != null) hideCopiedText()
+        callbacks.onKey(it)
+    }.apply {
         onLanguageSwipe = { callbacks.onLanguageSwipe() }
         onVariantPicked = { callbacks.onRememberSymbol(it) }
         onShortcutSelected = { shortcut ->
@@ -62,6 +66,7 @@ class KeyboardContainerView(
     private val toolbar = LinearLayout(context)
     private val keyboardWrapper = FrameLayout(context)
     private val contentFrame = FrameLayout(context)
+    private var copiedBar: View? = null
     private var clipboardPanel: View? = null
     private var emojiPanel: View? = null
     private var kaomojiPanel: View? = null
@@ -442,6 +447,8 @@ class KeyboardContainerView(
         kaomojiPanel = null
         clipboardHeader?.let { removeView(it) }
         clipboardHeader = null
+        copiedBar?.let { removeView(it) }
+        copiedBar = null
         toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
         terminalRow.visibility = if (terminalRowEnabled) VISIBLE else GONE
         // 도구 줄이 켜져 있으면 툴바와 사이를 붙인다 (여백은 도구 줄 아래로).
@@ -1204,7 +1211,74 @@ class KeyboardContainerView(
         return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
     }
 
+    /**
+     * 복사가 감지되면 툴바 자리에 복사한 텍스트를 보여준다. 텍스트를 누르면 붙여넣고,
+     * 오른쪽 X 로 툴바로 돌아온다. 패널이 열려 있거나 툴바가 꺼져 있으면 표시하지 않는다.
+     */
+    fun showCopiedText(text: String) {
+        if (!toolbarEnabled) return
+        if (clipboardPanel != null || emojiPanel != null || kaomojiPanel != null ||
+            clipboardHeader != null || toolbarEditPanel != null || adjustOverlay != null
+        ) {
+            return
+        }
+        hideCopiedText()
+        val bar = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(theme.specialKey)
+            setPadding(dp(12), 0, dp(4), 0)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply {
+                bottomMargin = if (terminalRowEnabled) 0 else dp(6)
+            }
+        }
+        bar.addView(
+            android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_toolbar_clipboard)
+                imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10) }
+            },
+        )
+        bar.addView(
+            TextView(context).apply {
+                this.text = text
+                setTextColor(theme.text)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+                setOnClickListener {
+                    callbacks.onPaste(text)
+                    hideCopiedText()
+                }
+            },
+        )
+        bar.addView(
+            android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_icon_close)
+                imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                contentDescription = context.getString(R.string.clipboard_back_to_keyboard)
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+                setOnClickListener { hideCopiedText() }
+                addIconPressEffect(this)
+            },
+        )
+        toolbar.visibility = GONE
+        copiedBar = bar
+        addView(bar, indexOfChild(toolbar))
+    }
+
+    fun hideCopiedText() {
+        copiedBar?.let { removeView(it) }
+        copiedBar = null
+        if (toolbarEditPanel == null && clipboardHeader == null) {
+            toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
+        }
+    }
+
     private fun attachHeader(header: View, gapBelow: Boolean = true, heightDp: Int = 44) {
+        hideCopiedText()
         toolbar.visibility = GONE
         terminalRow.visibility = GONE
         clipboardHeader?.let { removeView(it) }

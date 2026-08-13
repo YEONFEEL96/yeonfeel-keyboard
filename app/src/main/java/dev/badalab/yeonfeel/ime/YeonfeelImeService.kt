@@ -272,6 +272,11 @@ class YeonfeelImeService : InputMethodService() {
         updateAutoCapitalize()
         // 설정 화면에서 데이터를 삭제한 경우를 반영한다. 표시를 막지 않게 비동기로.
         reloadStoresAsync()
+        // 키보드가 내려가 있는 동안 복사한 텍스트가 있으면 이제 툴바 자리에 보여준다.
+        pendingCopiedText?.let { text ->
+            pendingCopiedText = null
+            if (!sensitiveField) container?.showCopiedText(text)
+        }
     }
 
     /**
@@ -422,7 +427,18 @@ class YeonfeelImeService : InputMethodService() {
         if (clipboardHistory.add(text, isSensitive, System.currentTimeMillis())) {
             persistClipboard()
         }
+        // 민감 정보가 아니면 툴바 자리에 복사한 텍스트를 보여준다. 복사 순간 키보드가
+        // 내려가 있으면 대기시켰다가 다음에 키보드가 뜰 때(onStartInputView) 표시한다.
+        if (!isSensitive) {
+            if (isInputViewShown()) {
+                container?.showCopiedText(text)
+            } else {
+                pendingCopiedText = text
+            }
+        }
     }
+
+    private var pendingCopiedText: String? = null
 
     private fun persistClipboard() {
         // Keystore 암복호화 + 파일 쓰기는 바인더 왕복이라 메인 스레드에서 ANR 위험이
