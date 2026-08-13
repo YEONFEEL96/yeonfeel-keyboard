@@ -158,7 +158,7 @@ class KeyboardView(
     private fun showLanguageListPopup() {
         if (langListPopup != null) return // 이미 떠 있으면 두 번째를 만들지 않는다 (누수 방지)
         if (langKeyPointerId == -1 || languageList.size < 2) return
-        val key = pressedByPointer[langKeyPointerId] ?: return
+        val key = pressedByPointer[langKeyPointerId]?.key ?: return
         val bound = keyBounds.firstOrNull { it.key == key } ?: return
         val rowHeight = dp(42f)
         val panelWidth = dp(136f)
@@ -271,7 +271,7 @@ class KeyboardView(
     private fun showLanguagePopup() {
         if (langPopupWindow != null) return // 분할 스페이스 등으로 두 번 호출돼도 하나만 띄운다
         if (spacePointerId == -1 || variantPopup != null) return
-        val spaceKey = pressedByPointer[spacePointerId] ?: return
+        val spaceKey = pressedByPointer[spacePointerId]?.key ?: return
         val bound = keyBounds.firstOrNull { it.key == spaceKey } ?: return
         langTextPaint.color = theme.text
         langDragOffset = 0f
@@ -562,7 +562,8 @@ class KeyboardView(
 
     // 멀티터치: 포인터별로 눌린 키를 추적해야 빠른 타이핑(이전 키를 떼기 전에
     // 다음 키를 누르는 패턴)에서 글자가 씹히지 않는다.
-    private val pressedByPointer = HashMap<Int, Key>()
+    // 눌린 키를 위치(KeyBounds)로 저장한다 — 값이 같은 키가 둘(콤마 등)이어도 구분된다.
+    private val pressedByPointer = HashMap<Int, KeyBounds>()
     private val downXByPointer = HashMap<Int, Float>()
     private var spacePointerId = -1
     private var spaceSwiped = false
@@ -632,6 +633,28 @@ class KeyboardView(
     /** 옵션이 켜졌을 때 이 키가 보여줄/롱프레스로 입력할 보조문자 (없으면 null). */
     private fun keyHint(key: Key): Char? =
         if (keyHintsEnabled && key.type == KeyType.CHAR && key.hint != ' ') key.hint else null
+
+    /**
+     * 기호 자판 롱프레스 변형 — 기호별 관련 문자(숫자 열은 기존 분수) 중, 이미 기호
+     * 자판에 노출된 문자는 중복이라 뺀다. base 도 자판에 있으므로 넣지 않는다.
+     * 남는 게 없으면 null (팝업 없음).
+     */
+    private fun symbolPopupChars(c: Char): String? {
+        val related = SYMBOL_VARIANTS[c] ?: NUMBER_VARIANTS[c] ?: return null
+        val filtered = related.filter { it !in SYMBOL_LAYOUT_CHARS }
+        return filtered.ifEmpty { null }
+    }
+
+    /** 이 키에 롱프레스 팝업이 있는지 — 자판에 따라 참조하는 변형 맵이 다르다. */
+    private fun hasVariantPopup(key: Key): Boolean {
+        if (key.type != KeyType.CHAR) return false
+        if (keyHint(key) != null) return true
+        return if (mode == LayoutMode.SYMBOLS) {
+            symbolPopupChars(key.char) != null
+        } else {
+            KEY_VARIANTS.containsKey(key.char)
+        }
+    }
 
     private fun commitPendingDigit() {
         val pending = pendingVariant ?: return
@@ -854,9 +877,10 @@ class KeyboardView(
             a11yHelper.invalidateRoot()
         }
         val radius = dp(8f)
-        keyBounds.forEach { (key, rect) ->
+        keyBounds.forEach { bound ->
+            val (key, rect) = bound
             if (key.type == KeyType.SPACER || key.type == KeyType.GHOST) return@forEach
-            val pressed = pressedByPointer.containsValue(key)
+            val pressed = pressedByPointer.containsValue(bound)
             if (showKeyBackground || pressed) {
                 val paint = when {
                     pressed -> pressedPaint
@@ -1125,7 +1149,7 @@ class KeyboardView(
                 // 롤오버: 스페이스바를 떼기 전에 다음 키가 눌리면 순서 보존을 위해
                 // 대기 중인 스페이스바를 먼저 확정한다 (빠른 타이핑에서 어순 역전 방지).
                 if (spacePointerId != -1 && !spaceSwiped && pointerId != spacePointerId) {
-                    pressedByPointer[spacePointerId]?.let { onKeyListener(it) }
+                    pressedByPointer[spacePointerId]?.key?.let { onKeyListener(it) }
                     spaceSwiped = true // UP에서 중복 입력 방지
                     dismissLanguagePopup()
                 }
@@ -1136,7 +1160,7 @@ class KeyboardView(
                         cancelPendingVariant()
                     }
                 }
-                pressedByPointer[pointerId] = key
+                pressedByPointer[pointerId] = hit
                 downXByPointer[pointerId] = x
                 showKeyPreview(pointerId, key)
                 performKeyHaptic()
@@ -1163,8 +1187,7 @@ class KeyboardView(
                         repeatHandler.postDelayed(digitLongPressRunnable, longPressDelayMs)
                     }
                     // 변형 문자·보조문자가 있는 키는 롱프레스 시 팝업을 띄우고 UP에서 입력한다.
-                    key.type == KeyType.CHAR &&
-                        (keyHint(key) != null || KEY_VARIANTS.containsKey(key.char)) -> {
+                    hasVariantPopup(key) -> {
                         pendingVariant = PendingVariant(pointerId, key, RectF(hit.rect))
                         repeatHandler.postDelayed(longPressRunnable, longPressDelayMs)
                     }
@@ -1230,7 +1253,7 @@ class KeyboardView(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 val pointerId = event.getPointerId(event.actionIndex)
-                val key = pressedByPointer.remove(pointerId)
+                val key = pressedByPointer.remove(pointerId)?.key
                 downXByPointer.remove(pointerId)
                 dismissKeyPreview(pointerId)
                 pendingVariant?.let { pending ->
@@ -1401,8 +1424,15 @@ class KeyboardView(
         // (코너 글자 = 손 떼면 입력되는 결과).
         val hint = keyHint(pending.key)
         val options: List<String>
+        val selectedIndex: Int
         if (hint != null) {
             options = listOf(hint.toString())
+            selectedIndex = 0
+        } else if (mode == LayoutMode.SYMBOLS) {
+            // 기호 자판: 자판에 없는 관련 변형만 (base·이미 노출된 기호 제외).
+            val variants = symbolPopupChars(pending.key.char) ?: return
+            options = variants.map { it.toString() }
+            selectedIndex = 0
         } else {
             val variants = (KEY_VARIANTS[pending.key.char] ?: "") +
                 (landscapeTopDigit(pending.key)?.toString() ?: "")
@@ -1418,6 +1448,7 @@ class KeyboardView(
                     add(SHORTCUT_SETTINGS.toString())
                 }
             }
+            selectedIndex = if (includeOriginal) 1 else 0
         }
         val anchor = pending.rect
         // 단일 문자 후보는 키가 큰 3x4 자판에서도 작은 고정 셀(6열)로 촘촘히 배치한다.
@@ -1455,8 +1486,7 @@ class KeyboardView(
             panel,
             cells,
             startX = downXByPointer[pending.pointerId] ?: anchor.centerX(),
-            // 원래 글자가 첫 셀이면 두 번째(첫 변형)를 기본 선택. 힌트/한글 쌍자음은 첫 셀.
-            selected = if (hint == null && pending.key.char !in KOREAN_VARIANTS) 1 else 0,
+            selected = selectedIndex,
         )
         val location = IntArray(2)
         getLocationInWindow(location)
@@ -1660,6 +1690,47 @@ class KeyboardView(
         /** 기호 키 롱프레스에 공통으로 띄우는 자주 쓰는 기호. */
         private const val QUICK_SYMBOLS = "@-/:#,?!'$"
         private const val QUICK_SYMBOL_TARGETS = "!?.,()@:;/-*_%~^#'\"$"
+
+        /** 기호 자판(두 페이지·숫자 열)에 노출된 모든 문자 — 팝업에서 이 문자는 뺀다. */
+        private val SYMBOL_LAYOUT_CHARS: Set<Char> = (
+            "1234567890" +
+                "+×÷=/_<>[]" + "!@#₩%^&*()" + "-'\":;,?" +
+                "`~\\|{}€£¥$" + "°•○●□■♤♡◇♧" + "☆▪¤《》¡¿"
+            ).toSet()
+
+        /**
+         * 기호 자판 전용 per-symbol 변형 후보 — 각 기호의 관련 문자. 이 중 자판에 이미
+         * 노출된 문자는 [symbolPopupChars]에서 걸러진다.
+         */
+        private val SYMBOL_VARIANTS = mapOf(
+            '$' to "€£¥₩₽¢₹",
+            '%' to "‰",
+            '+' to "±",
+            '-' to "–—·•",
+            '×' to "∙·",
+            '÷' to "∕",
+            '=' to "≈≠≡",
+            '<' to "≤«",
+            '>' to "≥»",
+            '*' to "∗†‧",
+            '/' to "⁄\\",
+            '\\' to "/",
+            '_' to "—–",
+            '~' to "≈",
+            '(' to "[{<",
+            ')' to "]}>",
+            '[' to "{(<",
+            ']' to "})>",
+            '\'' to "‘’‚′",
+            '"' to "“”„″«»",
+            '.' to "…·",
+            '!' to "¡",
+            '?' to "¿",
+            '#' to "№♯",
+            '&' to "§",
+            '•' to "·○●",
+            '°' to "ºª",
+        )
 
         private val KEY_VARIANTS: Map<Char, String> = buildMap {
             putAll(NUMBER_VARIANTS)
