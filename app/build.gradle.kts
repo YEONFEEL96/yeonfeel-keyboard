@@ -11,8 +11,8 @@ android {
         applicationId = "dev.badalab.yeonfeel"
         minSdk = 23
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.0.4"
+        versionCode = 17
+        versionName = "1.0.5"
     }
 
     // 릴리스 키스토어는 저장소 밖(~/.gradle/gradle.properties)에서 읽는다.
