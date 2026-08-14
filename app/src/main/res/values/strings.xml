@@ -82,6 +82,8 @@
     <string name="gesture_feedback_menu">Gestures and feedback</string>
     <string name="reset_menu">Reset</string>
     <string name="licenses_menu">Open source licenses</string>
+    <string name="check_update">Check for updates on GitHub</string>
+    <string name="github_releases_url" translatable="false">https://github.com/YEONFEEL96/yeonfeel-keyboard/releases/latest</string>
     <string name="reset_personal">Delete personal input data</string>
     <string name="reset_personal_sub">Clears the encrypted clipboard history</string>
     <string name="reset_touch">Delete touch data</string>

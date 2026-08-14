@@ -94,6 +94,10 @@ class SettingsActivity : Activity() {
             },
         )
 
+        ui.linkButton(getString(R.string.check_update)) {
+            openUrl(getString(R.string.github_releases_url))
+        }
+
         ui.linkButton(getString(R.string.licenses_menu)) {
             openDetail(LicensesActivity::class.java)
         }
@@ -116,6 +120,13 @@ class SettingsActivity : Activity() {
             // 목록에서 바로 연 1차 메뉴 표시 — 2단 우측 패널에선 뒤로 화살표를 숨긴다.
             startActivity(Intent(this, cls).putExtra(EXTRA_FROM_MASTER, true))
         }
+    }
+
+    private fun openUrl(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 브라우저가 하나도 없는 기기에서도 크래시하지 않도록 방어한다.
+        runCatching { startActivity(intent) }
     }
 
     companion object {
