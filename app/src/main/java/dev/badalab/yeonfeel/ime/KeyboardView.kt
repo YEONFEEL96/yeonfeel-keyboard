@@ -319,12 +319,22 @@ class KeyboardView(
     var touchModelEnabled: Boolean = false
     var touchStatsProvider: ((String) -> Map<String, TouchModel.KeyStat>)? = null
 
-    /** 타점 저장·보정에 쓰는 현재 자판 보드 식별자. */
-    fun currentBoardId(): String = when (mode) {
-        LayoutMode.KOREAN -> "KO_" + koreanLayout.name
-        LayoutMode.ENGLISH -> "EN_" + englishLayout.name
-        LayoutMode.SYMBOLS -> (if (compactSymbols) "SYMC_" else "SYM_") + symbolsPage
-        LayoutMode.NUMBER -> "NUM"
+    /**
+     * 타점 저장·보정에 쓰는 현재 자판 보드 식별자.
+     * 키 배치가 달라지는 화면 상태(가로 모드·분할 배치)를 서픽스로 구분해,
+     * 폴더블 접힘/펼침처럼 배치가 다른 표본이 한 보드에 섞이지 않게 한다.
+     */
+    fun currentBoardId(): String {
+        val base = when (mode) {
+            LayoutMode.KOREAN -> "KO_" + koreanLayout.name
+            LayoutMode.ENGLISH -> "EN_" + englishLayout.name
+            LayoutMode.SYMBOLS -> (if (compactSymbols) "SYMC_" else "SYM_") + symbolsPage
+            LayoutMode.NUMBER -> "NUM"
+        }
+        var id = base
+        if (isLandscape()) id += "|land"
+        if (splitLayoutActive) id += "|split"
+        return id
     }
 
     /** 키 라벨 글자 크기 배율 (작게/보통/크게 설정). */
@@ -356,6 +366,10 @@ class KeyboardView(
 
     /** 실제로 분할 배치가 적용되는지 — 3x4 자판은 분할하지 않는다. */
     val splitActive: Boolean get() = splitEnabled && !is3x4Board()
+
+    /** 숫자 키패드는 3~4열이라 분할하면 어색하므로 대화면에서도 분할하지 않는다. */
+    private val splitLayoutActive: Boolean
+        get() = splitActive && mode != LayoutMode.NUMBER
 
     /** 분할 중앙 간격 비율 (행 전체 폭 가중치 대비). 레이아웃 조정 핸들로 바뀐다. */
     var splitGapRatio: Float = 0.45f
@@ -741,127 +755,20 @@ class KeyboardView(
             } else {
                 emptyMap()
             }
-        val heightWeights = FloatArray(rows.size) { 1f }
-        if (hasCompactNumberRow() && rows.isNotEmpty()) {
-            heightWeights[0] = NUMBER_ROW_HEIGHT_WEIGHT
-        }
-        val unit = height.toFloat() / heightWeights.sum()
         // 수직 간격을 수평보다 넓게 — 키 높이가 낮아 보이는 인상을 준다.
         val gapX = dp(3f)
         // 가로는 키 높이가 낮아 수직 간격을 줄여 키캡 면적을 확보한다.
-        val landscape =
-            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val gapY = if (landscape) dp(4f) else dp(6.5f)
-        val bounds = mutableListOf<KeyBounds>()
-        var top = 0f
-        // 숫자 키패드는 3~4열이라 분할하면 어색하므로 대화면에서도 분할하지 않는다.
-        val split = splitEnabled && !is3x4Board() && mode != LayoutMode.NUMBER
-        val spaceLeftEdge = if (split) maxLeftBlockEnd(rows) else null
-        rows.forEachIndexed { rowIdx, row ->
-            val rowHeight = unit * heightWeights[rowIdx]
-            val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
-            if (split) {
-                layoutSplitRow(row, totalWeight, top, rowHeight, gapX, gapY, bounds, spaceLeftEdge)
-            } else {
-                var x = 0f
-                row.forEach { key ->
-                    val keyWidth = width * (key.widthWeight / totalWeight)
-                    bounds += KeyBounds(
-                        key,
-                        RectF(x + gapX, top + gapY, x + keyWidth - gapX, top + rowHeight - gapY),
-                    )
-                    x += keyWidth
-                }
-            }
-            top += rowHeight
-        }
-        keyBounds = bounds
-    }
-
-    /**
-     * 분할 배치: 행을 가중치 절반 지점에서 좌우로 나누고 중앙에 간격을 둔다.
-     * 경계에 걸친 스페이스바는 반으로 갈라 양쪽에 배치하되, 왼쪽 조각의
-     * 오른끝만 [spaceLeftEdge]까지 늘려 윗 행 키 끝(ㅍ)과 맞춘다.
-     */
-    private fun layoutSplitRow(
-        row: List<Key>,
-        totalWeight: Float,
-        top: Float,
-        rowHeight: Float,
-        gapX: Float,
-        gapY: Float,
-        bounds: MutableList<KeyBounds>,
-        spaceLeftEdge: Float?,
-    ) {
-        val sideMargin = width * SPLIT_SIDE_MARGIN_RATIO
-        val usable = width - sideMargin * 2
-        val unit = usable / (totalWeight * (1f + splitGapRatio))
-        val gapWidth = usable - totalWeight * unit
-        val half = totalWeight / 2f
-        var acc = 0f
-        var x = sideMargin
-        var gapPlaced = false
-        row.forEach { key ->
-            val w = key.widthWeight
-            val straddles = acc < half && acc + w > half
-            if (straddles && key.type == KeyType.SPACE) {
-                val leftWidth = (half - acc) * unit
-                val leftEnd = maxOf(x + leftWidth, spaceLeftEdge ?: 0f)
-                bounds += KeyBounds(
-                    key,
-                    RectF(x + gapX, top + gapY, leftEnd - gapX, top + rowHeight - gapY),
-                )
-                x += leftWidth + gapWidth
-                val rightWidth = (acc + w - half) * unit
-                bounds += KeyBounds(
-                    key,
-                    RectF(x + gapX, top + gapY, x + rightWidth - gapX, top + rowHeight - gapY),
-                )
-                x += rightWidth
-                gapPlaced = true
-            } else {
-                val keyWidth = w * unit
-                bounds += KeyBounds(
-                    key,
-                    RectF(x + gapX, top + gapY, x + keyWidth - gapX, top + rowHeight - gapY),
-                )
-                x += keyWidth
-            }
-            acc += w
-            if (!gapPlaced && acc >= half) {
-                x += gapWidth
-                gapPlaced = true
-            }
-        }
-    }
-
-    /** 분할된 스페이스바가 없는 행들의 좌 블록 오른끝 최댓값 — 스페이스바 끝 정렬 기준. */
-    private fun maxLeftBlockEnd(rows: List<List<Key>>): Float? {
-        val sideMargin = width * SPLIT_SIDE_MARGIN_RATIO
-        val usable = width - sideMargin * 2
-        var best: Float? = null
-        rows.forEach { row ->
-            val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
-            val half = totalWeight / 2f
-            var acc = 0f
-            var leftWeight = 0f
-            var hasSplitSpace = false
-            row.forEach { key ->
-                val w = key.widthWeight
-                if (acc < half && acc + w > half && key.type == KeyType.SPACE) {
-                    hasSplitSpace = true
-                } else if (acc < half) {
-                    leftWeight += w
-                }
-                acc += w
-            }
-            if (!hasSplitSpace) {
-                val unit = usable / (totalWeight * (1f + splitGapRatio))
-                val end = sideMargin + leftWeight * unit
-                if (best == null || end > best!!) best = end
-            }
-        }
-        return best
+        val gapY = if (isLandscape()) dp(4f) else dp(6.5f)
+        keyBounds = KeyGeometry.place(
+            rows,
+            width.toFloat(),
+            height.toFloat(),
+            gapX,
+            gapY,
+            hasCompactNumberRow(),
+            splitLayoutActive,
+            splitGapRatio,
+        ).map { KeyBounds(it.key, it.rect) }
     }
 
     private val backgroundPaint = Paint()
@@ -1621,8 +1528,6 @@ class KeyboardView(
     companion object {
         const val SHORTCUT_CLIPBOARD = '\uE020'
         const val SHORTCUT_SETTINGS = '\uE021'
-        private const val NUMBER_ROW_HEIGHT_WEIGHT = 0.85f
-        private const val SPLIT_SIDE_MARGIN_RATIO = 0.03f
         private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val KEY_SOUND_VOLUME = 0.5f
         private const val LANG_POPUP_DELAY_MS = 300L

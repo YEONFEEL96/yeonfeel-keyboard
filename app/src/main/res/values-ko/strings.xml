@@ -97,6 +97,11 @@
     <string name="debug_touch_collect">타점 수집</string>
     <string name="debug_touch_visualizer">타점 시각화</string>
     <string name="debug_touch_count">수집된 타점: %1$d개</string>
+    <string name="debug_board_portrait">세로 화면</string>
+    <string name="debug_board_portrait_split">세로 화면 · 분할</string>
+    <string name="debug_board_landscape">가로 화면</string>
+    <string name="debug_board_landscape_split">가로 화면 · 분할</string>
+    <string name="debug_board_samples">%1$s · 타점 %2$d개</string>
     <string name="debug_touch_clear">타점 데이터 초기화</string>
     <string name="debug_touch_correction">터치 보정</string>
     <string name="debug_touch_correction_sub">경계 근처의 애매한 터치를 나의 타점 습관에 맞춰 판정합니다</string>

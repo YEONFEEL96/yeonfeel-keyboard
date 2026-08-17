@@ -98,6 +98,11 @@
     <string name="debug_touch_collect">Tap collection</string>
     <string name="debug_touch_visualizer">Tap visualizer</string>
     <string name="debug_touch_count">Collected taps: %1$d</string>
+    <string name="debug_board_portrait">Portrait</string>
+    <string name="debug_board_portrait_split">Portrait · split</string>
+    <string name="debug_board_landscape">Landscape</string>
+    <string name="debug_board_landscape_split">Landscape · split</string>
+    <string name="debug_board_samples">%1$s · %2$d taps</string>
     <string name="debug_touch_clear">Clear tap data</string>
     <string name="debug_touch_correction">Touch correction</string>
     <string name="debug_touch_correction_sub">Resolves ambiguous touches near key boundaries using your own tap habits</string>

@@ -9,13 +9,25 @@ import android.os.Bundle
 import android.view.View
 import dev.badalab.yeonfeel.R
 import dev.badalab.yeonfeel.debug.TouchStatsStore
+import dev.badalab.yeonfeel.ime.KeyGeometry
 import dev.badalab.yeonfeel.ime.KeyType
 import dev.badalab.yeonfeel.ime.KeyboardLayouts
 import dev.badalab.yeonfeel.ime.LayoutMode
 import dev.badalab.yeonfeel.ime.TouchModel
 
-/** 수집된 타점을 현재 한국어 자판 위에 흩뿌려 보여준다. */
+/**
+ * 수집된 타점을 현재 한국어 자판 위에 흩뿌려 보여준다.
+ * 배치가 달라지는 화면 상태(가로·분할)는 보드 서픽스로 구분 수집되므로,
+ * 표본이 있는 상태마다 해당 배치를 재구성한 자판을 따로 그린다.
+ */
 class TouchVisualizerActivity : Activity() {
+
+    private data class Variant(
+        val suffix: String,
+        val labelRes: Int,
+        val landscape: Boolean,
+        val split: Boolean,
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,25 +38,47 @@ class TouchVisualizerActivity : Activity() {
         val ui = SettingComponents(this)
         ui.header(getString(R.string.debug_touch_visualizer))
         ui.caption(getString(R.string.debug_touch_count, store.totalCount()))
+
+        val base = "KO_" + settings.koreanLayout.name
+        val model = TouchModel(store)
+        val variants = listOf(
+            Variant("", R.string.debug_board_portrait, landscape = false, split = false),
+            Variant("|split", R.string.debug_board_portrait_split, landscape = false, split = true),
+            Variant("|land", R.string.debug_board_landscape, landscape = true, split = false),
+            Variant("|land|split", R.string.debug_board_landscape_split, landscape = true, split = true),
+        )
+        // 표본이 있는 화면 상태만 그리되, 아무것도 없으면 세로 자판을 빈 채로 보여준다.
+        val shown = variants.filter { store.forBoard(base + it.suffix).isNotEmpty() }
+            .ifEmpty { variants.take(1) }
+
         // 카드 라운드 모서리 안쪽에 들어오도록 여백을 두고 그린다.
         val pad = ui.dp(14)
-        ui.card(
-            android.widget.LinearLayout(this).apply {
-                setPadding(pad, pad, pad, pad)
-                addView(
-                    VisualizerView(
-                        this@TouchVisualizerActivity,
-                        settings,
-                        store.forBoard("KO_" + settings.koreanLayout.name),
-                        TouchModel(store).statsFor("KO_" + settings.koreanLayout.name),
-                    ),
-                    android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                    ),
-                )
-            },
-        )
+        shown.forEach { variant ->
+            val board = base + variant.suffix
+            val samples = store.forBoard(board)
+            ui.caption(
+                getString(R.string.debug_board_samples, getString(variant.labelRes), samples.size),
+            )
+            ui.card(
+                android.widget.LinearLayout(this).apply {
+                    setPadding(pad, pad, pad, pad)
+                    addView(
+                        VisualizerView(
+                            this@TouchVisualizerActivity,
+                            settings,
+                            variant.landscape,
+                            variant.split,
+                            samples,
+                            model.statsFor(board),
+                        ),
+                        android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        ),
+                    )
+                },
+            )
+        }
         ui.show()
     }
 
@@ -52,16 +86,28 @@ class TouchVisualizerActivity : Activity() {
     private class VisualizerView(
         activity: Activity,
         private val settings: KeyboardSettings,
+        private val landscape: Boolean,
+        private val split: Boolean,
         private val samples: List<TouchStatsStore.Sample>,
         private val stats: Map<String, TouchModel.KeyStat>,
     ) : View(activity) {
 
+        private val is3x4 = settings.koreanLayout in setOf(
+            KoreanLayoutType.CHUNJIIN,
+            KoreanLayoutType.NARATGUL,
+            KoreanLayoutType.NARATGUL_CENTER,
+        )
+
+        // 실제 자판과 같은 규칙: 가로 모드의 QWERTY류는 숫자 열을 내린다.
+        private val showNumberRow = settings.showNumberRow && !(landscape && !is3x4)
+
         private val rows = KeyboardLayouts.rows(
             LayoutMode.KOREAN,
             shifted = false,
-            showNumberRow = settings.showNumberRow,
+            showNumberRow = showNumberRow,
             symbolsPage = 0,
-            showLangKey = true,
+            showLangKey = settings.koreanEnabled && settings.englishEnabled &&
+                settings.languageSwitchMethod != LanguageSwitchMethod.SWIPE,
             koreanLayout = settings.koreanLayout,
             shiftNumberRowSymbols = settings.shiftNumberRowSymbols,
         )
@@ -90,8 +136,14 @@ class TouchVisualizerActivity : Activity() {
 
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             val width = MeasureSpec.getSize(widthMeasureSpec)
-            val screenWidthDp = resources.configuration.screenWidthDp.toFloat()
-            val height = (width * (settings.keyboardHeightDp / screenWidthDp)).toInt()
+            val config = resources.configuration
+            // 자판 비율 근사: 가로 자판은 화면의 긴 변이 폭이 된다.
+            val boardWidthDp = if (landscape) {
+                maxOf(config.screenWidthDp, config.screenHeightDp).toFloat()
+            } else {
+                config.screenWidthDp.toFloat()
+            }
+            val height = (width * (settings.keyboardHeightDp / boardWidthDp)).toInt()
             setMeasuredDimension(width, height)
         }
 
@@ -99,45 +151,36 @@ class TouchVisualizerActivity : Activity() {
 
         override fun onDraw(canvas: Canvas) {
             statRects.clear()
-            // 키 외곽선: KeyboardView와 같은 배치 규칙 (숫자 열 85% 높이)
-            val heightWeights = FloatArray(rows.size) { 1f }
-            // 숫자 열이 실제로 얹히는 자판(두벌식·단모음)에서만 첫 열을 낮게 그린다.
-            val hasNumberRow = settings.showNumberRow && settings.koreanLayout in setOf(
-                KoreanLayoutType.DUBEOLSIK,
-                KoreanLayoutType.DANMOEUM,
+            val density = resources.displayMetrics.density
+            // 키 외곽선: KeyboardView와 같은 배치 계산기를 써서 실제 자판과 일치시킨다.
+            val placed = KeyGeometry.place(
+                rows,
+                width.toFloat(),
+                height.toFloat(),
+                gapX = 3f * density,
+                gapY = (if (landscape) 4f else 6.5f) * density,
+                compactNumberRow = showNumberRow && !is3x4,
+                split = split && !is3x4,
+                splitGapRatio = settings.splitGapPercent / 100f,
             )
-            if (hasNumberRow && rows.isNotEmpty()) heightWeights[0] = 0.85f
-            val unit = height.toFloat() / heightWeights.sum()
-            val gap = 3f * resources.displayMetrics.density
-            var top = 0f
-            rows.forEachIndexed { rowIdx, row ->
-                val rowHeight = unit * heightWeights[rowIdx]
-                val totalWeight = row.sumOf { it.widthWeight.toDouble() }.toFloat()
-                var x = 0f
-                row.forEach { key ->
-                    val keyWidth = width * (key.widthWeight / totalWeight)
-                    if (key.type != KeyType.SPACER && key.type != KeyType.GHOST) {
-                        val rect = RectF(x + gap, top + gap, x + keyWidth - gap, top + rowHeight - gap)
-                        canvas.drawRoundRect(rect, 8f, 8f, keyPaint)
-                        if (key.label.isNotEmpty()) {
-                            canvas.drawText(
-                                key.label,
-                                rect.centerX(),
-                                rect.centerY() - (labelPaint.ascent() + labelPaint.descent()) / 2,
-                                labelPaint,
-                            )
-                        }
-                        // 개인화 분포 표시는 타점 위에 얹기 위해 위치만 모아 둔다.
-                        if (key.type == KeyType.CHAR) {
-                            statRects.add(key.char.toString() to RectF(rect))
-                        }
-                    }
-                    x += keyWidth
+            placed.forEach { (key, rect) ->
+                if (key.type == KeyType.SPACER || key.type == KeyType.GHOST) return@forEach
+                canvas.drawRoundRect(rect, 8f, 8f, keyPaint)
+                if (key.label.isNotEmpty()) {
+                    canvas.drawText(
+                        key.label,
+                        rect.centerX(),
+                        rect.centerY() - (labelPaint.ascent() + labelPaint.descent()) / 2,
+                        labelPaint,
+                    )
                 }
-                top += rowHeight
+                // 개인화 분포 표시는 타점 위에 얹기 위해 위치만 모아 둔다.
+                if (key.type == KeyType.CHAR) {
+                    statRects.add(key.char.toString() to RectF(rect))
+                }
             }
 
-            val radius = 2.5f * resources.displayMetrics.density
+            val radius = 2.5f * density
             samples.forEach { sample ->
                 canvas.drawCircle(sample.ax * width, sample.ay * height, radius, dotPaint)
             }
