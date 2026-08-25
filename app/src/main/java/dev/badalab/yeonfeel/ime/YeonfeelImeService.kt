@@ -718,6 +718,8 @@ class YeonfeelImeService : InputMethodService() {
         if (noAutoTextHelp) return
         val view = container?.keyboardView ?: return
         if (view.mode != LayoutMode.ENGLISH) return
+        // 시프트 더블탭 고정(Caps Lock) 중에는 자동 대문자화가 상태를 덮어쓰지 않는다.
+        if (view.capsLock) return
         val ic = currentInputConnection ?: return
         val inputType = currentInputEditorInfo?.inputType ?: 0
         val caps = ic.getCursorCapsMode(inputType or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
@@ -760,8 +762,14 @@ class YeonfeelImeService : InputMethodService() {
     /** 조합 중인 글자를 확정 문자열로 굳히고 composing region을 닫는다. */
     private fun finishComposition() {
         if (composer.isComposing) {
-            composer.flush()
-            currentInputConnection?.finishComposingText()
+            // flush가 보류 병합(찬ㅎ→찮)을 수행할 수 있어 화면의 조합 텍스트와
+            // 다를 수 있다 — 결과를 조합 영역에 반영한 뒤 닫는다.
+            var text = composer.flush()
+            if (settings.dwaetFixEnabled) text = text.replace('됬', '됐')
+            currentInputConnection?.let { ic ->
+                ic.setComposingText(text, 1)
+                ic.finishComposingText()
+            }
         }
     }
 }

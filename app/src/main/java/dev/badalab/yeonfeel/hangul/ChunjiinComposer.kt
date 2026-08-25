@@ -54,6 +54,26 @@ class ChunjiinComposer : KoreanComposer {
 
     private fun displayPrefix(): String = if (heldCho != null) heldComposed() else ""
 
+    /**
+     * 보류 글자 + 떠 있는 자음의 표시 문자열. 떠 있는 자음이 앞 받침과 결합
+     * 가능하면(찬+ㅎ) 병합형(찮)으로 미리 보여준다 — 통용 자판의 관례.
+     * 내부 상태는 그대로라, 모음이 오면 병합 없이 갈라진다 (찬하).
+     */
+    private fun displayAll(): String {
+        val held = heldCho
+        val floating = cho
+        if (held != null && floating != null && jungTokens.isEmpty() && jong.isEmpty() &&
+            heldJong.length == 1 && JONG_COMBINE.containsKey(heldJong[0] to floating)
+        ) {
+            val vowel = VOWEL_MAP[heldJung]
+            if (vowel != null) {
+                val merged = JONG_COMBINE.getValue(heldJong[0] to floating)
+                return HangulTables.syllable(held, vowel, merged).toString()
+            }
+        }
+        return displayPrefix() + composed()
+    }
+
     /** 보류 해소: 떠 있는 자음을 앞 받침에 합치거나(않) 함께 확정 문자열로 돌려준다. */
     private fun resolveHold(mergeFloating: Boolean): String {
         if (heldCho == null) return ""
@@ -102,7 +122,7 @@ class ChunjiinComposer : KoreanComposer {
             if (jungTokens.isEmpty() && jong.isEmpty() && cho != null) {
                 cho = nextInGroup(group, cho!!) { true }
                 lastInputWasActiveConsonant = true
-                return HangulComposer.Result("", displayPrefix() + composed())
+                return HangulComposer.Result("", displayAll())
             }
             if (jong.isNotEmpty()) {
                 val current = jong.last()
@@ -171,7 +191,7 @@ class ChunjiinComposer : KoreanComposer {
                 cho = c
                 jungTokens = ""
                 jong = ""
-                HangulComposer.Result("", heldComposed() + composed())
+                HangulComposer.Result("", displayAll())
             }
             else -> {
                 val committed = composed()

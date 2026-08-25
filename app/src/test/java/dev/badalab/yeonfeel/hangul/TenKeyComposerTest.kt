@@ -80,6 +80,51 @@ class TenKeyComposerTest {
     }
 
     @Test
+    fun `천지인 - 귀찮다 ㄴㅎ 겹받침`() {
+        // 같은 키 연타만 빠르게, 키가 바뀔 때는 시간 간격을 둔다
+        val composer = ChunjiinComposer()
+        val committed = StringBuilder()
+        var composing = ""
+        val taps = listOf(
+            'ㄱ' to 0L, 'ㅡ' to 1000L, 'ㆍ' to 2000L, 'ㅣ' to 3000L, // 귀
+            'ㅈ' to 4000L, 'ㅈ' to 4100L, // ㅊ
+            'ㅣ' to 5000L, 'ㆍ' to 6000L, // ㅏ
+            'ㄴ' to 7000L,
+            'ㅅ' to 8000L, 'ㅅ' to 8100L, // ㅎ
+            'ㄷ' to 9000L, 'ㅣ' to 10_000L, 'ㆍ' to 11_000L, // 다
+        )
+        taps.forEach { (key, t) ->
+            val result = composer.input(key, t)
+            committed.append(result.commit)
+            composing = result.composing
+        }
+        assertEquals("귀찮다", committed.toString() + composing)
+    }
+
+    @Test
+    fun `천지인 - 겹받침 후보 연타는 병합형으로 표시`() {
+        // 안 + ㅅㅅ(ㅎ): 내부는 보류지만 화면에는 곧장 '않'으로 보여준다
+        val c = ChunjiinComposer()
+        var composing = ""
+        "ㅇㅣㆍㄴㅅㅅ".forEachIndexed { i, k -> composing = c.input(k, i * 100L).composing }
+        assertEquals("않", composing)
+    }
+
+    @Test
+    fun `천지인 - 병합 표시 상태에서 조합 종료는 병합으로 확정`() {
+        // 귀찮 까지 치고 flush(스페이스·엔터 등) → 찬ㅎ이 아니라 찮
+        val c = ChunjiinComposer()
+        "ㄱㅡㆍㅣㅈㅈㅣㆍㄴㅅㅅ".forEachIndexed { i, k -> c.input(k, i * 100L) }
+        assertEquals("찮", c.flush())
+    }
+
+    @Test
+    fun `천지인 - 병합 표시 후 모음이 오면 갈라짐`() {
+        // 않 표시 상태에서 ㅏ → 안하 (떠 있던 ㅎ이 새 글자 초성)
+        assertEquals("안하", typeFast(ChunjiinComposer(), "ㅇㅣㆍㄴㅅㅅㅣㆍ"))
+    }
+
+    @Test
     fun `천지인 - 기본 모음 조합`() {
         assertEquals("나", typeSlow(ChunjiinComposer(), "ㄴㅣㆍ"))
         assertEquals("너", typeSlow(ChunjiinComposer(), "ㄴㆍㅣ"))
