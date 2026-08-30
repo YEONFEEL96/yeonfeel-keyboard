@@ -505,7 +505,7 @@ class YeonfeelImeService : InputMethodService() {
                     if (view.shifted && !view.capsLock) view.shifted = false
                     return
                 }
-                onChar(key.char)
+                if (!rotateSymbolKey(key)) onChar(key.char)
                 if (view.shifted && !view.capsLock) view.shifted = false
                 updateAutoCapitalize()
             }
@@ -662,6 +662,52 @@ class YeonfeelImeService : InputMethodService() {
     private var lastShiftTime = 0L
     private var lastSpaceTime = 0L
     private val doubleSpaceMs = 500L
+
+    // 기호 키 연타 로테이션 상태 (천지인·3x4의 ".,?!"/".,-/" 키)
+    private var symbolCycle: String? = null
+    private var symbolCycleIndex = 0
+    private var symbolCycleTime = 0L
+
+    /** 라벨 전체가 연타 사이클인 기호 키인지 — 맞으면 사이클 문자열을 돌려준다. */
+    private fun symbolCycleOf(key: Key): String? =
+        key.label.takeIf { label ->
+            key.type == KeyType.CHAR && label.length >= 2 && label[0] == key.char &&
+                label.none { it.isLetterOrDigit() || HangulComposer.isHangulJamo(it) }
+        }
+
+    /**
+     * 기호 키 연타: 제한 시간 안에 같은 키를 다시 누르면 직전 기호를 라벨
+     * 사이클의 다음 기호로 교체한다 (. → , → ? → !). 교체했으면 true,
+     * 첫 탭이면 사이클만 무장하고 false를 돌려줘 평소처럼 커밋하게 한다.
+     */
+    private fun rotateSymbolKey(key: Key): Boolean {
+        val cycle = symbolCycleOf(key) ?: run {
+            symbolCycle = null
+            return false
+        }
+        val now = System.currentTimeMillis()
+        val ic = currentInputConnection
+        if (ic != null && cycle == symbolCycle &&
+            now - symbolCycleTime < settings.multiTapDelayMs
+        ) {
+            // 커서 앞 글자가 직전에 넣은 사이클 기호일 때만 교체한다 (커서 이동 방어).
+            val before = ic.getTextBeforeCursor(1, 0)
+            if (before?.length == 1 && before[0] == cycle[symbolCycleIndex]) {
+                symbolCycleIndex = (symbolCycleIndex + 1) % cycle.length
+                lastCorrection = null
+                ic.beginBatchEdit()
+                ic.deleteSurroundingText(1, 0)
+                ic.commitText(cycle[symbolCycleIndex].toString(), 1)
+                ic.endBatchEdit()
+                symbolCycleTime = now
+                return true
+            }
+        }
+        symbolCycle = cycle
+        symbolCycleIndex = 0
+        symbolCycleTime = now
+        return false
+    }
 
     companion object {
         private const val CAPS_LOCK_TAP_MS = 350L
