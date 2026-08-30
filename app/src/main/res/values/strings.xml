@@ -4,6 +4,9 @@
     <string name="ime_name">YEONFEEL Keyboard</string>
     <string name="subtype_korean">Korean</string>
     <string name="subtype_english">English</string>
+    <!-- 입력기 선택 다이얼로그용 서브타입 라벨: 일부 OEM이 IME 이름 대신 이것만 표시한다. -->
+    <string name="ime_subtype_korean">YEONFEEL Keyboard (Korean)</string>
+    <string name="ime_subtype_english">YEONFEEL Keyboard (English)</string>
     <string name="setup_guide">1. Open system settings with the button below and turn on \'YEONFEEL Keyboard\'.\n2. Tap the keyboard switcher and pick YEONFEEL Keyboard.\n3. Try typing in the field below.</string>
     <string name="enable_keyboard">1. Enable the keyboard</string>
     <string name="switch_keyboard">2. Switch keyboards</string>

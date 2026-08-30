@@ -4,6 +4,8 @@
     <string name="ime_name">연필키보드</string>
     <string name="subtype_korean">한국어</string>
     <string name="subtype_english">English</string>
+    <string name="ime_subtype_korean">연필키보드 (한국어)</string>
+    <string name="ime_subtype_english">연필키보드 (English)</string>
     <string name="setup_guide">1. 아래 버튼으로 시스템 설정을 열어 \'연필키보드\'를 사용함으로 켭니다.\n2. 키보드 전환 버튼으로 연필키보드를 선택합니다.\n3. 아래 입력창에서 바로 테스트할 수 있습니다.</string>
     <string name="enable_keyboard">1. 키보드 사용 설정 열기</string>
     <string name="switch_keyboard">2. 키보드 전환</string>
