@@ -57,6 +57,26 @@ class TenKeyComposerTest {
     }
 
     @Test
+    fun `천지인 - 백스페이스는 완성 모음을 통째로 지운다`() {
+        // 요 → ㅇ (ㆍㆍㅡ 토큰이 ㅇㆍㆍ로 분해되지 않아야 한다)
+        val c = ChunjiinComposer()
+        typeFast(c, "ㅇㆍㆍㅡ")
+        assertEquals("ㅇ", c.backspace()?.composing)
+        // 가 → ㄱ
+        val c2 = ChunjiinComposer()
+        typeFast(c2, "ㄱㅣㆍ")
+        assertEquals("ㄱ", c2.backspace()?.composing)
+        // 받침이 있으면 받침 먼저: 강 → 가
+        val c3 = ChunjiinComposer()
+        typeFast(c3, "ㄱㅣㆍㅇ")
+        assertEquals("가", c3.backspace()?.composing)
+        // 아직 모음이 아닌 중간 상태(ㆍㆍ)는 토큰 단위로 지운다
+        val c4 = ChunjiinComposer()
+        typeFast(c4, "ㅇㆍㆍ")
+        assertEquals("ㅇㆍ", c4.backspace()?.composing)
+    }
+
+    @Test
     fun `천지인 - 받침 연타로 다음 글자 쌍자음 시작`() {
         // ㅂ 3연타: 압→앞→(아+ㅃ), 이어서 모음이 오면 아빠
         assertEquals("아빠", typeFast(ChunjiinComposer(), "ㅇㅣㆍㅂㅂㅂㅣㆍ"))

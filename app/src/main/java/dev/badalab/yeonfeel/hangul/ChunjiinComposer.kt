@@ -259,7 +259,10 @@ class ChunjiinComposer : KoreanComposer {
         }
         when {
             jong.isNotEmpty() -> jong = jong.dropLast(1)
-            jungTokens.isNotEmpty() -> jungTokens = jungTokens.dropLast(1)
+            // 완성된 모음은 통째로 지운다 (요→ㅇ, 통용 자판 관례).
+            // 아직 모음이 아닌 중간 상태(ㆍ·ㆍㆍ)만 토큰 단위로 지운다.
+            jungTokens.isNotEmpty() ->
+                jungTokens = if (currentVowel() != null) "" else jungTokens.dropLast(1)
             cho != null -> cho = null
             else -> return null
         }
