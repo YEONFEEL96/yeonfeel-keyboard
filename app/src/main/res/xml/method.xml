@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
     android:settingsActivity="dev.badalab.yeonfeel.settings.SettingsActivity">
+    <!-- 일부 OEM(vivo 등) 입력기 선택 다이얼로그는 IME 이름 대신 현재 서브타입
+         라벨만 보여주므로, 서브타입 라벨에 키보드 이름을 포함한다. -->
     <subtype
         android:imeSubtypeLocale="ko_KR"
         android:imeSubtypeMode="keyboard"
-        android:label="@string/subtype_korean" />
+        android:label="@string/ime_subtype_korean" />
     <subtype
         android:imeSubtypeLocale="en_US"
         android:imeSubtypeMode="keyboard"
-        android:label="@string/subtype_english" />
+        android:label="@string/ime_subtype_english" />
 </input-method>
