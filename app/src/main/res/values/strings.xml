@@ -205,7 +205,7 @@
     <string name="translate_test_hint">Translate a sample sentence with the selected engine. For ML Kit and Gemini Nano this also downloads the model.</string>
     <string name="translate_system_settings">System translation language packs</string>
     <string name="translate_privacy_note">Translation runs on the device, and what you type is not sent anywhere. The keyboard itself has no network access. Only the optional ML Kit add-on uses the network, to download language models, and Google\'s ML Kit libraries in it send usage statistics to Google.</string>
-    <string name="translate_status_addon_missing">The ML Kit add-on isn\'t installed.</string>
+    <string name="translate_settings_addon_missing">The ML Kit add-on isn\'t installed.</string>
     <string name="translate_availability_checking">Checking…</string>
     <string name="translate_availability_ready">Ready</string>
     <string name="translate_availability_needs_download">Needs download</string>

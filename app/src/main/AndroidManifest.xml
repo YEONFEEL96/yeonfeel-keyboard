@@ -11,7 +11,7 @@
         android:protectionLevel="signature" />
     <uses-permission android:name="dev.badalab.yeonfeel.permission.TRANSLATE" />
 
-    <!-- Android 11+ 패키지 가시성: 애드온 서비스에 명시적으로 바인드하려면 필요하다. -->
+    <!-- Android 11+ 패키지 가시성: 애드온 서비스에 명시적으로 바인드하고, 설정 화면이 설치 여부를 확인하는 데 필요하다. -->
     <queries>
         <package android:name="dev.badalab.yeonfeel.translate.mlkit" />
     </queries>
@@ -24,10 +24,6 @@
     <!-- Gemini Nano(AICore) 라이브러리는 minSdk 26 — 코드에서 API 26 미만이면 로드하지 않는다. -->
     <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
 
-    <!-- 설정 화면이 ML Kit 애드온 앱(#25) 설치 여부를 확인한다 (패키지 공개 범위). -->
-    <queries>
-        <package android:name="dev.badalab.yeonfeel.translate.mlkit" />
-    </queries>
 
 
     <!-- IME는 입력 이력을 다루므로 백업·기기 이전 반출 경로를 모두 차단한다 -->

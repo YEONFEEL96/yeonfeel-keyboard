@@ -203,7 +203,7 @@
     <string name="translate_test_hint">선택한 엔진으로 예문을 번역해 봐요. ML Kit·Gemini Nano는 이때 모델도 내려받아요.</string>
     <string name="translate_system_settings">시스템 번역 언어 팩</string>
     <string name="translate_privacy_note">번역은 기기 안에서 이루어지며 입력한 글은 어디로도 전송되지 않아요. 키보드 자체는 네트워크에 접근하지 않아요. 선택 사항인 ML Kit 애드온만 언어 모델을 받을 때 네트워크를 쓰고, 그 안의 Google ML Kit 라이브러리는 사용 통계를 Google에 보내요.</string>
-    <string name="translate_status_addon_missing">ML Kit 애드온이 설치돼 있지 않아요.</string>
+    <string name="translate_settings_addon_missing">ML Kit 애드온이 설치돼 있지 않아요.</string>
     <string name="translate_availability_checking">확인 중…</string>
     <string name="translate_availability_ready">사용 가능</string>
     <string name="translate_availability_needs_download">내려받기 필요</string>
