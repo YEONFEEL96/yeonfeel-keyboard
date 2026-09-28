@@ -20,6 +20,11 @@ import dev.badalab.yeonfeel.settings.KeyboardSettings
 import dev.badalab.yeonfeel.settings.KoreanLayoutType
 import dev.badalab.yeonfeel.settings.SymbolBoardStyle
 import dev.badalab.yeonfeel.settings.SettingsActivity
+import dev.badalab.yeonfeel.translate.GeminiBlockFlag
+import dev.badalab.yeonfeel.translate.TranslationBackend
+import dev.badalab.yeonfeel.translate.TranslationEngine
+import dev.badalab.yeonfeel.translate.TranslationLanguage
+import dev.badalab.yeonfeel.translate.TranslationResult
 
 class YeonfeelImeService : InputMethodService() {
 
@@ -72,6 +77,7 @@ class YeonfeelImeService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         settings = KeyboardSettings(this)
+        geminiBlockFlag = GeminiBlockFlag(this, settings)
         clipboardStore = SecureClipboardStore(this)
         touchStats = dev.badalab.yeonfeel.debug.TouchStatsStore(this)
         touchModel = TouchModel(touchStats)
@@ -96,6 +102,9 @@ class YeonfeelImeService : InputMethodService() {
             touchStats.flush()
         }
         ioExecutor.shutdown()
+        // close 뒤에는 번역 콜백이 오지 않는다.
+        translationBackend?.close()
+        translationBackend = null
         // 파괴 이후 도착할 mainHandler.post 콜백을 제거한다.
         mainHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
@@ -191,7 +200,7 @@ class YeonfeelImeService : InputMethodService() {
         view.keyboardView.mode = mode
         view.keyboardView.touchStatsProvider = { board -> touchModel.statsFor(board) }
         view.keyboardView.hasTextToDelete = {
-            composer.isComposing ||
+            (translateOpen && !translateBuffer.isEmpty()) || composer.isComposing ||
                 currentInputConnection?.let { ic ->
                     ic.getSelectedText(0)?.isNotEmpty() == true ||
                         ic.getTextBeforeCursor(1, 0)?.isNotEmpty() == true
@@ -249,16 +258,9 @@ class YeonfeelImeService : InputMethodService() {
             KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER -> naratgulComposer
             else -> dubeolComposer
         }
-        dubeolComposer.doubleTapIotation = settings.koreanLayout == KoreanLayoutType.DANMOEUM
-        dubeolComposer.doubleTapDoubling = settings.koreanLayout == KoreanLayoutType.DANMOEUM
-        dubeolComposer.fixDwaet = settings.dwaetFixEnabled
-        chunjiinComposer.fixDwaet = settings.dwaetFixEnabled
-        val multiTapDelay = settings.multiTapDelayMs.toLong()
-        dubeolComposer.multiTapTimeoutMs = multiTapDelay
-        // 천지인 자동 방식: 연타 대기가 사실상 무한 — 같은 키는 스페이스바로 끊기 전까지 계속 사이클.
-        chunjiinComposer.multiTapTimeoutMs =
-            if (settings.chunjiinSpaceCommits) Long.MAX_VALUE else multiTapDelay
-        naratgulComposer.multiTapTimeoutMs = multiTapDelay
+        configureComposer(dubeolComposer)
+        configureComposer(chunjiinComposer)
+        configureComposer(naratgulComposer)
         // 설정에서 꺼진 언어가 현재 모드면 켜진 언어로 강제 전환한다.
         if (mode == LayoutMode.ENGLISH && !settings.englishEnabled) mode = LayoutMode.KOREAN
         if (mode == LayoutMode.KOREAN && !settings.koreanEnabled) mode = LayoutMode.ENGLISH
@@ -274,6 +276,9 @@ class YeonfeelImeService : InputMethodService() {
             it.keyboardView.shifted = false
             it.keyboardView.capsLock = false
         }
+        // 설정에서 번역 엔진이 바뀌었으면 기존 엔진을 닫는다 (다음 사용 때 새로 만든다).
+        syncTranslationBackend()
+        updateTranslateButton()
         // 설정의 '키보드 여백' 화면에서 조정 모드로 열어달라는 1회성 요청.
         if (settings.adjustModeRequested) {
             settings.adjustModeRequested = false
@@ -289,6 +294,37 @@ class YeonfeelImeService : InputMethodService() {
             pendingCopiedText = null
             if (!sensitiveField) container?.showCopiedText(text)
         }
+    }
+
+    /** 자판 설정(단모음 연타·됬 치환·연타 대기)을 조합기에 반영한다. */
+    private fun configureComposer(c: KoreanComposer) {
+        val multiTapDelay = settings.multiTapDelayMs.toLong()
+        when (c) {
+            is HangulComposer -> {
+                c.doubleTapIotation = settings.koreanLayout == KoreanLayoutType.DANMOEUM
+                c.doubleTapDoubling = settings.koreanLayout == KoreanLayoutType.DANMOEUM
+                c.fixDwaet = settings.dwaetFixEnabled
+                c.multiTapTimeoutMs = multiTapDelay
+            }
+            is ChunjiinComposer -> {
+                c.fixDwaet = settings.dwaetFixEnabled
+                // 천지인 자동 방식: 연타 대기가 사실상 무한 — 같은 키는 스페이스바로 끊기 전까지 계속 사이클.
+                c.multiTapTimeoutMs =
+                    if (settings.chunjiinSpaceCommits) Long.MAX_VALUE else multiTapDelay
+            }
+            is NaratgulComposer -> c.multiTapTimeoutMs = multiTapDelay
+        }
+    }
+
+    /** 지금 자판용 새 조합기 — 앱 쪽 조합기와 상태를 나누지 않는 번역 패널용. */
+    private fun newKoreanComposer(): KoreanComposer {
+        val c = when (settings.koreanLayout) {
+            KoreanLayoutType.CHUNJIIN -> ChunjiinComposer()
+            KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER -> NaratgulComposer()
+            else -> HangulComposer()
+        }
+        configureComposer(c)
+        return c
     }
 
     /**
@@ -315,6 +351,8 @@ class YeonfeelImeService : InputMethodService() {
         lastCorrection = null
         lastSpaceTime = 0
         symbolCycle = null
+        // 번역 패널: 마지막 번역은 입력란에 그대로 두고 패널 상태만 비운다.
+        if (translateOpen) resetTranslation()
         if (composer.isComposing) {
             // 보류 병합(찬ㅎ→찮)은 하지 않는다 — flush 결과를 쓰면 커서가 옛 자리로 끌려온다.
             composer.reset()
@@ -370,6 +408,8 @@ class YeonfeelImeService : InputMethodService() {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        // 키보드가 내려가면 번역 패널을 닫는다 — 마지막 번역은 입력란에 남는다.
+        container?.closeTranslatePanel()
         finishComposition()
         val tail = pendingTouchSample
         pendingTouchSample = null
@@ -409,6 +449,8 @@ class YeonfeelImeService : InputMethodService() {
         }
 
         override fun onTerminalKey(keyCode: Int) {
+            // 화살표 등은 커서를 옮긴다 — 번역은 입력란에 두고 패널 상태를 먼저 비운다.
+            if (translateOpen) resetTranslation()
             finishComposition()
             sendKeyWithMeta(keyCode, container?.consumeModifierMeta() ?: 0)
         }
@@ -467,6 +509,12 @@ class YeonfeelImeService : InputMethodService() {
             texts.forEach { clipboardHistory.setPinned(it, pinned) }
             persistClipboard()
         }
+
+        override fun onTranslatePanelStateChanged(open: Boolean) {
+            if (open) startTranslation() else endTranslation()
+        }
+
+        override fun onTranslateSwap() = swapTranslationLanguages()
     }
 
     /**
@@ -560,6 +608,7 @@ class YeonfeelImeService : InputMethodService() {
             handleEmojiSearchKey(key)
             return
         }
+        if (translateOpen && handleTranslateKey(key)) return
         val view = container?.keyboardView ?: return
         when (key.type) {
             KeyType.CHAR, KeyType.GHOST -> {
@@ -641,6 +690,8 @@ class YeonfeelImeService : InputMethodService() {
         val view = container?.keyboardView ?: return
         if (target == mode) return
         finishComposition()
+        // 번역 원문의 조합 중인 음절도 확정한다 — 다른 언어 글자가 조합에 섞이지 않게.
+        if (translateOpen) translateBuffer.flushComposer()
         mode = target
         view.mode = target
         view.shifted = false
@@ -780,6 +831,12 @@ class YeonfeelImeService : InputMethodService() {
 
     companion object {
         private const val CAPS_LOCK_TAP_MS = 350L
+
+        /** 마지막 키 입력 뒤 번역을 요청하기까지의 대기. */
+        private const val TRANSLATE_DEBOUNCE_MS = 350L
+
+        /** 엔진이 모델을 내려받는 중이면 이만큼 뒤 다시 시도한다. */
+        private const val TRANSLATE_RETRY_MS = 2_000L
     }
 
     private fun onSpace() {
@@ -897,4 +954,354 @@ class YeonfeelImeService : InputMethodService() {
             selection.abandonComposition(cursorKnown = false)
         }
     }
+
+    // ---- 번역 패널 ----
+    // 원문은 패널 버퍼에 쌓고, 번역만 앱의 조합 영역에 쓴다. 앱 편집은 모두 commit/setComposing/
+    // closeComposing을 거쳐 SelectionTracker가 우리 편집을 커서 이동으로 오인하지 않게 한다.
+
+    private val translateBuffer = TranslateSourceBuffer()
+    private val translateRequests = TranslateRequestState()
+    private var translateOpen = false
+    private lateinit var geminiBlockFlag: GeminiBlockFlag
+
+    /** 처음 쓸 때 만들고, 설정에서 엔진이 바뀌면 닫고 다시 만든다. */
+    private var translationBackend: TranslationBackend? = null
+    private var translationBackendEngine: TranslationEngine? = null
+
+    /** 이 키보드 세션에서 쓸 수 없다고 확인한 엔진과 그 상태 (엔진 없음·애드온 없음·막힘). */
+    private var unusableEngine: Pair<TranslationEngine, TranslateStatus>? = null
+
+    // 패널을 열 때 정한 엔진·언어 쌍 (언어 칩으로 바꾸면 갱신).
+    private var translateEngine = TranslationEngine.DEFAULT
+    private var translateSource = TranslationLanguage.DEFAULT_SOURCE
+    private var translateTarget = TranslationLanguage.DEFAULT_TARGET
+
+    /** 키보드 안에서 Gemini Nano가 막혀 있다 — 요청을 보내지 않고 이유만 보여준다. */
+    private var translateGeminiBlocked = false
+
+    private val translateDebounce = Runnable { requestTranslation(confirm = false) }
+    private var translateRetrySource: String? = null
+    private val translateRetry = Runnable {
+        // 패널이 열려 있고 원문이 그대로일 때만 다시 시도한다.
+        if (translateOpen && translateBuffer.text == translateRetrySource) {
+            requestTranslation(confirm = translateRequests.confirmPending)
+        }
+    }
+
+    /** 비밀번호 입력란과 개인화 학습을 거부한 입력란에서는 번역을 쓰지 않는다. */
+    private fun translationAllowed(): Boolean = !sensitiveField && !noLearnField
+
+    private fun syncTranslationBackend() {
+        val engine = settings.translationEngine
+        if (translationBackendEngine != null && translationBackendEngine != engine) {
+            translationBackend?.close()
+            translationBackend = null
+            translationBackendEngine = null
+        }
+    }
+
+    private fun backendFor(engine: TranslationEngine): TranslationBackend {
+        if (translationBackendEngine != engine) {
+            translationBackend?.close()
+            translationBackend = null
+        }
+        return translationBackend ?: TranslationBackend.create(this, engine, allowMeteredDownload = false).also {
+            translationBackend = it
+            translationBackendEngine = engine
+        }
+    }
+
+    /** 고른 엔진을 쓸 수 없다고 이미 알고 있는지 — Gemini 막힘 기록 또는 이번 세션의 실패. */
+    private fun engineKnownUnusable(engine: TranslationEngine): Boolean =
+        (engine == TranslationEngine.GEMINI_NANO && geminiBlockFlag.isBlocked()) ||
+            unusableEngine?.first == engine
+
+    private fun updateTranslateButton() {
+        container?.setTranslateButtonState(
+            visible = translationAllowed(),
+            dimmed = engineKnownUnusable(settings.translationEngine),
+        )
+    }
+
+    private fun startTranslation() {
+        if (!translationAllowed()) {
+            container?.closeTranslatePanel()
+            return
+        }
+        // 앱에서 조합 중이던 글자는 먼저 확정한다 — 이후 앱 조합 영역은 번역만 쓴다.
+        finishComposition()
+        translateOpen = true
+        syncTranslationBackend()
+        translateEngine = settings.translationEngine
+        translateSource = settings.translationSource
+        translateTarget = settings.translationTarget
+        translateGeminiBlocked =
+            translateEngine == TranslationEngine.GEMINI_NANO && geminiBlockFlag.isBlocked()
+        translateBuffer.composer = newKoreanComposer()
+        translateBuffer.fixDwaet = settings.dwaetFixEnabled
+        translateBuffer.clear()
+        translateRequests.reset()
+        symbolCycle = null
+        showTranslateStatus(TranslateStatus.initial(translateEngine, translateGeminiBlocked, unusableEngine))
+        refreshTranslateSource()
+        refreshTranslatePair()
+        updateTranslateButton()
+    }
+
+    /** 패널이 닫혔다. 마지막 번역은 입력란에 그대로 남긴다. */
+    private fun endTranslation() {
+        if (!translateOpen) return
+        resetTranslation()
+        translateOpen = false
+        translateBuffer.composer = null
+    }
+
+    /** 입력란의 번역을 확정(조합 영역만 닫기)하고 패널 상태를 처음으로 되돌린다. */
+    private fun resetTranslation() {
+        cancelTranslateTimers()
+        if (translateRequests.shownSource != null) currentInputConnection?.let { closeComposing(it) }
+        translateBuffer.clear()
+        translateRequests.reset()
+        showTranslateStatus(idleTranslateStatus())
+        refreshTranslateSource()
+    }
+
+    private fun cancelTranslateTimers() {
+        mainHandler.removeCallbacks(translateDebounce)
+        mainHandler.removeCallbacks(translateRetry)
+        translateRetrySource = null
+    }
+
+    private fun idleTranslateStatus(): TranslateStatus =
+        if (translateGeminiBlocked) TranslateStatus.BLOCKED else TranslateStatus.IDLE
+
+    /** 번역 패널의 키 처리. 처리했으면 true — 아니면(시프트·기호·언어 키 등) 평소대로 처리한다. */
+    private fun handleTranslateKey(key: Key): Boolean {
+        val view = container?.keyboardView ?: return false
+        when (key.type) {
+            KeyType.CHAR, KeyType.GHOST -> {
+                val c = key.char
+                if (!rotateTranslateSymbol(key)) {
+                    if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
+                        translateBuffer.inputJamo(c, System.currentTimeMillis())
+                    } else {
+                        translateBuffer.inputChar(c)
+                    }
+                }
+                if (view.shifted && !view.capsLock) view.shifted = false
+                onTranslateSourceChanged()
+            }
+            KeyType.SPACE -> {
+                symbolCycle = null
+                // 천지인 옵션: 조합 중 첫 스페이스바는 조합만 끊는다 (앱 입력과 같게).
+                if (settings.chunjiinSpaceCommits && mode == LayoutMode.KOREAN &&
+                    settings.koreanLayout == KoreanLayoutType.CHUNJIIN && translateBuffer.isComposing
+                ) {
+                    translateBuffer.flushComposer()
+                } else {
+                    translateBuffer.inputChar(' ')
+                }
+                onTranslateSourceChanged()
+            }
+            KeyType.DELETE -> {
+                symbolCycle = null
+                // 원문이 비어 있으면 앱에서 평소처럼 지운다.
+                if (!translateBuffer.backspace()) return false
+                onTranslateSourceChanged()
+            }
+            KeyType.ENTER -> onTranslateEnter()
+            else -> return false
+        }
+        return true
+    }
+
+    /** 기호 키 연타(. → , → ? → !)를 원문 버퍼에서 처리한다. 앱 입력의 [rotateSymbolKey]와 같은 규칙. */
+    private fun rotateTranslateSymbol(key: Key): Boolean {
+        val cycle = symbolCycleOf(key) ?: run {
+            symbolCycle = null
+            return false
+        }
+        val now = System.currentTimeMillis()
+        if (cycle == symbolCycle && now - symbolCycleTime < settings.multiTapDelayMs &&
+            translateBuffer.lastChar() == cycle[symbolCycleIndex]
+        ) {
+            symbolCycleIndex = (symbolCycleIndex + 1) % cycle.length
+            translateBuffer.replaceLast(cycle[symbolCycleIndex])
+            symbolCycleTime = now
+            return true
+        }
+        symbolCycle = cycle
+        symbolCycleIndex = 0
+        symbolCycleTime = now
+        return false
+    }
+
+    private fun onTranslateSourceChanged() {
+        cancelTranslateTimers()
+        translateRequests.confirmPending = false
+        refreshTranslateSource()
+        if (translateBuffer.isEmpty()) {
+            // 원문을 다 지웠으면 입력란의 번역도 지운다.
+            if (translateRequests.shownSource != null) currentInputConnection?.let { commit(it, "") }
+            translateRequests.reset()
+            showTranslateStatus(idleTranslateStatus())
+            return
+        }
+        if (translateGeminiBlocked) return
+        mainHandler.postDelayed(translateDebounce, TRANSLATE_DEBOUNCE_MS)
+    }
+
+    private fun onTranslateEnter() {
+        val source = translateBuffer.text
+        when (translateRequests.enterAction(source)) {
+            TranslateRequestState.EnterAction.EDITOR_ACTION -> {
+                onEnter()
+                updateAutoCapitalize()
+            }
+            TranslateRequestState.EnterAction.CONFIRM -> resetTranslation()
+            TranslateRequestState.EnterAction.CONFIRM_ON_RESULT -> translateRequests.confirmPending = true
+            TranslateRequestState.EnterAction.TRANSLATE_THEN_CONFIRM -> requestTranslation(confirm = true)
+        }
+    }
+
+    private fun requestTranslation(confirm: Boolean) {
+        cancelTranslateTimers()
+        if (!translateOpen) return
+        val source = translateBuffer.text
+        if (source.isEmpty()) return
+        if (translateGeminiBlocked) {
+            translateRequests.confirmPending = false
+            showTranslateStatus(TranslateStatus.BLOCKED)
+            return
+        }
+        val engine = translateEngine
+        val backend = backendFor(engine)
+        val id = translateRequests.issue(source)
+        // 콜백이 translate 안에서 곧장 불릴 수 있으므로 상태를 먼저 정한다.
+        translateRequests.confirmPending = confirm
+        showTranslateStatus(TranslateStatus.WORKING)
+        backend.translate(source, translateSource, translateTarget) { result ->
+            onTranslationResult(id, engine, source, result)
+        }
+    }
+
+    private fun onTranslationResult(
+        id: Long,
+        engine: TranslationEngine,
+        source: String,
+        result: TranslationResult,
+    ) {
+        if (!translateOpen || !translateRequests.complete(id)) return
+        when (result) {
+            is TranslationResult.Success -> {
+                if (unusableEngine?.first == engine) {
+                    unusableEngine = null
+                    updateTranslateButton()
+                }
+                val ic = currentInputConnection ?: return
+                if (!translationRegionIntact(ic)) return
+                setComposing(ic, result.text)
+                translateRequests.onShown(source)
+                showTranslateStatus(TranslateStatus.IDLE)
+                if (translateRequests.confirmPending && source == translateBuffer.text) resetTranslation()
+            }
+            is TranslationResult.Failure -> {
+                // 실패 상세(detail)와 원문은 기록하지 않는다 — 입력한 글이 로그에 남을 수 있다.
+                val status = TranslateStatus.of(result.reason)
+                if (status == null) {
+                    // 다른 요청이 대신했다 — 조용히 넘어간다.
+                    translateRequests.confirmPending = false
+                    showTranslateStatus(idleTranslateStatus())
+                    return
+                }
+                if (status == TranslateStatus.BLOCKED && engine == TranslationEngine.GEMINI_NANO) {
+                    geminiBlockFlag.markBlocked()
+                    translateGeminiBlocked = true
+                }
+                if (status.engineUnusable) {
+                    unusableEngine = engine to status
+                    updateTranslateButton()
+                }
+                showTranslateStatus(status)
+                if (status.retries) {
+                    translateRetrySource = source
+                    mainHandler.postDelayed(translateRetry, TRANSLATE_RETRY_MS)
+                } else {
+                    translateRequests.confirmPending = false
+                }
+            }
+        }
+    }
+
+    /**
+     * 입력란의 번역(앱 조합 영역)이 아직 커서 바로 앞에 있는지. 앱이 조합 영역을 스스로 닫았거나
+     * 커서가 옮겨졌으면 새 번역을 쓰면 옛 번역 뒤에 하나 더 들어가므로, 패널 상태를 비우고 false.
+     */
+    private fun translationRegionIntact(ic: InputConnection): Boolean {
+        if (translateRequests.shownSource == null) return true
+        val sent = selection.composing
+        val moved = !selection.compositionDropped && sent.isNotEmpty() &&
+            ic.getTextBeforeCursor(sent.length, 0)?.let { it.toString() != sent } == true
+        if (!selection.compositionDropped && !moved) return true
+        ic.finishComposingText()
+        selection.abandonComposition(cursorKnown = !moved)
+        translateRequests.reset()
+        translateBuffer.clear()
+        cancelTranslateTimers()
+        showTranslateStatus(idleTranslateStatus())
+        refreshTranslateSource()
+        return false
+    }
+
+    private fun swapTranslationLanguages() {
+        if (!translateOpen) return
+        val source = translateSource
+        translateSource = translateTarget
+        translateTarget = source
+        settings.translationSource = translateSource
+        settings.translationTarget = translateTarget
+        refreshTranslatePair()
+        refreshTranslateSource()
+        if (!translateBuffer.isEmpty() && !translateGeminiBlocked) requestTranslation(confirm = false)
+    }
+
+    private fun refreshTranslateSource() {
+        container?.updateTranslateSource(
+            translateBuffer.text,
+            getString(R.string.translate_hint, translateSource.displayName()),
+        )
+    }
+
+    private fun refreshTranslatePair() {
+        container?.updateTranslatePair("${translateSource.displayName()} → ${translateTarget.displayName()}")
+    }
+
+    private fun showTranslateStatus(status: TranslateStatus) {
+        val text = when (status) {
+            TranslateStatus.IDLE -> getString(R.string.translate_status_idle)
+            TranslateStatus.WORKING -> getString(R.string.translate_status_working)
+            TranslateStatus.DOWNLOADING -> getString(R.string.translate_status_downloading)
+            TranslateStatus.NEEDS_DOWNLOAD -> getString(R.string.translate_status_needs_download)
+            TranslateStatus.NEEDS_WIFI -> getString(R.string.translate_status_needs_wifi)
+            TranslateStatus.ENGINE_UNAVAILABLE ->
+                getString(R.string.translate_status_unavailable, engineName(translateEngine))
+            TranslateStatus.LANGUAGE_UNSUPPORTED -> getString(R.string.translate_status_unsupported_pair)
+            TranslateStatus.BLOCKED -> getString(R.string.translate_status_blocked)
+            TranslateStatus.ADDON_MISSING -> getString(R.string.translate_status_addon_missing)
+            TranslateStatus.BUSY -> getString(R.string.translate_status_busy)
+            TranslateStatus.TEXT_TOO_LONG -> getString(R.string.translate_status_too_long)
+            TranslateStatus.ERROR -> getString(R.string.translate_status_error)
+        }
+        val emphasized = status != TranslateStatus.IDLE && status != TranslateStatus.WORKING &&
+            status != TranslateStatus.DOWNLOADING
+        container?.updateTranslateStatus(text, emphasized)
+    }
+
+    private fun engineName(engine: TranslationEngine): String = getString(
+        when (engine) {
+            TranslationEngine.SYSTEM -> R.string.translate_engine_system
+            TranslationEngine.MLKIT -> R.string.translate_engine_mlkit
+            TranslationEngine.GEMINI_NANO -> R.string.translate_engine_gemini
+        },
+    )
 }
