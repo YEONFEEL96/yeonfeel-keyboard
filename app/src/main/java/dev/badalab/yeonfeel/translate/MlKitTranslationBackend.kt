@@ -2,6 +2,7 @@ package dev.badalab.yeonfeel.translate
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.common.model.DownloadConditions
@@ -15,8 +16,9 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 /**
  * ML Kit 번역. 번역은 기기 안에서 하고, 네트워크는 언어 모델(약 30MB)을 처음 받을 때만 쓴다.
  * 모델이 없으면 다운로드를 시작하고 곧바로 [TranslationResult.Reason.DOWNLOADING]을 돌려준다 —
- * 호출하는 쪽이 잠시 뒤 다시 요청한다. [allowMeteredDownload]가 false면 데이터 요금이
- * 나가는 네트워크에서는 받지 않고 [TranslationResult.Reason.NEEDS_WIFI]를 돌려준다.
+ * 호출하는 쪽이 잠시 뒤 다시 요청한다. [allowMeteredDownload]가 false면 Wi-Fi에서만 받고,
+ * 모델이 없는 동안 Wi-Fi가 아니면 [TranslationResult.Reason.NEEDS_WIFI]를 돌려준다 — 다운로드 조건
+ * (requireWifi)과 같은 기준이라 Wi-Fi를 기다리며 DOWNLOADING만 되풀이하는 일이 없다.
  *
  * 다운로드는 번역기가 아니라 [RemoteModelManager]로 언어별로 한다 — 언어 쌍이 바뀌어 번역기를
  * 닫아도 받던 모델은 계속 받는다. Task 리스너는 따로 지정하지 않으면 메인 스레드에서 불린다.
@@ -77,14 +79,12 @@ internal class MlKitTranslationBackend(
                 callback(failure(TranslationResult.Reason.ERROR, "download failed: $detail"))
                 return@addOnCompleteListener
             }
-            val toStart = missing.filter { it !in downloading }
-            if (toStart.isNotEmpty()) {
-                if (!allowMeteredDownload && isMetered()) {
-                    callback(failure(TranslationResult.Reason.NEEDS_WIFI))
-                    return@addOnCompleteListener
-                }
-                toStart.forEach(::startDownload)
+            // 이미 받는 중이어도 Wi-Fi가 끊겼으면 다운로드는 Wi-Fi를 기다린다 — 그대로 알린다.
+            if (!allowMeteredDownload && !isOnWifi()) {
+                callback(failure(TranslationResult.Reason.NEEDS_WIFI))
+                return@addOnCompleteListener
             }
+            missing.filter { it !in downloading }.forEach(::startDownload)
             callback(failure(TranslationResult.Reason.DOWNLOADING))
         }
     }
@@ -100,13 +100,17 @@ internal class MlKitTranslationBackend(
         }
     }
 
-    /** 데이터 요금이 나가는 네트워크인지. 네트워크가 없거나 알 수 없으면 요금이 나간다고 본다. */
-    private fun isMetered(): Boolean = runCatching { connectivity?.isActiveNetworkMetered }.getOrNull() ?: true
+    /** 현재 네트워크가 Wi-Fi인지 — [DownloadConditions.Builder.requireWifi]와 같은 기준. 알 수 없으면 false. */
+    private fun isOnWifi(): Boolean = runCatching {
+        val network = connectivity?.activeNetwork ?: return@runCatching false
+        connectivity.getNetworkCapabilities(network)
+            ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+    }.getOrDefault(false)
 
     private fun startDownload(tag: String) {
         downloading += tag
         val conditions = DownloadConditions.Builder()
-            // 받는 도중 셀룰러로 바뀌어도 키보드에서는 요금이 나가는 네트워크를 쓰지 않는다.
+            // 받는 도중 셀룰러로 바뀌어도 키보드에서는 Wi-Fi가 아닌 네트워크를 쓰지 않는다.
             .apply { if (!allowMeteredDownload) requireWifi() }
             .build()
         models.download(TranslateRemoteModel.Builder(tag).build(), conditions)

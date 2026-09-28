@@ -110,10 +110,18 @@ internal class SystemTranslationBackend(context: Context) : TranslationBackend {
             )
         }.getOrNull()
         if (caps.isNullOrEmpty()) return null
-        val cap = caps.firstOrNull {
+        // 같은 언어에 스크립트·지역 변형이 여럿일 수 있다 (zh-Hans/zh-Hant) — 가장 쓸 만한 상태를 고른다.
+        return caps.filter {
             it.sourceSpec.locale.language == source.code && it.targetSpec.locale.language == target.code
-        } ?: return TranslationCapability.STATE_NOT_AVAILABLE
-        return cap.state
+        }.map { it.state }.maxByOrNull(::stateRank) ?: TranslationCapability.STATE_NOT_AVAILABLE
+    }
+
+    /** 상태의 쓸모 순위: 기기에 있음 > 받는 중 > 받을 수 있음 > 그 밖. */
+    private fun stateRank(state: Int): Int = when (state) {
+        TranslationCapability.STATE_ON_DEVICE -> 3
+        TranslationCapability.STATE_DOWNLOADING -> 2
+        TranslationCapability.STATE_AVAILABLE_TO_DOWNLOAD -> 1
+        else -> 0
     }
 
     private fun create(manager: TranslationManager, prep: Preparation) {
