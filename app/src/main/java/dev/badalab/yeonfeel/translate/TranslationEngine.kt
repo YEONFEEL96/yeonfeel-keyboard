@@ -139,8 +139,10 @@ interface TranslationBackend {
                 } else {
                     UnavailableBackend()
                 }
-            // 애드온 연결(#25)이 생기기 전까지는 늘 '애드온 없음'으로 답한다.
-            TranslationEngine.MLKIT -> UnavailableBackend(TranslationResult.Reason.ADDON_NOT_INSTALLED)
+            // 애드온 앱에 바인드해 번역한다 (#25). 애드온이 없으면 '애드온 없음'으로 답하고,
+            // 애드온이 멈춰 답이 오지 않아도 [TimeoutBackend]가 콜백을 한 번 보장한다.
+            TranslationEngine.MLKIT ->
+                TimeoutBackend(AddonTranslationBackend(context, allowMeteredDownload), LIBRARY_TIMEOUT_MS)
             TranslationEngine.GEMINI_NANO ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     TimeoutBackend(GeminiNanoTranslationBackend(context), LIBRARY_TIMEOUT_MS)

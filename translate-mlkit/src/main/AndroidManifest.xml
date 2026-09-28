@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 번역 서비스 바인드 권한. 키보드 매니페스트에도 같은 이름으로 선언한다 — 어느 앱을 먼저 설치해도
+         같은 키로 서명한 앱만 이 권한을 받는다. -->
+    <permission
+        android:name="dev.badalab.yeonfeel.permission.TRANSLATE"
+        android:protectionLevel="signature" />
+
+    <!-- 언어 모델 다운로드에만 쓴다. 번역 자체는 기기 안에서 한다. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/addon_app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AddonTheme">
+
+        <!-- 애드온 안내와 내려받은 언어 모델 관리 화면 -->
+        <activity
+            android:name=".ModelsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 키보드 전용 번역 서비스. 같은 키로 서명한 앱(키보드)만 바인드할 수 있다. -->
+        <service
+            android:name=".TranslateService"
+            android:exported="true"
+            android:permission="dev.badalab.yeonfeel.permission.TRANSLATE" />
+
+        <!-- ML Kit은 앱 시작 때 스스로 초기화한다. 번역 서비스·모델 화면에서 처음 쓸 때 초기화한다. -->
+        <provider
+            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+            android:authorities="${applicationId}.mlkitinitprovider"
+            tools:node="remove" />
+    </application>
+</manifest>

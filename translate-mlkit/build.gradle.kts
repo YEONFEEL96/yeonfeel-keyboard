@@ -3,20 +3,22 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// 연필키보드용 ML Kit 번역 애드온 (#25). ML Kit 네이티브 엔진(ABI당 약 16MB)과 언어 모델 다운로드용
+// INTERNET 권한을 키보드 대신 이 앱이 가진다. 키보드는 서명 권한으로 보호된 서비스에 바인드해 번역한다.
 android {
-    namespace = "dev.badalab.yeonfeel"
+    namespace = "dev.badalab.yeonfeel.translate.mlkit"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.badalab.yeonfeel"
+        applicationId = "dev.badalab.yeonfeel.translate.mlkit"
         minSdk = 23
         targetSdk = 36
-        versionCode = 22
-        versionName = "1.0.10"
+        versionCode = 1
+        versionName = "1.0.0"
     }
 
-    // 릴리스 키스토어는 저장소 밖(~/.gradle/gradle.properties)에서 읽는다.
-    // 키가 없는 환경(포크·CI)에서는 디버그 서명으로 대체돼 빌드는 항상 가능하다.
+    // 키보드(:app)와 같은 키로 서명해야 서명 권한으로 서로 연결된다. 릴리스 키스토어는 저장소 밖
+    // (~/.gradle/gradle.properties)에서 읽고, 없으면 두 앱 모두 같은 디버그 키로 대체된다.
     val releaseStoreFile = providers.gradleProperty("YEONFEEL_RELEASE_STORE_FILE").orNull
 
     signingConfigs {
@@ -58,16 +60,7 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.16.0")
-    // ExploreByTouchHelper — 커스텀 그린 키 그리드에 TalkBack 접근성 노드를 제공한다.
-    implementation("androidx.customview:customview:1.1.0")
-    // Activity Embedding — 폴드·태블릿에서 설정을 2단(목록/상세)으로 나란히 표시한다.
-    implementation("androidx.window:window:1.3.0")
-    // 키보드 번역 엔진 (설정에서 선택). 시스템 번역은 프레임워크 API라 의존성이 없고,
-    // ML Kit은 INTERNET 권한·대용량 네이티브 엔진 때문에 별도 애드온 앱이 맡는다.
-    // Gemini Nano (AICore) Prompt API — minSdk 26, 런타임에서 API 26 이상일 때만 로드한다.
-    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
-    // ML Kit 애드온과 주고받는 IPC 프로토콜 (#25) — 애드온도 같은 모듈을 컴파일한다.
     implementation(project(":translate-protocol"))
-    testImplementation("junit:junit:4.13.2")
+    // ML Kit 온디바이스 번역. 언어 모델(언어당 약 30MB)은 처음 쓸 때 내려받는다.
+    implementation("com.google.mlkit:translate:17.0.3")
 }
