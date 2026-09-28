@@ -69,7 +69,7 @@ sealed interface TranslationResult {
         /** 언어 팩·모델을 먼저 내려받아야 한다 (시스템 번역 언어 팩은 시스템 설정에서). */
         NEEDS_DOWNLOAD,
 
-        /** 모델을 받아야 하지만 데이터 요금이 나가는 네트워크라 받지 않았다. Wi-Fi에 연결하면 받는다. */
+        /** 모델을 받아야 하지만 Wi-Fi가 아니라 받지 않았다(키보드). Wi-Fi에 연결하면 받는다. */
         NEEDS_WIFI,
 
         /** 모델을 내려받는 중이다. 잠시 뒤 다시 시도하면 된다. */
@@ -80,6 +80,9 @@ sealed interface TranslationResult {
 
         /** 사용량 한도·동시 요청 제한에 걸렸다. */
         BUSY,
+
+        /** 원문이 엔진의 입력 한도보다 길다. 잘라서 번역하지 않는다 — 끝부분이 말없이 사라지므로. */
+        TEXT_TOO_LONG,
 
         /** 다른 언어 쌍의 새 요청이 이 요청을 대신했다. 화면에 보여줄 필요가 없다. */
         CANCELLED,
@@ -111,7 +114,10 @@ interface TranslationBackend {
          * 엔진 구현을 만든다. OS 버전이 모자라면 엔진 클래스를 아예 로드하지 않는다 —
          * 시스템 번역은 API 31, Gemini Nano 라이브러리는 API 26 클래스를 참조한다.
          *
-         * [allowMeteredDownload]가 false면(키보드) ML Kit 모델을 데이터 요금이 없는 네트워크에서만 받는다.
+         * [allowMeteredDownload]가 false면(키보드) ML Kit 모델을 Wi-Fi에서만 받는다.
+         *
+         * ML Kit·Gemini Nano는 라이브러리 호출이 끝나지 않을 수 있어(서비스 멈춤) [TimeoutBackend]로
+         * 감싸 "콜백은 정확히 한 번" 약속을 지킨다. 시스템 번역은 자체 제한 시간이 있다.
          */
         fun create(
             context: Context,
@@ -124,14 +130,60 @@ interface TranslationBackend {
                 } else {
                     UnavailableBackend()
                 }
-            TranslationEngine.MLKIT -> MlKitTranslationBackend(context, allowMeteredDownload)
+            TranslationEngine.MLKIT ->
+                TimeoutBackend(MlKitTranslationBackend(context, allowMeteredDownload), LIBRARY_TIMEOUT_MS)
             TranslationEngine.GEMINI_NANO ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    GeminiNanoTranslationBackend(context)
+                    TimeoutBackend(GeminiNanoTranslationBackend(context), LIBRARY_TIMEOUT_MS)
                 } else {
                     UnavailableBackend()
                 }
         }
+    }
+}
+
+/** 라이브러리 엔진의 요청당 제한 시간. 온디바이스 LLM의 첫 추론(워밍업 포함)도 들어오도록 넉넉히 잡는다. */
+private const val LIBRARY_TIMEOUT_MS = 30_000L
+
+/**
+ * 제한 시간 안에 결과가 없으면 [TranslationResult.Reason.ERROR]("timeout")로 끝낸다.
+ * 늦게 온 실제 결과는 버린다. 메인 스레드에서만 쓰므로 동기화가 필요 없다.
+ */
+private class TimeoutBackend(
+    private val inner: TranslationBackend,
+    private val timeoutMs: Long,
+) : TranslationBackend {
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var closed = false
+
+    override fun translate(
+        text: String,
+        source: TranslationLanguage,
+        target: TranslationLanguage,
+        callback: (TranslationResult) -> Unit,
+    ) {
+        if (closed) return
+        var done = false
+        val token = Any()
+        val finish = { result: TranslationResult ->
+            if (!done && !closed) {
+                done = true
+                handler.removeCallbacksAndMessages(token)
+                callback(result)
+            }
+        }
+        handler.postAtTime(
+            { finish(TranslationResult.Failure(TranslationResult.Reason.ERROR, "timeout")) },
+            token,
+            android.os.SystemClock.uptimeMillis() + timeoutMs,
+        )
+        inner.translate(text, source, target, finish)
+    }
+
+    override fun close() {
+        closed = true
+        handler.removeCallbacksAndMessages(null)
+        inner.close()
     }
 }
 

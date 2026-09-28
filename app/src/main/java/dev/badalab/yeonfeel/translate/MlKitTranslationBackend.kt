@@ -7,6 +7,7 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
+import com.google.mlkit.common.sdkinternal.MlKitContext
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
@@ -27,6 +28,13 @@ internal class MlKitTranslationBackend(
     context: Context,
     private val allowMeteredDownload: Boolean,
 ) : TranslationBackend {
+
+    init {
+        // 매니페스트에서 ML Kit 시작 프로바이더를 뺐다 — 기본 엔진(시스템 번역)만 쓰는 사용자는
+        // 키보드 프로세스가 뜰 때마다 ML Kit·전송 라이브러리를 초기화할 이유가 없다. 이 엔진을 처음
+        // 만들 때 초기화한다 (아래 RemoteModelManager보다 먼저).
+        MlKitContext.initializeIfNeeded(context.applicationContext)
+    }
 
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val models = RemoteModelManager.getInstance()
@@ -76,7 +84,7 @@ internal class MlKitTranslationBackend(
             if (failed.isNotEmpty()) {
                 val detail = failed.firstNotNullOfOrNull { failedDownloads[it] }
                 failed.forEach { failedDownloads -= it }
-                callback(failure(TranslationResult.Reason.ERROR, "download failed: $detail"))
+                callback(failure(TranslationResult.Reason.ERROR, "download failed: ${detail ?: "unknown"}"))
                 return@addOnCompleteListener
             }
             // 이미 받는 중이어도 Wi-Fi가 끊겼으면 다운로드는 Wi-Fi를 기다린다 — 그대로 알린다.

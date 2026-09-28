@@ -6,7 +6,7 @@
     <!-- ML Kit 번역 엔진의 언어 모델 다운로드용 (라이브러리가 병합하는 권한을 명시적으로 드러낸다).
          번역 자체는 세 엔진 모두 기기 안에서 수행하며 입력 문장을 전송하지 않는다. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 키보드에서는 데이터 요금이 나가는 네트워크로 모델을 받지 않는다 (isActiveNetworkMetered 확인용). -->
+    <!-- 키보드에서는 ML Kit 모델을 Wi-Fi에서만 받는다 (현재 네트워크가 Wi-Fi인지 확인용). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Gemini Nano(AICore) 라이브러리는 minSdk 26 — 코드에서 API 26 미만이면 로드하지 않는다. -->
@@ -124,6 +124,13 @@
             android:name=".settings.TouchVisualizerActivity"
             android:exported="false"
             android:label="@string/debug_touch_visualizer" />
+
+        <!-- ML Kit은 기본으로 앱 시작 때 스스로 초기화한다. 번역 엔진을 ML Kit으로 고른 경우에만
+             필요하므로 빼고, MlKitTranslationBackend가 처음 만들어질 때 초기화한다. -->
+        <provider
+            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+            android:authorities="${applicationId}.mlkitinitprovider"
+            tools:node="remove" />
 
         <service
             android:name=".ime.YeonfeelImeService"

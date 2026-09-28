@@ -186,6 +186,7 @@
     <string name="translate_status_unsupported_pair">지원하지 않는 언어 조합이에요.</string>
     <string name="translate_status_blocked">Android가 Gemini Nano를 화면에 떠 있는 앱에서만 허용해 키보드 안에서는 실행할 수 없어요.</string>
     <string name="translate_status_busy">사용량 한도에 걸렸어요. 잠시 뒤 다시 시도해 주세요.</string>
+    <string name="translate_status_too_long">한 번에 번역하기엔 글이 너무 길어요. 줄이거나 나눠 주세요.</string>
     <string name="translate_status_error">번역하지 못했어요.</string>
     <string name="translate_engine_system">시스템 번역</string>
     <string name="translate_engine_mlkit">ML Kit</string>

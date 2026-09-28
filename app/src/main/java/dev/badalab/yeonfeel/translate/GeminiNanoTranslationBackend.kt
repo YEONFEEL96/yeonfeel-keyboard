@@ -45,6 +45,9 @@ internal class GeminiNanoTranslationBackend(context: Context) : TranslationBacke
     ) {
         if (closed) return
         if (source == target) return callback(TranslationResult.Success(text))
+        if (text.length > GeminiPrompt.MAX_INPUT_CHARS) {
+            return callback(failure(TranslationResult.Reason.TEXT_TOO_LONG))
+        }
         val client = client() ?: return callback(failure(TranslationResult.Reason.ENGINE_UNAVAILABLE))
         if (ready) {
             generate(client, text, source, target, callback)

@@ -188,6 +188,7 @@
     <string name="translate_status_unsupported_pair">This language pair isn\'t supported.</string>
     <string name="translate_status_blocked">Android only lets Gemini Nano run in the app on screen, so it can\'t run inside the keyboard here.</string>
     <string name="translate_status_busy">Usage limit reached. Try again later.</string>
+    <string name="translate_status_too_long">The text is too long to translate at once. Shorten it or split it.</string>
     <string name="translate_status_error">Couldn\'t translate.</string>
     <string name="translate_engine_system">System translation</string>
     <string name="translate_engine_mlkit">ML Kit</string>
