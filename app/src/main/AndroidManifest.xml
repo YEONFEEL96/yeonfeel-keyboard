@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 키보드는 네트워크를 쓰지 않는다. Gemini Nano 라이브러리가 끌고 오는 Google 사용 통계
+         전송 라이브러리(datatransport cct)가 병합하는 네트워크 권한을 걷어낸다 — 추론은 AICore
+         시스템 앱이 하므로 필요 없고, 통계는 보내지지 못한 채 버려진다. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+
+    <!-- Gemini Nano(AICore) 라이브러리는 minSdk 26 — 코드에서 API 26 미만이면 로드하지 않는다. -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
 
 
     <!-- IME는 입력 이력을 다루므로 백업·기기 이전 반출 경로를 모두 차단한다 -->
@@ -115,6 +124,13 @@
             android:name=".settings.TouchVisualizerActivity"
             android:exported="false"
             android:label="@string/debug_touch_visualizer" />
+
+        <!-- ML Kit 공통 모듈(Gemini Nano 라이브러리가 의존)은 앱 시작 때 스스로 초기화한다.
+             Gemini Nano를 고른 경우에만 필요하므로 빼고, 그 엔진을 처음 만들 때 초기화한다. -->
+        <provider
+            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+            android:authorities="${applicationId}.mlkitinitprovider"
+            tools:node="remove" />
 
         <service
             android:name=".ime.YeonfeelImeService"

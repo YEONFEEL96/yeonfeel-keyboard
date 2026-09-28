@@ -170,4 +170,36 @@
     <string name="ime_action_next">다음</string>
     <string name="ime_action_done">완료</string>
     <string name="ime_action_previous">이전</string>
+
+    <!-- 번역 -->
+    <string name="toolbar_translate_desc">번역</string>
+    <string name="translate_menu">번역</string>
+    <string name="translate_hint">%1$s 입력</string>
+    <string name="translate_swap_desc">언어 바꾸기</string>
+    <string name="translate_close_desc">번역 닫기</string>
+    <string name="translate_status_idle">번역문이 입력란에 바로 들어가요. 엔터로 확정해요.</string>
+    <string name="translate_status_working">번역 중…</string>
+    <string name="translate_status_downloading">언어 모델을 내려받는 중…</string>
+    <string name="translate_status_needs_download">번역 설정에서 언어 팩을 내려받아 주세요.</string>
+    <string name="translate_status_needs_wifi">Wi-Fi에 연결하거나 번역 설정에서 언어 모델을 내려받아 주세요.</string>
+    <string name="translate_status_unavailable">이 기기에서는 %1$s을(를) 쓸 수 없어요.</string>
+    <string name="translate_status_unsupported_pair">지원하지 않는 언어 조합이에요.</string>
+    <string name="translate_status_blocked">Android가 Gemini Nano를 화면에 떠 있는 앱에서만 허용해 키보드 안에서는 실행할 수 없어요.</string>
+    <string name="translate_status_busy">사용량 한도에 걸렸어요. 잠시 뒤 다시 시도해 주세요.</string>
+    <string name="translate_status_too_long">한 번에 번역하기엔 글이 너무 길어요. 줄이거나 나눠 주세요.</string>
+    <string name="translate_status_error">번역하지 못했어요.</string>
+    <string name="translate_engine_system">시스템 번역</string>
+    <string name="translate_engine_mlkit">ML Kit</string>
+    <string name="translate_engine_gemini">Gemini Nano</string>
+    <string name="translate_engine_system_desc">휴대폰 내장 번역기 (Android 12 이상, 주로 Pixel)</string>
+    <string name="translate_engine_mlkit_desc">대부분의 기기에서 동작. 언어마다 약 30MB를 내려받아요.</string>
+    <string name="translate_engine_gemini_desc">최신 플래그십의 온디바이스 AI. 키보드 안에서는 Android가 막을 수 있어요.</string>
+    <string name="translate_engine_caption">엔진</string>
+    <string name="translate_languages_caption">언어</string>
+    <string name="translate_source">원문 언어</string>
+    <string name="translate_target">번역할 언어</string>
+    <string name="translate_test">번역 테스트</string>
+    <string name="translate_test_hint">선택한 엔진으로 예문을 번역해 봐요. ML Kit·Gemini Nano는 이때 모델도 내려받아요.</string>
+    <string name="translate_system_settings">시스템 번역 언어 팩</string>
+    <string name="translate_privacy_note">번역은 기기 안에서 이루어지며 입력한 글은 어디로도 전송되지 않아요. ML Kit 엔진은 언어 모델을 받을 때 네트워크를 쓰고, Google ML Kit 라이브러리는 익명 사용 통계를 Google에 보내요.</string>
 </resources>
