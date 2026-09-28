@@ -3,11 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- ML Kit 번역 엔진의 언어 모델 다운로드용 (라이브러리가 병합하는 권한을 명시적으로 드러낸다).
-         번역 자체는 세 엔진 모두 기기 안에서 수행하며 입력 문장을 전송하지 않는다. -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 키보드에서는 ML Kit 모델을 Wi-Fi에서만 받는다 (현재 네트워크가 Wi-Fi인지 확인용). -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 키보드는 네트워크를 쓰지 않는다. Gemini Nano 라이브러리가 끌고 오는 Google 사용 통계
+         전송 라이브러리(datatransport cct)가 병합하는 네트워크 권한을 걷어낸다 — 추론은 AICore
+         시스템 앱이 하므로 필요 없고, 통계는 보내지지 못한 채 버려진다. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
 
     <!-- Gemini Nano(AICore) 라이브러리는 minSdk 26 — 코드에서 API 26 미만이면 로드하지 않는다. -->
     <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
@@ -125,8 +125,8 @@
             android:exported="false"
             android:label="@string/debug_touch_visualizer" />
 
-        <!-- ML Kit은 기본으로 앱 시작 때 스스로 초기화한다. 번역 엔진을 ML Kit으로 고른 경우에만
-             필요하므로 빼고, MlKitTranslationBackend가 처음 만들어질 때 초기화한다. -->
+        <!-- ML Kit 공통 모듈(Gemini Nano 라이브러리가 의존)은 앱 시작 때 스스로 초기화한다.
+             Gemini Nano를 고른 경우에만 필요하므로 빼고, 그 엔진을 처음 만들 때 초기화한다. -->
         <provider
             android:name="com.google.mlkit.common.internal.MlKitInitProvider"
             android:authorities="${applicationId}.mlkitinitprovider"

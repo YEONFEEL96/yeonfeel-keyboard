@@ -4,12 +4,18 @@ import android.content.Context
 import android.os.Build
 import java.util.Locale
 
-/** 키보드 번역 엔진. 세 엔진 모두 번역은 기기 안에서 하며 입력 문장을 서버로 보내지 않는다. */
+/**
+ * 키보드 번역 엔진. 세 엔진 모두 번역은 기기 안에서 하며 입력 문장을 서버로 보내지 않는다.
+ * 키보드 앱 자체는 INTERNET 권한이 없다 — 네트워크가 필요한 ML Kit은 별도 애드온 앱이 맡는다.
+ */
 enum class TranslationEngine {
     /** Android 12+ 시스템 번역 서비스(TranslationManager). 제조사가 서비스를 넣은 기기에서만 동작한다. */
     SYSTEM,
 
-    /** ML Kit 번역. 언어별 모델(약 30MB)을 처음 한 번 내려받는다. */
+    /**
+     * ML Kit 번역. 네이티브 엔진(ABI당 약 16MB)과 INTERNET 권한(언어 모델 다운로드)이 필요해
+     * 키보드가 아니라 같은 키로 서명한 별도 애드온 앱이 제공한다 (#25).
+     */
     MLKIT,
 
     /** Gemini Nano (AICore Prompt API). 지원 플래그십 기기 전용. */
@@ -78,6 +84,9 @@ sealed interface TranslationResult {
         /** 앱이 화면 맨 앞에 있지 않아 차단됐다 (AICore의 포그라운드 전용 정책). */
         BLOCKED_IN_BACKGROUND,
 
+        /** 엔진을 제공하는 애드온 앱(ML Kit)이 설치돼 있지 않다. */
+        ADDON_NOT_INSTALLED,
+
         /** 사용량 한도·동시 요청 제한에 걸렸다. */
         BUSY,
 
@@ -114,9 +123,9 @@ interface TranslationBackend {
          * 엔진 구현을 만든다. OS 버전이 모자라면 엔진 클래스를 아예 로드하지 않는다 —
          * 시스템 번역은 API 31, Gemini Nano 라이브러리는 API 26 클래스를 참조한다.
          *
-         * [allowMeteredDownload]가 false면(키보드) ML Kit 모델을 Wi-Fi에서만 받는다.
+         * [allowMeteredDownload]가 false면(키보드) 애드온이 ML Kit 모델을 Wi-Fi에서만 받는다.
          *
-         * ML Kit·Gemini Nano는 라이브러리 호출이 끝나지 않을 수 있어(서비스 멈춤) [TimeoutBackend]로
+         * Gemini Nano는 라이브러리 호출이 끝나지 않을 수 있어(서비스 멈춤) [TimeoutBackend]로
          * 감싸 "콜백은 정확히 한 번" 약속을 지킨다. 시스템 번역은 자체 제한 시간이 있다.
          */
         fun create(
@@ -130,8 +139,8 @@ interface TranslationBackend {
                 } else {
                     UnavailableBackend()
                 }
-            TranslationEngine.MLKIT ->
-                TimeoutBackend(MlKitTranslationBackend(context, allowMeteredDownload), LIBRARY_TIMEOUT_MS)
+            // 애드온 연결(#25)이 생기기 전까지는 늘 '애드온 없음'으로 답한다.
+            TranslationEngine.MLKIT -> UnavailableBackend(TranslationResult.Reason.ADDON_NOT_INSTALLED)
             TranslationEngine.GEMINI_NANO ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     TimeoutBackend(GeminiNanoTranslationBackend(context), LIBRARY_TIMEOUT_MS)
@@ -143,13 +152,13 @@ interface TranslationBackend {
 }
 
 /** 라이브러리 엔진의 요청당 제한 시간. 온디바이스 LLM의 첫 추론(워밍업 포함)도 들어오도록 넉넉히 잡는다. */
-private const val LIBRARY_TIMEOUT_MS = 30_000L
+internal const val LIBRARY_TIMEOUT_MS = 30_000L
 
 /**
  * 제한 시간 안에 결과가 없으면 [TranslationResult.Reason.ERROR]("timeout")로 끝낸다.
  * 늦게 온 실제 결과는 버린다. 메인 스레드에서만 쓰므로 동기화가 필요 없다.
  */
-private class TimeoutBackend(
+internal class TimeoutBackend(
     private val inner: TranslationBackend,
     private val timeoutMs: Long,
 ) : TranslationBackend {
@@ -187,8 +196,10 @@ private class TimeoutBackend(
     }
 }
 
-/** OS 버전이 모자라 엔진을 쓸 수 없는 경우. */
-private class UnavailableBackend : TranslationBackend {
+/** 엔진을 쓸 수 없는 경우 (OS 버전 부족, 애드온 없음). 모든 요청에 [reason]으로 답한다. */
+private class UnavailableBackend(
+    private val reason: TranslationResult.Reason = TranslationResult.Reason.ENGINE_UNAVAILABLE,
+) : TranslationBackend {
     private var closed = false
 
     override fun translate(
@@ -198,7 +209,7 @@ private class UnavailableBackend : TranslationBackend {
         callback: (TranslationResult) -> Unit,
     ) {
         if (closed) return
-        callback(TranslationResult.Failure(TranslationResult.Reason.ENGINE_UNAVAILABLE))
+        callback(TranslationResult.Failure(reason))
     }
 
     override fun close() {

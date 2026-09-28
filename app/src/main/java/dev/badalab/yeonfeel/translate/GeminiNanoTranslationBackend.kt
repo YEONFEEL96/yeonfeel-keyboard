@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.mlkit.common.sdkinternal.MlKitContext
 import com.google.mlkit.genai.common.DownloadCallback
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.common.GenAiException
@@ -24,6 +25,8 @@ import java.util.concurrent.Executor
  */
 @RequiresApi(Build.VERSION_CODES.O)
 internal class GeminiNanoTranslationBackend(context: Context) : TranslationBackend {
+
+    private val appContext: Context = context.applicationContext
 
     private val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
     private var model: GenerativeModel? = null
@@ -77,6 +80,9 @@ internal class GeminiNanoTranslationBackend(context: Context) : TranslationBacke
     private fun client(): GenerativeModelFutures? {
         futures?.let { return it }
         return runCatching {
+            // Generation.getClient()는 ML Kit 공통 컨텍스트를 쓴다. 매니페스트에서 시작 프로바이더를
+            // 뺐으므로 여기서 처음 한 번 초기화한다.
+            MlKitContext.initializeIfNeeded(appContext)
             val created = Generation.getClient()
             model = created
             GenerativeModelFutures.from(created)
