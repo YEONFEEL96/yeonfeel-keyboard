@@ -93,9 +93,20 @@ internal class SystemTranslationBackend(context: Context) : TranslationBackend {
         if (closed) return
         if (source == target) return callback(Availability.READY)
         val manager = manager ?: return callback(Availability.UNAVAILABLE)
+        // 서비스가 느려도 번역과 같은 제한 시간 안에 답한다 — 늦게 온 조회 결과는 버린다.
+        var done = false
+        val token = Any()
+        val finish = { availability: Availability ->
+            if (!done && !closed) {
+                done = true
+                mainHandler.removeCallbacksAndMessages(token)
+                callback(availability)
+            }
+        }
+        mainHandler.postAtTime({ finish(Availability.UNKNOWN) }, token, SystemClock.uptimeMillis() + TIMEOUT_MS)
         worker.execute {
             val state = capabilityState(manager, source, target)
-            mainHandler.post { if (!closed) callback(Availability.fromCapabilityState(state)) }
+            mainHandler.post { finish(Availability.fromCapabilityState(state)) }
         }
     }
 

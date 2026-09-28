@@ -82,6 +82,12 @@ class TranslationSettingsActivity : Activity() {
         super.onPause()
         resumed = false
         cancelChecks()
+        // Gemini Nano는 화면 맨 앞 앱에서만 돌므로 떠난 뒤의 재시도는 막힐 뿐이다. 모델은 AICore가 계속 받는다.
+        if (testBackend != null) {
+            cancelTest()
+            testMessage = null
+            buildUi()
+        }
     }
 
     override fun onDestroy() {
@@ -187,7 +193,7 @@ class TranslationSettingsActivity : Activity() {
         val source = settings.translationSource
         val target = settings.translationTarget
         TranslationEngine.entries.forEach { engine ->
-            val backend = TranslationBackend.create(this, engine, allowMeteredDownload = false)
+            val backend = TranslationBackend.create(applicationContext, engine, allowMeteredDownload = false)
             checkBackends += backend
             backend.checkAvailability(source, target) { result ->
                 checkBackends.remove(backend)
@@ -253,7 +259,7 @@ class TranslationSettingsActivity : Activity() {
         val engine = settings.translationEngine
         val source = settings.translationSource
         val target = settings.translationTarget
-        val backend = TranslationBackend.create(this, engine, allowMeteredDownload = true)
+        val backend = TranslationBackend.create(applicationContext, engine, allowMeteredDownload = true)
         testBackend = backend
         testDeadline = SystemClock.uptimeMillis() + TEST_DOWNLOAD_WAIT_MS
         testMessage = getString(R.string.translate_status_working)
