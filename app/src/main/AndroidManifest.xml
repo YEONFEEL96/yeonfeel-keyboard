@@ -3,6 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- ML Kit 번역 애드온(#25)의 번역 서비스 바인드 권한. 애드온 매니페스트에도 같은 이름으로 선언한다 —
+         어느 앱을 먼저 설치해도 같은 키로 서명한 앱만 이 권한을 받는다. -->
+    <permission
+        android:name="dev.badalab.yeonfeel.permission.TRANSLATE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="dev.badalab.yeonfeel.permission.TRANSLATE" />
+
+    <!-- Android 11+ 패키지 가시성: 애드온 서비스에 명시적으로 바인드하려면 필요하다. -->
+    <queries>
+        <package android:name="dev.badalab.yeonfeel.translate.mlkit" />
+    </queries>
     <!-- 키보드는 네트워크를 쓰지 않는다. Gemini Nano 라이브러리가 끌고 오는 Google 사용 통계
          전송 라이브러리(datatransport cct)가 병합하는 네트워크 권한을 걷어낸다 — 추론은 AICore
          시스템 앱이 하므로 필요 없고, 통계는 보내지지 못한 채 버려진다. -->

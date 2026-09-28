@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="addon_app_name">YEONFEEL ML Kit Add-on</string>
+    <string name="addon_intro">This app adds the ML Kit translation engine to YEONFEEL Keyboard. To use it, choose ML Kit as the translation engine in the keyboard\'s translation settings.</string>
+    <string name="addon_privacy">Translation runs on this device. The network is only used to download language models (about 30 MB each), and YEONFEEL Keyboard downloads them over Wi-Fi only.</string>
+    <string name="addon_models_title">Downloaded language models</string>
+    <string name="addon_models_empty">No language models downloaded yet. They are downloaded the first time you translate a language.</string>
+    <string name="addon_models_loading">Checking language models…</string>
+    <string name="addon_models_error">Couldn\'t read the language models.</string>
+    <string name="addon_model_delete">Delete</string>
+    <string name="addon_model_delete_confirm">Delete the %1$s language model? It will be downloaded again the next time you translate this language.</string>
+    <string name="addon_model_delete_failed">Couldn\'t delete the %1$s language model.</string>
+    <string name="addon_cancel">Cancel</string>
+</resources>
