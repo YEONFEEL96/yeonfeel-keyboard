@@ -8,6 +8,7 @@ import android.os.Build
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import dev.badalab.yeonfeel.R
 import dev.badalab.yeonfeel.clipboard.ClipboardHistory
 import dev.badalab.yeonfeel.clipboard.SecureClipboardStore
@@ -34,6 +35,9 @@ class YeonfeelImeService : InputMethodService() {
 
     /** 직전 자동 교정 (원래 어절, 교정 어절) — 백스페이스 한 번으로 되돌린다. */
     private var lastCorrection: Pair<String, String>? = null
+
+    /** 우리 편집과 사용자의 커서 이동을 가르기 위한 기대 커서 위치 추적. */
+    private val selection = SelectionTracker()
     private var pendingTouchSample: dev.badalab.yeonfeel.debug.TouchStatsStore.Sample? = null
     private var container: KeyboardContainerView? = null
     private var mode = LayoutMode.KOREAN
@@ -223,6 +227,13 @@ class YeonfeelImeService : InputMethodService() {
         return view
     }
 
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        // 키보드를 내렸다 다시 올릴 때(onStartInputView만 다시 불림)는 initialSel이 낡았으므로
+        // 입력란이 새로 시작될 때만 기준 위치를 잡는다.
+        selection.start(attribute?.initialSelStart ?: -1, attribute?.initialSelEnd ?: -1)
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         val fieldInputType = info?.inputType ?: 0
@@ -232,6 +243,7 @@ class YeonfeelImeService : InputMethodService() {
         noAutoTextHelp = isNoAutoHelpField(fieldInputType)
         container?.keyboardView?.enterActionLabel = enterActionLabel(info)
         composer.reset()
+        selection.abandonComposition(cursorKnown = true)
         composer = when (settings.koreanLayout) {
             KoreanLayoutType.CHUNJIIN -> chunjiinComposer
             KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER -> naratgulComposer
@@ -281,7 +293,9 @@ class YeonfeelImeService : InputMethodService() {
 
     /**
      * 사용자가 커서를 직접 옮기면 조합 중이던 글자를 그 자리에서 확정한다.
-     * 확정하지 않으면 다음 입력이 이전 조합 위치에서 일어난다.
+     * 확정하지 않으면 다음 입력이 이전 조합 위치에서 일어나거나, 앱이 이미 닫은 조합을
+     * 새 커서 자리에 다시 써서 글자가 복제된다. 우리 편집의 늦은 콜백(연타 조합이 끊기는
+     * 원인이던 카카오톡의 일시적 -1 포함)과의 구분은 [SelectionTracker]가 한다.
      */
     override fun onUpdateSelection(
         oldSelStart: Int,
@@ -294,15 +308,65 @@ class YeonfeelImeService : InputMethodService() {
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
         )
-        // candidatesStart == -1은 앱의 지연·역순 콜백에서 일시적으로 나타날 수 있어
-        // (연타 조합이 끊기는 오동작) 조합 영역이 유효할 때만 판정한다.
+        val verdict = selection.onUpdate(
+            oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
+        )
+        if (verdict != SelectionTracker.Verdict.MOVED) return
         lastCorrection = null
-        if (composer.isComposing && candidatesStart >= 0 &&
-            (newSelStart < candidatesStart || newSelStart > candidatesEnd)
-        ) {
+        lastSpaceTime = 0
+        symbolCycle = null
+        if (composer.isComposing) {
+            // 보류 병합(찬ㅎ→찮)은 하지 않는다 — flush 결과를 쓰면 커서가 옛 자리로 끌려온다.
             composer.reset()
-            currentInputConnection?.finishComposingText()
+            currentInputConnection?.let { closeComposing(it) }
         }
+    }
+
+    /**
+     * 조합을 이어 가기 전에 앱의 조합 영역이 아직 커서 바로 앞에 있는지 확인한다.
+     * 커서를 옮기자마자 친 키가 선택 콜백보다 먼저 온 경우, 앱이 조합을 제자리에서 닫은
+     * 경우를 잡는다. 어긋났으면 조합기를 비우고 false — 화면의 글자는 앱에 있는 그대로 둔다.
+     */
+    private fun verifyComposition(ic: InputConnection): Boolean {
+        if (!composer.isComposing) return true
+        val dropped = selection.compositionDropped
+        val sent = selection.composing
+        val moved = !dropped && sent.isNotEmpty() &&
+            ic.getTextBeforeCursor(sent.length, 0)?.let { it.toString() != sent } == true
+        if (!dropped && !moved) return true
+        composer.reset()
+        // 조합 영역이 남아 있다면(일시적 -1) 그 자리에서 확정해 다음 조합이 덮어쓰지 않게 한다.
+        ic.finishComposingText()
+        selection.abandonComposition(cursorKnown = !moved)
+        return false
+    }
+
+    // 입력 연결 편집은 아래 함수로 보내 SelectionTracker의 기대 커서 위치를 맞춘다.
+
+    private fun commit(ic: InputConnection, text: String) {
+        ic.commitText(text, 1)
+        selection.onCommit(text)
+    }
+
+    private fun setComposing(ic: InputConnection, text: String) {
+        ic.setComposingText(text, 1)
+        selection.onSetComposing(text)
+    }
+
+    private fun closeComposing(ic: InputConnection) {
+        ic.finishComposingText()
+        selection.onFinishComposing()
+    }
+
+    private fun deleteBefore(ic: InputConnection, length: Int) {
+        ic.deleteSurroundingText(length, 0)
+        selection.onDeleteBefore(length)
+    }
+
+    /** 키 이벤트는 앱이 무엇을 할지(몇 글자 지울지, 줄바꿈할지) 알 수 없다. */
+    private fun sendDownUpKey(keyCode: Int) {
+        sendDownUpKeyEvents(keyCode)
+        selection.onUnpredictableEdit()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -321,13 +385,13 @@ class YeonfeelImeService : InputMethodService() {
 
         override fun onPaste(text: String) {
             finishComposition()
-            currentInputConnection?.commitText(text, 1)
+            currentInputConnection?.let { commit(it, text) }
             container?.showKeyboard()
         }
 
         override fun onEmoji(emoji: String) {
             finishComposition()
-            currentInputConnection?.commitText(emoji, 1)
+            currentInputConnection?.let { commit(it, emoji) }
         }
 
         override fun onEmojiSearchStateChanged(open: Boolean) {
@@ -626,16 +690,20 @@ class YeonfeelImeService : InputMethodService() {
         val c = if (mode == LayoutMode.KOREAN) applyMzMode(rawChar) else rawChar
         val ic = currentInputConnection ?: return
         if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
-            val result = composer.input(c, System.currentTimeMillis())
+            // 연타 판정 시각은 아래 동기 조회(verifyComposition)의 왕복 시간을 빼고 잰다.
+            val now = System.currentTimeMillis()
+            // 조합이 끊겼으면(커서 이동 등) 조합기가 비워져 새 음절로 시작한다.
+            verifyComposition(ic)
+            val result = composer.input(c, now)
             ic.beginBatchEdit()
             // 조합기 내부 치환이 없는 자판(나랏글 등)을 위한 커밋 시점 안전망
-            val commit = if (settings.dwaetFixEnabled) result.commit.replace('됬', '됐') else result.commit
-            if (commit.isNotEmpty()) ic.commitText(commit, 1)
-            ic.setComposingText(result.composing, 1)
+            val committed = if (settings.dwaetFixEnabled) result.commit.replace('됬', '됐') else result.commit
+            if (committed.isNotEmpty()) commit(ic, committed)
+            setComposing(ic, result.composing)
             ic.endBatchEdit()
         } else {
             finishComposition()
-            ic.commitText(c.toString(), 1)
+            commit(ic, c.toString())
         }
     }
 
@@ -644,6 +712,7 @@ class YeonfeelImeService : InputMethodService() {
         val now = android.os.SystemClock.uptimeMillis()
         ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
         ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
+        selection.onUnpredictableEdit()
     }
 
     /** 키코드 매핑이 있는 문자(영문·숫자)만 조합 이벤트로 보낸다. 한글이면 false. */
@@ -696,8 +765,8 @@ class YeonfeelImeService : InputMethodService() {
                 symbolCycleIndex = (symbolCycleIndex + 1) % cycle.length
                 lastCorrection = null
                 ic.beginBatchEdit()
-                ic.deleteSurroundingText(1, 0)
-                ic.commitText(cycle[symbolCycleIndex].toString(), 1)
+                deleteBefore(ic, 1)
+                commit(ic, cycle[symbolCycleIndex].toString())
                 ic.endBatchEdit()
                 symbolCycleTime = now
                 return true
@@ -725,14 +794,14 @@ class YeonfeelImeService : InputMethodService() {
         }
         val now = System.currentTimeMillis()
         if (settings.doubleSpacePeriod && now - lastSpaceTime < doubleSpaceMs && canDoubleSpacePeriod(ic)) {
-            ic.deleteSurroundingText(1, 0)
-            ic.commitText(". ", 1)
+            deleteBefore(ic, 1)
+            commit(ic, ". ")
             lastSpaceTime = 0
             return
         }
         finishComposition()
         maybeAutoCorrect(ic)
-        ic.commitText(" ", 1)
+        commit(ic, " ")
         lastSpaceTime = now
     }
 
@@ -746,8 +815,8 @@ class YeonfeelImeService : InputMethodService() {
         if (word.length < 2) return
         val fixed = wordCorrector.correct(word) ?: return
         if (fixed == word) return
-        ic.deleteSurroundingText(word.length, 0)
-        ic.commitText(fixed, 1)
+        deleteBefore(ic, word.length)
+        commit(ic, fixed)
         lastCorrection = word to fixed
     }
 
@@ -775,21 +844,26 @@ class YeonfeelImeService : InputMethodService() {
     private fun onDelete() {
         val ic = currentInputConnection ?: return
         // 자동 교정 직후 백스페이스는 삭제 대신 원래 어절로 되돌린다.
+        // 그 사이 다른 편집(엔터·붙여넣기 등)이 있었으면 커서 앞이 달라져 있으므로 보통 삭제한다.
         lastCorrection?.let { (original, fixed) ->
             lastCorrection = null
-            ic.deleteSurroundingText(fixed.length + 1, 0)
-            ic.commitText("$original ", 1)
-            return
+            if (ic.getTextBeforeCursor(fixed.length + 1, 0)?.toString() == "$fixed ") {
+                deleteBefore(ic, fixed.length + 1)
+                commit(ic, "$original ")
+                return
+            }
         }
+        // 조합이 끊겼으면 조합기가 비워져 커서 앞 글자를 보통 삭제한다.
+        verifyComposition(ic)
         val result = composer.backspace()
         if (result != null) {
             if (result.composing.isEmpty()) {
-                ic.commitText("", 1)
+                commit(ic, "")
             } else {
-                ic.setComposingText(result.composing, 1)
+                setComposing(ic, result.composing)
             }
         } else {
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            sendDownUpKey(KeyEvent.KEYCODE_DEL)
         }
     }
 
@@ -800,22 +874,27 @@ class YeonfeelImeService : InputMethodService() {
             currentInputEditorInfo.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION == 0
         ) {
             currentInputConnection?.performEditorAction(action)
+            selection.onUnpredictableEdit()
         } else {
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+            sendDownUpKey(KeyEvent.KEYCODE_ENTER)
         }
     }
 
     /** 조합 중인 글자를 확정 문자열로 굳히고 composing region을 닫는다. */
     private fun finishComposition() {
-        if (composer.isComposing) {
-            // flush가 보류 병합(찬ㅎ→찮)을 수행할 수 있어 화면의 조합 텍스트와
-            // 다를 수 있다 — 결과를 조합 영역에 반영한 뒤 닫는다.
-            var text = composer.flush()
-            if (settings.dwaetFixEnabled) text = text.replace('됬', '됐')
-            currentInputConnection?.let { ic ->
-                ic.setComposingText(text, 1)
-                ic.finishComposingText()
-            }
+        if (!composer.isComposing) return
+        val ic = currentInputConnection
+        // 조합 영역이 커서 앞에서 사라졌으면 다시 쓰지 않는다 — 새 커서 자리에 옛 글자가 복제된다.
+        if (ic != null && !verifyComposition(ic)) return
+        // flush가 보류 병합(찬ㅎ→찮)을 수행할 수 있어 화면의 조합 텍스트와
+        // 다를 수 있다 — 결과를 조합 영역에 반영한 뒤 닫는다.
+        var text = composer.flush()
+        if (settings.dwaetFixEnabled) text = text.replace('됬', '됐')
+        if (ic != null) {
+            setComposing(ic, text)
+            closeComposing(ic)
+        } else {
+            selection.abandonComposition(cursorKnown = false)
         }
     }
 }
