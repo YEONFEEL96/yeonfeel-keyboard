@@ -12,6 +12,11 @@
     <!-- Gemini Nano(AICore) 라이브러리는 minSdk 26 — 코드에서 API 26 미만이면 로드하지 않는다. -->
     <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
 
+    <!-- 설정 화면이 ML Kit 애드온 앱(#25) 설치 여부를 확인한다 (패키지 공개 범위). -->
+    <queries>
+        <package android:name="dev.badalab.yeonfeel.translate.mlkit" />
+    </queries>
+
 
     <!-- IME는 입력 이력을 다루므로 백업·기기 이전 반출 경로를 모두 차단한다 -->
     <application
@@ -99,6 +104,11 @@
             android:name=".settings.ExtraInputSettingsActivity"
             android:exported="false"
             android:label="@string/extra_input_menu" />
+
+        <activity
+            android:name=".settings.TranslationSettingsActivity"
+            android:exported="false"
+            android:label="@string/translate_menu" />
 
         <activity
             android:name=".settings.ResetSettingsActivity"

@@ -194,7 +194,7 @@
     <string name="translate_engine_mlkit">ML Kit</string>
     <string name="translate_engine_gemini">Gemini Nano</string>
     <string name="translate_engine_system_desc">The phone\'s built-in translator (Android 12+, mostly Pixel).</string>
-    <string name="translate_engine_mlkit_desc">Works on most phones. Downloads about 30 MB per language.</string>
+    <string name="translate_engine_mlkit_desc">Works on most phones. Needs the separate ML Kit add-on app, which downloads about 30 MB per language.</string>
     <string name="translate_engine_gemini_desc">On-device AI on recent flagships. Android may block it inside a keyboard.</string>
     <string name="translate_engine_caption">Engine</string>
     <string name="translate_languages_caption">Languages</string>
@@ -203,5 +203,22 @@
     <string name="translate_test">Test translation</string>
     <string name="translate_test_hint">Translate a sample sentence with the selected engine. For ML Kit and Gemini Nano this also downloads the model.</string>
     <string name="translate_system_settings">System translation language packs</string>
-    <string name="translate_privacy_note">Translation runs on the device, and what you type is not sent anywhere. The ML Kit engine uses the network to download language models, and Google\'s ML Kit libraries send anonymous usage statistics to Google.</string>
+    <string name="translate_privacy_note">Translation runs on the device, and what you type is not sent anywhere. The keyboard itself has no network access. Only the optional ML Kit add-on uses the network, to download language models, and Google\'s ML Kit libraries in it send usage statistics to Google.</string>
+    <string name="translate_status_addon_missing">The ML Kit add-on isn\'t installed.</string>
+    <string name="translate_availability_checking">Checking…</string>
+    <string name="translate_availability_ready">Ready</string>
+    <string name="translate_availability_needs_download">Needs download</string>
+    <string name="translate_availability_downloading">Downloading</string>
+    <string name="translate_availability_unsupported">This language pair isn\'t supported</string>
+    <string name="translate_availability_unavailable">Not on this phone</string>
+    <string name="translate_availability_addon_missing">Add-on not installed</string>
+    <string name="translate_availability_blocked">Blocked in keyboard</string>
+    <string name="translate_availability_unknown">Couldn\'t check</string>
+    <string name="translate_addon_download">Get the ML Kit add-on</string>
+    <string name="translate_addon_download_desc">Opens the download page (GitHub releases).</string>
+    <string name="translate_gemini_retry">Try Gemini Nano in the keyboard again</string>
+    <string name="translate_gemini_retry_desc">Android blocked Gemini Nano inside the keyboard, so the keyboard stopped using it. Clear this to let it try again.</string>
+    <string name="translate_test_needs_download">Download the language pack in System translation language packs first.</string>
+    <string name="translate_test_still_downloading">The model is still downloading. Try again in a moment.</string>
+    <string name="translate_test_gemini_note">A successful test here doesn\'t prove Gemini Nano works inside the keyboard. Android allows it in the app on screen, and this settings screen is that app.</string>
 </resources>

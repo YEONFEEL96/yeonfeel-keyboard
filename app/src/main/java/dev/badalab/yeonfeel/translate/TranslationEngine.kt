@@ -116,6 +116,21 @@ interface TranslationBackend {
         callback: (TranslationResult) -> Unit,
     )
 
+    /**
+     * 이 언어 쌍으로 지금 번역할 수 있는지 알려준다 (설정 화면의 엔진 상태 표시용).
+     * 상태만 조회하며 모델·언어 팩 다운로드는 절대 시작하지 않는다. 콜백 약속은 [translate]와 같다 —
+     * 메인 스레드에서 정확히 한 번, [close] 뒤에는 불리지 않는다.
+     *
+     * 기본 구현은 조회를 지원하지 않는 엔진용으로 곧장 [Availability.UNKNOWN]을 답한다.
+     */
+    fun checkAvailability(
+        source: TranslationLanguage,
+        target: TranslationLanguage,
+        callback: (Availability) -> Unit,
+    ) {
+        callback(Availability.UNKNOWN)
+    }
+
     fun close()
 
     companion object {
@@ -189,6 +204,30 @@ internal class TimeoutBackend(
         inner.translate(text, source, target, finish)
     }
 
+    /** 상태 조회도 같은 제한 시간을 건다. 시간 안에 답이 없으면 [Availability.UNKNOWN]. */
+    override fun checkAvailability(
+        source: TranslationLanguage,
+        target: TranslationLanguage,
+        callback: (Availability) -> Unit,
+    ) {
+        if (closed) return
+        var done = false
+        val token = Any()
+        val finish = { availability: Availability ->
+            if (!done && !closed) {
+                done = true
+                handler.removeCallbacksAndMessages(token)
+                callback(availability)
+            }
+        }
+        handler.postAtTime(
+            { finish(Availability.UNKNOWN) },
+            token,
+            android.os.SystemClock.uptimeMillis() + timeoutMs,
+        )
+        inner.checkAvailability(source, target, finish)
+    }
+
     override fun close() {
         closed = true
         handler.removeCallbacksAndMessages(null)
@@ -210,6 +249,15 @@ private class UnavailableBackend(
     ) {
         if (closed) return
         callback(TranslationResult.Failure(reason))
+    }
+
+    override fun checkAvailability(
+        source: TranslationLanguage,
+        target: TranslationLanguage,
+        callback: (Availability) -> Unit,
+    ) {
+        if (closed) return
+        callback(Availability.fromFailure(reason))
     }
 
     override fun close() {

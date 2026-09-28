@@ -77,6 +77,40 @@ internal class GeminiNanoTranslationBackend(context: Context) : TranslationBacke
         }
     }
 
+    /**
+     * checkStatus()만 부른다 — DOWNLOADABLE이어도 다운로드를 시작하지 않는다. 언어는 프롬프트로 정하므로
+     * 언어 쌍과 상관없다. AVAILABLE이어도 키보드 안에서는 막힐 수 있다 — 그건 실제 추론에서야 드러나
+     * [GeminiBlockFlag]가 따로 기억한다.
+     */
+    override fun checkAvailability(
+        source: TranslationLanguage,
+        target: TranslationLanguage,
+        callback: (Availability) -> Unit,
+    ) {
+        if (closed) return
+        val client = client() ?: return callback(Availability.UNAVAILABLE)
+        if (ready) return callback(Availability.READY)
+        if (downloading) return callback(Availability.DOWNLOADING)
+        val future = try {
+            client.checkStatus()
+        } catch (e: Exception) {
+            return callback(availabilityOf(e))
+        }
+        future.addListener(
+            {
+                if (closed) return@addListener
+                runCatching { future.get() }.fold(
+                    { callback(Availability.fromFeatureStatus(it)) },
+                    { callback(availabilityOf(it)) },
+                )
+            },
+            mainExecutor,
+        )
+    }
+
+    /** 상태 조회 실패. AICore가 없거나 맞지 않으면 쓸 수 없음, 그 밖은 알 수 없음. */
+    private fun availabilityOf(error: Throwable): Availability = Availability.fromFailure(classify(error).reason)
+
     private fun client(): GenerativeModelFutures? {
         futures?.let { return it }
         return runCatching {
