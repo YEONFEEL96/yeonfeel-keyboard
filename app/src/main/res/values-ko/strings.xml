@@ -188,6 +188,7 @@
     <string name="translate_status_busy">사용량 한도에 걸렸어요. 잠시 뒤 다시 시도해 주세요.</string>
     <string name="translate_status_too_long">한 번에 번역하기엔 글이 너무 길어요. 줄이거나 나눠 주세요.</string>
     <string name="translate_status_error">번역하지 못했어요.</string>
+    <string name="translate_status_addon_missing">ML Kit 애드온이 설치돼 있지 않아요. 번역 설정에서 설치할 수 있어요.</string>
     <string name="translate_engine_system">시스템 번역</string>
     <string name="translate_engine_mlkit">ML Kit</string>
     <string name="translate_engine_gemini">Gemini Nano</string>

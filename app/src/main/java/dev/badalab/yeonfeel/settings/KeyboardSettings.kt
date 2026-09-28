@@ -401,7 +401,7 @@ class KeyboardSettings(context: Context) {
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
-        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,kaomoji,onehand"
+        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,kaomoji,translate,onehand"
 
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SHOW_TOOLBAR = "show_toolbar"

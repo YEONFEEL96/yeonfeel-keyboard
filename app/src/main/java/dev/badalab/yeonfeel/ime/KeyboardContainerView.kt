@@ -45,6 +45,12 @@ class KeyboardContainerView(
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
         fun onClipboardPin(texts: List<String>, pinned: Boolean)
+
+        /** 번역 패널이 열리거나(true) 닫혔다(false). 닫힘은 다른 패널로 바뀌거나 키보드가 리셋될 때도 온다. */
+        fun onTranslatePanelStateChanged(open: Boolean)
+
+        /** 번역 패널의 언어 쌍 칩을 눌렀다 — 원문·번역 언어를 바꾼다. */
+        fun onTranslateSwap()
     }
 
     val keyboardView = KeyboardView(context) {
@@ -83,6 +89,17 @@ class KeyboardContainerView(
 
     fun isEmojiSearchOpen(): Boolean = emojiSearchOpen
 
+    // 번역 패널: 툴바 자리를 원문 줄 + 상태 줄이 대신한다. 키 입력 라우팅은 IME 서비스가 한다.
+    private var translateOpen = false
+    private var translateSourceView: TextView? = null
+    private var translateStatusView: TextView? = null
+    private var translatePairView: TextView? = null
+
+    /** 비밀번호·학습 거부 입력란에서는 번역 버튼을 숨긴다. */
+    private var translateButtonVisible = true
+
+    fun isTranslatePanelOpen(): Boolean = translateOpen
+
     // 클립보드 다중 선택 모드: 목적(삭제/고정)에 따라 헤더가 달라진다.
     private enum class ClipboardMode { NORMAL, DELETE, PIN }
 
@@ -110,6 +127,7 @@ class KeyboardContainerView(
         "clipboard" to R.drawable.ic_toolbar_clipboard,
         "emoji" to R.drawable.ic_toolbar_emoji,
         "kaomoji" to R.drawable.ic_toolbar_kaomoji,
+        TRANSLATE_ID to R.drawable.ic_toolbar_translate,
         "onehand" to R.drawable.ic_toolbar_onehand,
     )
     private var currentToolbarOrder = KeyboardSettings.TOOLBAR_ORDER_DEFAULT
@@ -153,6 +171,10 @@ class KeyboardContainerView(
             R.drawable.ic_toolbar_kaomoji,
             context.getString(R.string.toolbar_kaomoji_desc),
         ) { toggleKaomojiPanel() }
+        toolbarButtons[TRANSLATE_ID] = toolbarIcon(
+            R.drawable.ic_toolbar_translate,
+            context.getString(R.string.toolbar_translate_desc),
+        ) { toggleTranslatePanel() }
         oneHandButton = toolbarIcon(
             R.drawable.ic_toolbar_onehand,
             context.getString(R.string.toolbar_onehand_desc),
@@ -374,7 +396,8 @@ class KeyboardContainerView(
     private fun applyToolbarOrder(orderCsv: String) {
         currentToolbarOrder = orderCsv
         toolbar.removeAllViews()
-        orderCsv.split(',').map { it.trim() }.forEach { id ->
+        ToolbarOrder.parse(orderCsv).forEach { id ->
+            if (id == TRANSLATE_ID && !translateButtonVisible) return@forEach
             toolbarButtons[id]?.let { toolbar.addView(it) }
         }
         // 아이콘·편집 버튼 모두 가중치 셀이라 균등 분배된다 (스페이서 불필요).
@@ -419,8 +442,11 @@ class KeyboardContainerView(
                         if (event.x > child.x + child.width / 2f) index++
                     }
                     toolbar.addView(dragged, index)
-                    val order = (0 until toolbar.childCount)
+                    val visible = (0 until toolbar.childCount)
                         .mapNotNull { toolbar.getChildAt(it).tag as? String }
+                    val hidden = if (translateButtonVisible) emptyList() else listOf(TRANSLATE_ID)
+                    val order = ToolbarOrder
+                        .keepHidden(visible, ToolbarOrder.parse(currentToolbarOrder), hidden)
                         .joinToString(",")
                     callbacks.onToolbarOrderChanged(order)
                     applyToolbarOrder(order)
@@ -470,6 +496,13 @@ class KeyboardContainerView(
         if (emojiSearchOpen) {
             emojiSearchOpen = false
             callbacks.onEmojiSearchStateChanged(false)
+        }
+        translateSourceView = null
+        translateStatusView = null
+        translatePairView = null
+        if (translateOpen) {
+            translateOpen = false
+            callbacks.onTranslatePanelStateChanged(false)
         }
         keyboardView.visibility = VISIBLE
     }
@@ -1212,6 +1245,133 @@ class KeyboardContainerView(
     }
 
     /**
+     * 번역 버튼 표시 여부와 흐림 상태. 고른 엔진을 쓸 수 없다고 알려진 경우 흐리게 하되 누를 수는
+     * 있다 (패널이 이유를 보여준다). 순서 저장값은 건드리지 않는다.
+     */
+    fun setTranslateButtonState(visible: Boolean, dimmed: Boolean) {
+        toolbarButtons[TRANSLATE_ID]?.alpha = if (dimmed) DIMMED_ALPHA else 1f
+        if (visible != translateButtonVisible) {
+            translateButtonVisible = visible
+            applyToolbarOrder(currentToolbarOrder)
+        }
+    }
+
+    /** 번역 패널을 연다 (서비스가 입력란 재시작 뒤 다시 열 때). 이미 열려 있으면 그대로 둔다. */
+    fun openTranslatePanel() {
+        if (!translateOpen && toolbarEnabled) toggleTranslatePanel()
+    }
+
+    /** 번역 패널을 닫는다 (서비스가 요청할 때). 입력란의 번역 처리는 닫힘 콜백에서 서비스가 한다. */
+    fun closeTranslatePanel() {
+        if (translateOpen) showKeyboard()
+    }
+
+    private fun toggleTranslatePanel() {
+        val wasOpen = translateOpen
+        showKeyboard()
+        if (wasOpen) return
+        translateOpen = true
+        attachHeader(buildTranslateHeader(), gapBelow = true, heightDp = TRANSLATE_SOURCE_ROW_DP + TRANSLATE_STATUS_ROW_DP)
+        fadeIn(clipboardHeader)
+        callbacks.onTranslatePanelStateChanged(true)
+    }
+
+    /** 원문 줄: 비어 있으면 [hint]를 흐리게 보여준다. 긴 원문은 끝부분이 보이게 앞을 줄인다. */
+    fun updateTranslateSource(text: String, hint: String) {
+        val view = translateSourceView ?: return
+        if (text.isEmpty()) {
+            view.text = hint
+            view.setTextColor(theme.subText)
+        } else {
+            view.text = text
+            view.setTextColor(theme.text)
+        }
+    }
+
+    /** 상태 줄. [emphasized]면(오류·안내) 본문 색으로 눈에 띄게 한다. */
+    fun updateTranslateStatus(text: String, emphasized: Boolean) {
+        val view = translateStatusView ?: return
+        view.text = text
+        view.setTextColor(if (emphasized) theme.text else theme.subText)
+    }
+
+    /** 언어 쌍 칩 ("한국어 → 영어"). */
+    fun updateTranslatePair(label: String) {
+        translatePairView?.text = label
+    }
+
+    private fun buildTranslateHeader(): View {
+        val column = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setBackgroundColor(theme.specialKey)
+        }
+        val sourceRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, dp(4), 0)
+        }
+        sourceRow.addView(
+            android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_toolbar_translate)
+                imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                layoutParams = LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10) }
+            },
+        )
+        translateSourceView = TextView(context).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            // 긴 원문은 방금 친 끝부분이 보여야 하므로 앞쪽을 줄인다.
+            isSingleLine = true
+            ellipsize = android.text.TextUtils.TruncateAt.START
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        }
+        sourceRow.addView(translateSourceView)
+        sourceRow.addView(
+            android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_icon_close)
+                imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
+                contentDescription = context.getString(R.string.translate_close_desc)
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                layoutParams = LayoutParams(dp(40), dp(40))
+                setOnClickListener { closeTranslatePanel() }
+                addIconPressEffect(this)
+            },
+        )
+        column.addView(sourceRow, LayoutParams(LayoutParams.MATCH_PARENT, dp(TRANSLATE_SOURCE_ROW_DP)))
+
+        val statusRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(blendColor(theme.specialKey, theme.background, 0.5f))
+            setPadding(dp(8), 0, dp(12), 0)
+        }
+        translatePairView = TextView(context).apply {
+            setTextColor(theme.text)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            maxLines = 1
+            contentDescription = context.getString(R.string.translate_swap_desc)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(theme.key)
+            }
+            setPadding(dp(12), dp(5), dp(12), dp(5))
+            setOnClickListener { callbacks.onTranslateSwap() }
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(10)
+            }
+        }
+        statusRow.addView(translatePairView)
+        translateStatusView = TextView(context).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        }
+        statusRow.addView(translateStatusView)
+        column.addView(statusRow, LayoutParams(LayoutParams.MATCH_PARENT, dp(TRANSLATE_STATUS_ROW_DP)))
+        return column
+    }
+
+    /**
      * 복사가 감지되면 툴바 자리에 복사한 텍스트를 보여준다. 텍스트를 누르면 붙여넣고,
      * 오른쪽 X 로 툴바로 돌아온다. 패널이 열려 있거나 툴바가 꺼져 있으면 표시하지 않는다.
      */
@@ -1592,4 +1752,10 @@ class KeyboardContainerView(
             TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics,
         ).toInt()
 
+    private companion object {
+        const val TRANSLATE_ID = "translate"
+        const val DIMMED_ALPHA = 0.4f
+        const val TRANSLATE_SOURCE_ROW_DP = 44
+        const val TRANSLATE_STATUS_ROW_DP = 40
+    }
 }
