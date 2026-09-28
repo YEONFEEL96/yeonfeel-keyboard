@@ -147,6 +147,9 @@ internal class SystemTranslationBackend(context: Context) : TranslationBackend {
         val request = TranslationRequest.Builder()
             .setTranslationRequestValues(listOf(TranslationRequestValue.forText(text)))
             .build()
+        // 서비스 프로세스가 죽으면 프레임워크는 바인더 오류를 로그만 남기고 삼켜 콜백이 오지 않는다 —
+        // 시간 초과나 실패 응답이면 이 번역기를 버려 다음 요청에서 새로 만든다.
+        once.onTimeout = { releaseIfCurrent(translator) }
         runCatching {
             // 취소는 하지 않는다 — 낡은 결과는 호출하는 쪽이 버리고, close()는 번역기를 파기한다.
             translator.translate(request, CancellationSignal(), mainExecutor) { response ->
@@ -157,14 +160,21 @@ internal class SystemTranslationBackend(context: Context) : TranslationBackend {
                 ) {
                     once(TranslationResult.Success(translated))
                 } else {
+                    if (response.translationStatus != TranslationResponse.TRANSLATION_STATUS_SUCCESS) {
+                        releaseIfCurrent(translator)
+                    }
                     once(failure(TranslationResult.Reason.ERROR, "status ${response.translationStatus}"))
                 }
             }
         }.onFailure {
             // 세션이 서비스 쪽에서 파기된 경우 — 다음 요청에서 번역기를 새로 만든다.
-            if (this.translator === translator) releaseTranslator()
+            releaseIfCurrent(translator)
             once(failure(TranslationResult.Reason.ERROR, it.message))
         }
+    }
+
+    private fun releaseIfCurrent(translator: Translator) {
+        if (!closed && this.translator === translator) releaseTranslator()
     }
 
     private fun releaseTranslator() {
@@ -205,8 +215,18 @@ internal class SystemTranslationBackend(context: Context) : TranslationBackend {
         (TranslationResult) -> Unit {
         private var done = false
 
+        /** 결과보다 제한 시간이 먼저 왔을 때 할 정리. */
+        var onTimeout: (() -> Unit)? = null
+
         init {
-            mainHandler.postDelayed({ invoke(failure(TranslationResult.Reason.ERROR, "timeout")) }, this, TIMEOUT_MS)
+            mainHandler.postDelayed(
+                {
+                    if (!done && !closed) onTimeout?.invoke()
+                    invoke(failure(TranslationResult.Reason.ERROR, "timeout"))
+                },
+                this,
+                TIMEOUT_MS,
+            )
         }
 
         override fun invoke(result: TranslationResult) {
