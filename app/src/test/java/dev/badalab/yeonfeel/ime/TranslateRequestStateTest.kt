@@ -94,6 +94,14 @@ class TranslateRequestStateTest {
     }
 
     @Test
+    fun `Gemini 막힘은 세션에 따로 기억하지 않는다 - 기록 해제 뒤 바로 다시 시도`() {
+        assertEquals(
+            setOf(TranslateStatus.ENGINE_UNAVAILABLE, TranslateStatus.ADDON_MISSING),
+            TranslateStatus.entries.filter { it.remembersForSession }.toSet(),
+        )
+    }
+
+    @Test
     fun `패널을 열 때의 첫 상태`() {
         assertEquals(
             TranslateStatus.BLOCKED,

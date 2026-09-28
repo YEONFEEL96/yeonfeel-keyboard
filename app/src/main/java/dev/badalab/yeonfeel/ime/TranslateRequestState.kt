@@ -96,6 +96,12 @@ enum class TranslateStatus {
     val engineUnusable: Boolean
         get() = this == ENGINE_UNAVAILABLE || this == ADDON_MISSING || this == BLOCKED
 
+    /**
+     * 이번 키보드 세션 동안 기억해 둘 '쓸 수 없음'. Gemini Nano 막힘은 GeminiBlockFlag 기록이
+     * 기준이라 세션에 따로 남기지 않는다 — 설정 화면에서 기록을 지우면 곧바로 다시 시도할 수 있게.
+     */
+    val remembersForSession: Boolean get() = engineUnusable && this != BLOCKED
+
     /** 잠시 뒤 같은 원문으로 다시 시도할 상태 (모델 내려받는 중). */
     val retries: Boolean get() = this == DOWNLOADING
 

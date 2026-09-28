@@ -196,6 +196,9 @@ class YeonfeelImeService : InputMethodService() {
     override fun onEvaluateFullscreenMode(): Boolean = false
 
     override fun onCreateInputView(): View {
+        // 회전·테마 변경 등으로 뷰를 새로 만들 때는 onFinishInputView 없이 옛 뷰가 버려진다.
+        // 번역 패널이 열려 있었다면 여기서 닫는다 — 안 그러면 보이지 않는 원문 버퍼로 키가 간다.
+        endTranslation()
         val view = KeyboardContainerView(this, callbacks)
         view.keyboardView.mode = mode
         view.keyboardView.touchStatsProvider = { board -> touchModel.statsFor(board) }
@@ -245,6 +248,9 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        // 같은 입력란의 재시작(보내기 뒤 앱이 입력란을 비울 때 등)이면 번역 패널을 다시 연다.
+        // 아래 applySettings가 열린 패널을 모두 닫으므로 먼저 기억해 둔다.
+        val reopenTranslate = restarting && translateOpen && !settings.adjustModeRequested
         val fieldInputType = info?.inputType ?: 0
         sensitiveField = isPasswordInput(fieldInputType)
         noLearnField =
@@ -276,9 +282,12 @@ class YeonfeelImeService : InputMethodService() {
             it.keyboardView.shifted = false
             it.keyboardView.capsLock = false
         }
+        // applySettings가 패널을 닫았다 — 뷰가 없어 닫힘 콜백이 오지 않았어도 상태를 맞춘다.
+        endTranslation()
         // 설정에서 번역 엔진이 바뀌었으면 기존 엔진을 닫는다 (다음 사용 때 새로 만든다).
         syncTranslationBackend()
         updateTranslateButton()
+        if (reopenTranslate && translationAllowed()) container?.openTranslatePanel()
         // 설정의 '키보드 여백' 화면에서 조정 모드로 열어달라는 1회성 요청.
         if (settings.adjustModeRequested) {
             settings.adjustModeRequested = false
@@ -410,6 +419,7 @@ class YeonfeelImeService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         // 키보드가 내려가면 번역 패널을 닫는다 — 마지막 번역은 입력란에 남는다.
         container?.closeTranslatePanel()
+        endTranslation()
         finishComposition()
         val tail = pendingTouchSample
         pendingTouchSample = null
@@ -691,7 +701,12 @@ class YeonfeelImeService : InputMethodService() {
         if (target == mode) return
         finishComposition()
         // 번역 원문의 조합 중인 음절도 확정한다 — 다른 언어 글자가 조합에 섞이지 않게.
-        if (translateOpen) translateBuffer.flushComposer()
+        if (translateOpen) {
+            val before = translateBuffer.text
+            translateBuffer.flushComposer()
+            // 보류 병합(찬ㅎ→찮)으로 원문이 바뀌었으면 화면과 번역에 반영한다.
+            if (translateBuffer.text != before) onTranslateSourceChanged()
+        }
         mode = target
         view.mode = target
         view.shifted = false
@@ -1028,6 +1043,8 @@ class YeonfeelImeService : InputMethodService() {
             container?.closeTranslatePanel()
             return
         }
+        // 이미 열려 있던 상태가 남아 있으면 입력란의 번역부터 확정해 새 번역이 덮어쓰지 않게 한다.
+        endTranslation()
         // 앱에서 조합 중이던 글자는 먼저 확정한다 — 이후 앱 조합 영역은 번역만 쓴다.
         finishComposition()
         translateOpen = true
@@ -1198,7 +1215,11 @@ class YeonfeelImeService : InputMethodService() {
                     unusableEngine = null
                     updateTranslateButton()
                 }
-                val ic = currentInputConnection ?: return
+                val ic = currentInputConnection ?: run {
+                    translateRequests.confirmPending = false
+                    showTranslateStatus(idleTranslateStatus())
+                    return
+                }
                 if (!translationRegionIntact(ic)) return
                 setComposing(ic, result.text)
                 translateRequests.onShown(source)
@@ -1218,7 +1239,7 @@ class YeonfeelImeService : InputMethodService() {
                     geminiBlockFlag.markBlocked()
                     translateGeminiBlocked = true
                 }
-                if (status.engineUnusable) {
+                if (status.remembersForSession) {
                     unusableEngine = engine to status
                     updateTranslateButton()
                 }

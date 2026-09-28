@@ -98,9 +98,6 @@ class KeyboardContainerView(
     /** 비밀번호·학습 거부 입력란에서는 번역 버튼을 숨긴다. */
     private var translateButtonVisible = true
 
-    /** 고른 엔진을 쓸 수 없다고 알려진 경우 흐리게 표시한다 (누르면 패널이 이유를 보여준다). */
-    private var translateButtonDimmed = false
-
     fun isTranslatePanelOpen(): Boolean = translateOpen
 
     // 클립보드 다중 선택 모드: 목적(삭제/고정)에 따라 헤더가 달라진다.
@@ -1247,14 +1244,21 @@ class KeyboardContainerView(
         return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
     }
 
-    /** 번역 버튼 표시 여부와 흐림 상태. 순서 저장값은 건드리지 않는다. */
+    /**
+     * 번역 버튼 표시 여부와 흐림 상태. 고른 엔진을 쓸 수 없다고 알려진 경우 흐리게 하되 누를 수는
+     * 있다 (패널이 이유를 보여준다). 순서 저장값은 건드리지 않는다.
+     */
     fun setTranslateButtonState(visible: Boolean, dimmed: Boolean) {
-        translateButtonDimmed = dimmed
         toolbarButtons[TRANSLATE_ID]?.alpha = if (dimmed) DIMMED_ALPHA else 1f
         if (visible != translateButtonVisible) {
             translateButtonVisible = visible
             applyToolbarOrder(currentToolbarOrder)
         }
+    }
+
+    /** 번역 패널을 연다 (서비스가 입력란 재시작 뒤 다시 열 때). 이미 열려 있으면 그대로 둔다. */
+    fun openTranslatePanel() {
+        if (!translateOpen && toolbarEnabled) toggleTranslatePanel()
     }
 
     /** 번역 패널을 닫는다 (서비스가 요청할 때). 입력란의 번역 처리는 닫힘 콜백에서 서비스가 한다. */
