@@ -31,22 +31,32 @@ class TranslateSourceBuffer {
 
     fun isEmpty(): Boolean = committed.isEmpty() && composing.isEmpty()
 
-    /** 조합기로 보낼 자모 입력. [now]는 연타 판정용. */
-    fun inputJamo(jamo: Char, now: Long) {
+    /** 원문 길이 (조합 중인 음절 포함). */
+    val length: Int get() = committed.length + composing.length
+
+    /** [MAX_LENGTH]에 닿아 더 받지 않는다. 지우기·기호 연타(글자 바꾸기)·조합 끊기는 된다. */
+    val isFull: Boolean get() = length >= MAX_LENGTH
+
+    /** 조합기로 보낼 자모 입력. [now]는 연타 판정용. 원문이 꽉 찼으면 받지 않고 false. */
+    fun inputJamo(jamo: Char, now: Long): Boolean {
+        if (isFull) return false
         val c = composer
         if (c == null) {
             committed.append(jamo)
-            return
+            return true
         }
         val result = c.input(jamo, now)
         appendCommitted(result.commit)
         composing = result.composing
+        return true
     }
 
-    /** 조합기를 거치지 않는 글자(영문·숫자·기호·공백). 조합 중인 음절을 먼저 확정한다. */
-    fun inputChar(ch: Char) {
+    /** 조합기를 거치지 않는 글자(영문·숫자·기호·공백). 조합 중인 음절을 먼저 확정한다. 꽉 찼으면 false. */
+    fun inputChar(ch: Char): Boolean {
+        if (isFull) return false
         flushComposer()
         committed.append(ch)
+        return true
     }
 
     /** 조합 중인 음절을 확정한다 (스페이스·언어 전환 등). 원문 [text]는 바뀌지 않는다(보류 병합 제외). */
@@ -90,5 +100,13 @@ class TranslateSourceBuffer {
 
     private fun appendCommitted(text: String) {
         committed.append(if (fixDwaet) text.replace('됬', '됐') else text)
+    }
+
+    companion object {
+        /**
+         * 원문 최대 길이. 키마다 원문 전체를 다시 만들고·그리고·번역하므로 끝없이 늘지 않게 막는다.
+         * Gemini Nano 입력 한도(GeminiPrompt.MAX_INPUT_CHARS)와 같게 둔다 — 넘으면 어차피 번역되지 않는다.
+         */
+        const val MAX_LENGTH = 2_000
     }
 }

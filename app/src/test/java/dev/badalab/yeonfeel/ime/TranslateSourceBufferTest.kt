@@ -116,4 +116,30 @@ class TranslateSourceBufferTest {
         buffer.typeSlow("ㄴㅏ")
         assertEquals("나", buffer.text)
     }
+
+    @Test
+    fun `원문이 최대 길이에 닿으면 더 받지 않는다`() {
+        val buffer = TranslateSourceBuffer().apply { composer = HangulComposer() }
+        repeat(TranslateSourceBuffer.MAX_LENGTH) { assertTrue(buffer.inputChar('a')) }
+        assertTrue(buffer.isFull)
+        assertFalse(buffer.inputChar('b'))
+        assertFalse(buffer.inputJamo('ㄱ', 0L))
+        assertEquals(TranslateSourceBuffer.MAX_LENGTH, buffer.text.length)
+        // 기호 연타(마지막 글자 바꾸기)와 지우기는 된다.
+        assertTrue(buffer.replaceLast('.'))
+        assertTrue(buffer.backspace())
+        assertFalse(buffer.isFull)
+        assertTrue(buffer.inputJamo('ㄱ', 0L))
+        assertEquals(TranslateSourceBuffer.MAX_LENGTH, buffer.length)
+    }
+
+    @Test
+    fun `조합 중인 음절도 길이에 들어간다`() {
+        val buffer = TranslateSourceBuffer().apply { composer = HangulComposer() }
+        repeat(TranslateSourceBuffer.MAX_LENGTH - 1) { buffer.inputChar('a') }
+        assertTrue(buffer.inputJamo('ㄱ', 0L))
+        assertTrue(buffer.isFull)
+        assertFalse(buffer.inputJamo('ㅏ', 1000L))
+        assertEquals("ㄱ", buffer.text.takeLast(1))
+    }
 }

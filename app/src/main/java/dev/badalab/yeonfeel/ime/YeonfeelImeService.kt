@@ -102,6 +102,8 @@ class YeonfeelImeService : InputMethodService() {
             touchStats.flush()
         }
         ioExecutor.shutdown()
+        // 번역 패널이 열린 채 파괴되면 입력란의 번역을 확정해 앱에 조합 영역을 남기지 않는다.
+        endTranslation()
         // close 뒤에는 번역 콜백이 오지 않는다.
         translationBackend?.close()
         translationBackend = null
@@ -1099,10 +1101,14 @@ class YeonfeelImeService : InputMethodService() {
             KeyType.CHAR, KeyType.GHOST -> {
                 val c = key.char
                 if (!rotateTranslateSymbol(key)) {
-                    if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
+                    val accepted = if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
                         translateBuffer.inputJamo(c, System.currentTimeMillis())
                     } else {
                         translateBuffer.inputChar(c)
+                    }
+                    if (!accepted) {
+                        onTranslateSourceFull()
+                        return true
                     }
                 }
                 if (view.shifted && !view.capsLock) view.shifted = false
@@ -1115,8 +1121,9 @@ class YeonfeelImeService : InputMethodService() {
                     settings.koreanLayout == KoreanLayoutType.CHUNJIIN && translateBuffer.isComposing
                 ) {
                     translateBuffer.flushComposer()
-                } else {
-                    translateBuffer.inputChar(' ')
+                } else if (!translateBuffer.inputChar(' ')) {
+                    onTranslateSourceFull()
+                    return true
                 }
                 onTranslateSourceChanged()
             }
@@ -1166,6 +1173,12 @@ class YeonfeelImeService : InputMethodService() {
         }
         if (translateGeminiBlocked) return
         mainHandler.postDelayed(translateDebounce, TRANSLATE_DEBOUNCE_MS)
+    }
+
+    /** 원문이 [TranslateSourceBuffer.MAX_LENGTH]에 닿아 키를 버렸다 — 이유만 보여준다 (번역·요청은 그대로). */
+    private fun onTranslateSourceFull() {
+        symbolCycle = null
+        showTranslateStatus(TranslateStatus.TEXT_TOO_LONG)
     }
 
     private fun onTranslateEnter() {
