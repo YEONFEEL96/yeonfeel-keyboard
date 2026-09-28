@@ -2,6 +2,8 @@ package dev.badalab.yeonfeel.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.badalab.yeonfeel.translate.TranslationEngine
+import dev.badalab.yeonfeel.translate.TranslationLanguage
 
 enum class BackspaceSpeed(val intervalMs: Long) {
     SLOW(80),
@@ -347,6 +349,27 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_KEYBOARD_HEIGHT, HEIGHT_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_KEYBOARD_HEIGHT, value).apply()
 
+    /** 키보드 번역 엔진. 기본은 추가 다운로드·네트워크가 필요 없는 시스템 번역. */
+    var translationEngine: TranslationEngine
+        get() = TranslationEngine.fromName(prefs.getString(KEY_TRANSLATION_ENGINE, null))
+        set(value) = prefs.edit().putString(KEY_TRANSLATION_ENGINE, value.name).apply()
+
+    /** 번역 원문 언어 (번역 패널에 입력하는 언어). */
+    var translationSource: TranslationLanguage
+        get() = TranslationLanguage.fromCodeOrDefault(
+            prefs.getString(KEY_TRANSLATION_SOURCE, null),
+            TranslationLanguage.DEFAULT_SOURCE,
+        )
+        set(value) = prefs.edit().putString(KEY_TRANSLATION_SOURCE, value.code).apply()
+
+    /** 번역 결과 언어 (입력란에 들어가는 언어). */
+    var translationTarget: TranslationLanguage
+        get() = TranslationLanguage.fromCodeOrDefault(
+            prefs.getString(KEY_TRANSLATION_TARGET, null),
+            TranslationLanguage.DEFAULT_TARGET,
+        )
+        set(value) = prefs.edit().putString(KEY_TRANSLATION_TARGET, value.code).apply()
+
     fun resetAll() = prefs.edit().clear().apply()
 
     companion object {
@@ -422,5 +445,8 @@ class KeyboardSettings(context: Context) {
         private const val KEY_MARGIN_BOTTOM = "margin_bottom_dp"
         private const val KEY_MARGIN_SIDE = "margin_side_dp"
         private const val KEY_KEYBOARD_HEIGHT = "keyboard_height_dp"
+        private const val KEY_TRANSLATION_ENGINE = "translation_engine"
+        private const val KEY_TRANSLATION_SOURCE = "translation_source"
+        private const val KEY_TRANSLATION_TARGET = "translation_target"
     }
 }

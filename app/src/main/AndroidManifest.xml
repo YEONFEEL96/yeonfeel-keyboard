@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- ML Kit 번역 엔진의 언어 모델 다운로드용 (라이브러리가 병합하는 권한을 명시적으로 드러낸다).
+         번역 자체는 세 엔진 모두 기기 안에서 수행하며 입력 문장을 전송하지 않는다. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 키보드에서는 데이터 요금이 나가는 네트워크로 모델을 받지 않는다 (isActiveNetworkMetered 확인용). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Gemini Nano(AICore) 라이브러리는 minSdk 26 — 코드에서 API 26 미만이면 로드하지 않는다. -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
 
 
     <!-- IME는 입력 이력을 다루므로 백업·기기 이전 반출 경로를 모두 차단한다 -->
