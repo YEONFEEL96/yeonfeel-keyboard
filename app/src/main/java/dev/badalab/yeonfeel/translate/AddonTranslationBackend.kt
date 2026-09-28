@@ -11,6 +11,7 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
+import android.os.SystemClock
 import dev.badalab.yeonfeel.translate.protocol.BundleFields
 import dev.badalab.yeonfeel.translate.protocol.FailureCode
 import dev.badalab.yeonfeel.translate.protocol.TranslateProtocol
@@ -35,7 +36,12 @@ internal class AddonTranslationBackend(
     private val allowMeteredDownload: Boolean,
 ) : TranslationBackend {
 
-    private class Outgoing(val id: Int, val request: TranslateRequest, val callback: (TranslationResult) -> Unit)
+    private class Outgoing(
+        val id: Int,
+        val request: TranslateRequest,
+        val callback: (TranslationResult) -> Unit,
+        val queuedAt: Long = SystemClock.uptimeMillis(),
+    )
 
     private val appContext = context.applicationContext
     private val replies = Messenger(
@@ -72,6 +78,12 @@ internal class AddonTranslationBackend(
         service?.let { return send(it, outgoing) }
         if (connection == null && !bind()) {
             return callback(TranslationResult.Failure(TranslationResult.Reason.ADDON_NOT_INSTALLED))
+        }
+        // 애드온이 연결되지 않은 채 오래가도 원문을 붙든 요청이 쌓이지 않게 한다 — 가장 오래된 요청부터
+        // 끝낸다 (TimeoutBackend가 이미 답했다면 이 콜백은 무시된다).
+        while (waiting.size >= MAX_WAITING) {
+            deliver(waiting.removeAt(0).callback, TranslationResult.Failure(TranslationResult.Reason.BUSY))
+            if (closed) return
         }
         waiting += outgoing
     }
@@ -154,7 +166,16 @@ internal class AddonTranslationBackend(
             service = connected
             val queued = waiting.toList()
             waiting.clear()
-            queued.forEach { if (!closed) send(connected, it) }
+            // 제한 시간이 지난 요청은 이미 시간 초과로 끝났다 — 원문을 애드온에 보내지 않는다.
+            val now = SystemClock.uptimeMillis()
+            queued.forEach {
+                if (closed) return
+                if (now - it.queuedAt >= LIBRARY_TIMEOUT_MS) {
+                    deliver(it.callback, TranslationResult.Failure(TranslationResult.Reason.ERROR, "timeout"))
+                } else {
+                    send(connected, it)
+                }
+            }
         }
 
         /** 애드온 프로세스가 죽었다. 바인드는 남아 있어 시스템이 다시 띄우면 onServiceConnected가 온다. */
@@ -179,6 +200,9 @@ internal class AddonTranslationBackend(
         }
     }
 }
+
+/** 연결을 기다리며 모아 둘 최대 요청 수. 입력마다 요청하므로 넘치면 가장 오래된 것부터 끝낸다. */
+private const val MAX_WAITING = 8
 
 /** 애드온 응답을 키보드 결과로. */
 internal fun TranslateResponse.toTranslationResult(): TranslationResult = when (this) {

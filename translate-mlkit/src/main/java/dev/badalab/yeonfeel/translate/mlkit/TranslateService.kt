@@ -12,6 +12,7 @@ import android.os.RemoteException
 import android.os.SystemClock
 import dev.badalab.yeonfeel.translate.protocol.BundleFields
 import dev.badalab.yeonfeel.translate.protocol.FailureCode
+import dev.badalab.yeonfeel.translate.protocol.PROTOCOL_MISMATCH
 import dev.badalab.yeonfeel.translate.protocol.TranslateProtocol
 import dev.badalab.yeonfeel.translate.protocol.TranslateRequest
 import dev.badalab.yeonfeel.translate.protocol.TranslateResponse
@@ -52,9 +53,13 @@ class TranslateService : Service() {
     }
 
     private fun handle(message: Message) {
-        if (destroyed || message.what != TranslateProtocol.MSG_TRANSLATE) return
+        if (destroyed) return
         val replyTo = message.replyTo ?: return
         val requestId = message.arg1
+        // 더 새 키보드가 보낸 모르는 메시지 — 시간 초과를 기다리게 하지 않고 곧바로 버전 불일치로 답한다.
+        if (message.what != TranslateProtocol.MSG_TRANSLATE) {
+            return reply(replyTo, requestId, TranslateResponse.Failure(FailureCode.ENGINE_UNAVAILABLE, PROTOCOL_MISMATCH))
+        }
         val request = when (val decoded = TranslateRequest.decode(BundleFields(message.data))) {
             is TranslateRequest.Decoded.Invalid -> return reply(replyTo, requestId, decoded.response)
             is TranslateRequest.Decoded.Valid -> decoded.request
