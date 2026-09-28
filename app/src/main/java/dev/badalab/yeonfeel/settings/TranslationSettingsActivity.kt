@@ -18,6 +18,7 @@ import android.view.View
 import android.view.translation.TranslationManager
 import androidx.annotation.RequiresApi
 import dev.badalab.yeonfeel.R
+import dev.badalab.yeonfeel.translate.AddonTranslationBackend
 import dev.badalab.yeonfeel.translate.Availability
 import dev.badalab.yeonfeel.translate.GeminiBlockFlag
 import dev.badalab.yeonfeel.translate.TranslationBackend
@@ -182,8 +183,8 @@ class TranslationSettingsActivity : Activity() {
         geminiBlocked = geminiBlocked,
     )
 
-    private fun isAddonInstalled(): Boolean =
-        runCatching { packageManager.getPackageInfo(MLKIT_ADDON_PACKAGE, 0) }.isSuccess
+    /** 애드온이 설치돼 있고 키보드와 같은 키로 서명됐는지. 이름만 같은 앱은 설치되지 않은 것으로 본다. */
+    private fun isAddonInstalled(): Boolean = AddonTranslationBackend.isTrustedAddonInstalled(this)
 
     /** 모든 엔진의 상태를 새로 확인한다. 조회만 하고 다운로드는 시작하지 않는다. */
     private fun checkAvailability() {
@@ -316,7 +317,7 @@ class TranslationSettingsActivity : Activity() {
                 TranslationResult.Reason.DOWNLOADING,
                 -> R.string.translate_test_still_downloading
                 TranslationResult.Reason.BLOCKED_IN_BACKGROUND -> R.string.translate_status_blocked
-                TranslationResult.Reason.ADDON_NOT_INSTALLED -> R.string.translate_status_addon_missing
+                TranslationResult.Reason.ADDON_NOT_INSTALLED -> R.string.translate_settings_addon_missing
                 TranslationResult.Reason.BUSY -> R.string.translate_status_busy
                 TranslationResult.Reason.TEXT_TOO_LONG -> R.string.translate_status_too_long
                 else -> R.string.translate_status_error
@@ -352,9 +353,6 @@ class TranslationSettingsActivity : Activity() {
     }
 
     companion object {
-        /** ML Kit 애드온 앱 패키지 (#25). 매니페스트 <queries>에 넣어야 설치 여부가 보인다. */
-        const val MLKIT_ADDON_PACKAGE = "dev.badalab.yeonfeel.translate.mlkit"
-
         /** 테스트가 모델 다운로드를 기다리는 최대 시간. */
         private const val TEST_DOWNLOAD_WAIT_MS = 120_000L
         private const val TEST_RETRY_MS = 3_000L
