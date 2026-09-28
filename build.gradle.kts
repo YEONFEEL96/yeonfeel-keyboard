@@ -10,12 +10,14 @@ project(":app") {
     pluginManager.withPlugin("com.android.application") {
         extensions.configure<com.android.build.api.variant.ApplicationAndroidComponentsExtension> {
             onVariants { variant ->
-                val variantName = variant.name.replaceFirstChar { it.uppercase() }
+                // 태스크 동작에는 variant 객체 대신 이름만 넘긴다 (구성 캐시에 담을 수 있게).
+                val variantLabel = variant.name
+                val variantName = variantLabel.replaceFirstChar { it.uppercase() }
                 val manifest = variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.MERGED_MANIFEST)
-                val marker = layout.buildDirectory.file("intermediates/no_network_permission/${variant.name}/verified")
+                val marker = layout.buildDirectory.file("intermediates/no_network_permission/$variantLabel/verified")
                 val verify = tasks.register("verify${variantName}NoNetworkPermission") {
                     group = "verification"
-                    description = "Fails if the merged ${variant.name} manifest requests a network permission."
+                    description = "Fails if the merged $variantLabel manifest requests a network permission."
                     inputs.file(manifest)
                     outputs.file(marker)
                     doLast {
@@ -38,7 +40,7 @@ project(":app") {
                         val found = requested.filter { it in forbidden }
                         if (found.isNotEmpty()) {
                             throw GradleException(
-                                "The keyboard's merged ${variant.name} manifest requests $found. The keyboard must " +
+                                "The keyboard's merged $variantLabel manifest requests $found. The keyboard must " +
                                     "stay network-free: add tools:node=\"remove\" for it in app/src/main/AndroidManifest.xml.",
                             )
                         }
@@ -46,7 +48,9 @@ project(":app") {
                     }
                 }
                 tasks.named("check") { dependsOn(verify) }
-                tasks.matching { it.name == "assemble$variantName" }.configureEach { dependsOn(verify) }
+                // APK(assemble)와 AAB(bundle) 어느 쪽으로 만들어도 검사를 거친다.
+                tasks.matching { it.name == "assemble$variantName" || it.name == "bundle$variantName" }
+                    .configureEach { dependsOn(verify) }
             }
         }
     }
