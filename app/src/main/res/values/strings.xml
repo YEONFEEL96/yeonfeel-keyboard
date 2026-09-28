@@ -172,4 +172,35 @@
     <string name="ime_action_next">Next</string>
     <string name="ime_action_done">Done</string>
     <string name="ime_action_previous">Prev</string>
+
+    <!-- 번역 -->
+    <string name="toolbar_translate_desc">Translate</string>
+    <string name="translate_menu">Translation</string>
+    <string name="translate_hint">Type in %1$s</string>
+    <string name="translate_swap_desc">Swap languages</string>
+    <string name="translate_close_desc">Close translation</string>
+    <string name="translate_status_idle">The translation goes straight into the text field. Enter confirms it.</string>
+    <string name="translate_status_working">Translating…</string>
+    <string name="translate_status_downloading">Downloading the language model…</string>
+    <string name="translate_status_needs_download">Download the language pack in translation settings.</string>
+    <string name="translate_status_needs_wifi">Connect to Wi-Fi to download the language model, or download it in translation settings.</string>
+    <string name="translate_status_unavailable">%1$s isn\'t available on this device.</string>
+    <string name="translate_status_unsupported_pair">This language pair isn\'t supported.</string>
+    <string name="translate_status_blocked">Android only lets Gemini Nano run in the app on screen, so it can\'t run inside the keyboard here.</string>
+    <string name="translate_status_busy">Usage limit reached. Try again later.</string>
+    <string name="translate_status_error">Couldn\'t translate.</string>
+    <string name="translate_engine_system">System translation</string>
+    <string name="translate_engine_mlkit">ML Kit</string>
+    <string name="translate_engine_gemini">Gemini Nano</string>
+    <string name="translate_engine_system_desc">The phone\'s built-in translator (Android 12+, mostly Pixel).</string>
+    <string name="translate_engine_mlkit_desc">Works on most phones. Downloads about 30 MB per language.</string>
+    <string name="translate_engine_gemini_desc">On-device AI on recent flagships. Android may block it inside a keyboard.</string>
+    <string name="translate_engine_caption">Engine</string>
+    <string name="translate_languages_caption">Languages</string>
+    <string name="translate_source">Translate from</string>
+    <string name="translate_target">Translate to</string>
+    <string name="translate_test">Test translation</string>
+    <string name="translate_test_hint">Translate a sample sentence with the selected engine. For ML Kit and Gemini Nano this also downloads the model.</string>
+    <string name="translate_system_settings">System translation language packs</string>
+    <string name="translate_privacy_note">Translation runs on the device, and what you type is not sent anywhere. The ML Kit engine uses the network to download language models, and Google\'s ML Kit libraries send anonymous usage statistics to Google.</string>
 </resources>
