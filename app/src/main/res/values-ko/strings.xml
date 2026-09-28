@@ -192,7 +192,7 @@
     <string name="translate_engine_mlkit">ML Kit</string>
     <string name="translate_engine_gemini">Gemini Nano</string>
     <string name="translate_engine_system_desc">휴대폰 내장 번역기 (Android 12 이상, 주로 Pixel)</string>
-    <string name="translate_engine_mlkit_desc">대부분의 기기에서 동작. 별도 ML Kit 애드온 앱이 필요하고, 언어마다 약 30MB를 내려받아요.</string>
+    <string name="translate_engine_mlkit_desc">대부분의 기기에서 동작. 별도 ML Kit 애드온 앱이 필요해요.</string>
     <string name="translate_engine_gemini_desc">최신 플래그십의 온디바이스 AI. 키보드 안에서는 Android가 막을 수 있어요.</string>
     <string name="translate_engine_caption">엔진</string>
     <string name="translate_languages_caption">언어</string>

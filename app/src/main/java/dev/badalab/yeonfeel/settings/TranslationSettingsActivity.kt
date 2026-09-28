@@ -43,6 +43,13 @@ class TranslationSettingsActivity : Activity() {
     /** 상태 확인에 쓰는 엔진들. 확인 결과가 오면(또는 화면을 떠나면) 닫는다. */
     private val checkBackends = mutableListOf<TranslationBackend>()
 
+    /** 결과를 전한 뒤 닫기로 한 엔진들. 닫기 전에 화면이 없어져도 [onDestroy]에서 닫는다. */
+    private val closing = mutableListOf<TranslationBackend>()
+
+    /** 한 번 그리는 동안 쓰는 애드온 설치 여부·Gemini 차단 기록 (둘 다 PackageManager 조회). */
+    private var addonInstalled = false
+    private var geminiBlocked = false
+
     /** 낡은 확인 결과를 버리기 위한 세대 번호 — 엔진·언어가 바뀌면 새로 확인한다. */
     private var checkGeneration = 0
 
@@ -79,7 +86,10 @@ class TranslationSettingsActivity : Activity() {
 
     override fun onDestroy() {
         cancelTest()
+        cancelChecks()
         handler.removeCallbacksAndMessages(null)
+        closing.forEach { it.close() }
+        closing.clear()
         super.onDestroy()
     }
 
@@ -88,8 +98,9 @@ class TranslationSettingsActivity : Activity() {
         ui.header(getString(R.string.translate_menu))
 
         val selected = settings.translationEngine
+        addonInstalled = isAddonInstalled()
+        geminiBlocked = geminiBlock.isBlocked()
         val addonMissing = engineStatus(TranslationEngine.MLKIT) == EngineStatus.ADDON_NOT_INSTALLED
-        val geminiBlocked = geminiBlock.isBlocked()
 
         ui.caption(getString(R.string.translate_engine_caption))
         val radios = linkedMapOf<TranslationEngine, View>()
@@ -161,8 +172,8 @@ class TranslationSettingsActivity : Activity() {
     private fun engineStatus(engine: TranslationEngine): EngineStatus = engineStatus(
         engine = engine,
         availability = availability[engine],
-        addonInstalled = isAddonInstalled(),
-        geminiBlocked = geminiBlock.isBlocked(),
+        addonInstalled = addonInstalled,
+        geminiBlocked = geminiBlocked,
     )
 
     private fun isAddonInstalled(): Boolean =
@@ -179,17 +190,22 @@ class TranslationSettingsActivity : Activity() {
             val backend = TranslationBackend.create(this, engine, allowMeteredDownload = false)
             checkBackends += backend
             backend.checkAvailability(source, target) { result ->
-                // 콜백 안에서 바로 닫지 않는다 — 엔진이 콜백을 부른 뒤 할 정리가 남아 있을 수 있다.
-                handler.post {
-                    backend.close()
-                    checkBackends.remove(backend)
-                }
+                checkBackends.remove(backend)
+                closeLater(backend)
                 if (generation != checkGeneration) return@checkAvailability
                 availability[engine] = result
                 buildUi()
             }
         }
         buildUi()
+    }
+
+    /** 콜백 안에서 바로 닫지 않는다 — 엔진이 콜백을 부른 뒤 할 정리가 남아 있을 수 있다. */
+    private fun closeLater(backend: TranslationBackend) {
+        closing += backend
+        handler.post {
+            if (closing.remove(backend)) backend.close()
+        }
     }
 
     private fun cancelChecks() {
@@ -265,8 +281,7 @@ class TranslationSettingsActivity : Activity() {
                 return@translate
             }
             testBackend = null
-            // 콜백 안에서 바로 닫지 않는다 — 엔진이 콜백을 부른 뒤 할 정리가 남아 있을 수 있다.
-            handler.post { backend.close() }
+            closeLater(backend)
             testMessage = testResultText(engine, result)
             // 테스트가 모델을 받았을 수 있다 — 상태를 다시 확인한다.
             if (resumed) checkAvailability() else buildUi()

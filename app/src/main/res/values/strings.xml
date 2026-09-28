@@ -194,7 +194,7 @@
     <string name="translate_engine_mlkit">ML Kit</string>
     <string name="translate_engine_gemini">Gemini Nano</string>
     <string name="translate_engine_system_desc">The phone\'s built-in translator (Android 12+, mostly Pixel).</string>
-    <string name="translate_engine_mlkit_desc">Works on most phones. Needs the separate ML Kit add-on app, which downloads about 30 MB per language.</string>
+    <string name="translate_engine_mlkit_desc">Works on most phones. Needs the separate ML Kit add-on app.</string>
     <string name="translate_engine_gemini_desc">On-device AI on recent flagships. Android may block it inside a keyboard.</string>
     <string name="translate_engine_caption">Engine</string>
     <string name="translate_languages_caption">Languages</string>
