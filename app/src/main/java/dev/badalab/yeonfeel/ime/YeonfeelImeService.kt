@@ -105,8 +105,7 @@ class YeonfeelImeService : InputMethodService() {
         // 번역 패널이 열린 채 파괴되면 입력란의 번역을 확정해 앱에 조합 영역을 남기지 않는다.
         endTranslation()
         // close 뒤에는 번역 콜백이 오지 않는다.
-        translationBackend?.close()
-        translationBackend = null
+        closeTranslationBackend()
         // 파괴 이후 도착할 mainHandler.post 콜백을 제거한다.
         mainHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
@@ -422,6 +421,8 @@ class YeonfeelImeService : InputMethodService() {
         // 키보드가 내려가면 번역 패널을 닫는다 — 마지막 번역은 입력란에 남는다.
         container?.closeTranslatePanel()
         endTranslation()
+        // 키보드가 내려가 있는 동안 엔진(애드온 바인딩 포함)을 붙잡지 않는다.
+        closeTranslationBackend()
         finishComposition()
         val tail = pendingTouchSample
         pendingTouchSample = null
@@ -981,7 +982,11 @@ class YeonfeelImeService : InputMethodService() {
     private var translateOpen = false
     private lateinit var geminiBlockFlag: GeminiBlockFlag
 
-    /** 처음 쓸 때 만들고, 설정에서 엔진이 바뀌면 닫고 다시 만든다. */
+    /**
+     * 처음 쓸 때 만들고, 패널이 닫히거나 키보드가 내려가면 닫는다 (설정에서 엔진이 바뀌어도 닫는다).
+     * ML Kit 애드온은 바인드 서비스라 엔진을 쥐고 있는 동안 애드온 프로세스가 살아 있다 —
+     * 키보드가 떠 있는 내내 붙잡지 않는다. 다시 만드는 비용은 작다.
+     */
     private var translationBackend: TranslationBackend? = null
     private var translationBackendEngine: TranslationEngine? = null
 
@@ -1010,11 +1015,14 @@ class YeonfeelImeService : InputMethodService() {
 
     private fun syncTranslationBackend() {
         val engine = settings.translationEngine
-        if (translationBackendEngine != null && translationBackendEngine != engine) {
-            translationBackend?.close()
-            translationBackend = null
-            translationBackendEngine = null
-        }
+        if (translationBackendEngine != null && translationBackendEngine != engine) closeTranslationBackend()
+    }
+
+    /** 엔진을 닫는다. 가고 있던 요청의 콜백은 더 오지 않는다 (요청 번호 확인도 그대로 둔다). */
+    private fun closeTranslationBackend() {
+        translationBackend?.close()
+        translationBackend = null
+        translationBackendEngine = null
     }
 
     private fun backendFor(engine: TranslationEngine): TranslationBackend {
@@ -1073,6 +1081,7 @@ class YeonfeelImeService : InputMethodService() {
         resetTranslation()
         translateOpen = false
         translateBuffer.composer = null
+        closeTranslationBackend()
     }
 
     /** 입력란의 번역을 확정(조합 영역만 닫기)하고 패널 상태를 처음으로 되돌린다. */
