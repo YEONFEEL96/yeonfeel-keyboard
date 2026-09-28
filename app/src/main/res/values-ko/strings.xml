@@ -193,7 +193,7 @@
     <string name="translate_engine_mlkit">ML Kit</string>
     <string name="translate_engine_gemini">Gemini Nano</string>
     <string name="translate_engine_system_desc">휴대폰 내장 번역기 (Android 12 이상, 주로 Pixel)</string>
-    <string name="translate_engine_mlkit_desc">대부분의 기기에서 동작. 언어마다 약 30MB를 내려받아요.</string>
+    <string name="translate_engine_mlkit_desc">대부분의 기기에서 동작. 별도 ML Kit 애드온 앱이 필요해요.</string>
     <string name="translate_engine_gemini_desc">최신 플래그십의 온디바이스 AI. 키보드 안에서는 Android가 막을 수 있어요.</string>
     <string name="translate_engine_caption">엔진</string>
     <string name="translate_languages_caption">언어</string>
@@ -202,5 +202,22 @@
     <string name="translate_test">번역 테스트</string>
     <string name="translate_test_hint">선택한 엔진으로 예문을 번역해 봐요. ML Kit·Gemini Nano는 이때 모델도 내려받아요.</string>
     <string name="translate_system_settings">시스템 번역 언어 팩</string>
-    <string name="translate_privacy_note">번역은 기기 안에서 이루어지며 입력한 글은 어디로도 전송되지 않아요. ML Kit 엔진은 언어 모델을 받을 때 네트워크를 쓰고, Google ML Kit 라이브러리는 익명 사용 통계를 Google에 보내요.</string>
+    <string name="translate_privacy_note">번역은 기기 안에서 이루어지며 입력한 글은 어디로도 전송되지 않아요. 키보드 자체는 네트워크에 접근하지 않아요. 선택 사항인 ML Kit 애드온만 언어 모델을 받을 때 네트워크를 쓰고, 그 안의 Google ML Kit 라이브러리는 사용 통계를 Google에 보내요.</string>
+    <string name="translate_status_addon_missing">ML Kit 애드온이 설치돼 있지 않아요.</string>
+    <string name="translate_availability_checking">확인 중…</string>
+    <string name="translate_availability_ready">사용 가능</string>
+    <string name="translate_availability_needs_download">내려받기 필요</string>
+    <string name="translate_availability_downloading">내려받는 중</string>
+    <string name="translate_availability_unsupported">지원하지 않는 언어 조합</string>
+    <string name="translate_availability_unavailable">이 휴대폰에서 쓸 수 없음</string>
+    <string name="translate_availability_addon_missing">애드온 설치 안 됨</string>
+    <string name="translate_availability_blocked">키보드 안에서 차단됨</string>
+    <string name="translate_availability_unknown">확인하지 못함</string>
+    <string name="translate_addon_download">ML Kit 애드온 받기</string>
+    <string name="translate_addon_download_desc">내려받기 페이지(GitHub 릴리스)를 열어요.</string>
+    <string name="translate_gemini_retry">키보드에서 Gemini Nano 다시 시도</string>
+    <string name="translate_gemini_retry_desc">Android가 키보드 안에서 Gemini Nano를 막아 키보드가 더는 쓰지 않고 있어요. 기록을 지우면 다시 시도해요.</string>
+    <string name="translate_test_needs_download">먼저 시스템 번역 언어 팩에서 언어 팩을 내려받아 주세요.</string>
+    <string name="translate_test_still_downloading">아직 모델을 내려받는 중이에요. 잠시 뒤 다시 시도해 주세요.</string>
+    <string name="translate_test_gemini_note">여기서 테스트가 성공해도 키보드 안에서 Gemini Nano가 동작한다는 뜻은 아니에요. Android는 화면에 떠 있는 앱에서만 허용하는데, 이 설정 화면이 바로 그 앱이에요.</string>
 </resources>

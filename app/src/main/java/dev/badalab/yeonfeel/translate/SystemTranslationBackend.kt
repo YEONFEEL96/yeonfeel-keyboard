@@ -77,6 +77,39 @@ internal class SystemTranslationBackend(context: Context) : TranslationBackend {
         }
     }
 
+    /**
+     * 지원 언어 조회만 작업 스레드에서 하고 결과를 메인 스레드로 옮긴다. 번역기를 만들거나 언어 팩을
+     * 받지 않는다 — 언어 팩은 시스템 설정에서만 받는다.
+     *
+     * 언어 팩 설치를 지켜보는 리스너(addOnDeviceTranslationCapabilityUpdateListener)는 두지 않는다.
+     * [translate]는 이 쌍의 번역기가 없을 때마다 지원 상태를 새로 조회하고 실패 상태를 캐시하지 않으므로,
+     * 시스템 설정에서 받은 언어 팩은 다음 요청부터 바로 쓰인다. 설정 화면은 돌아올 때마다 이 조회를 다시 한다.
+     */
+    override fun checkAvailability(
+        source: TranslationLanguage,
+        target: TranslationLanguage,
+        callback: (Availability) -> Unit,
+    ) {
+        if (closed) return
+        if (source == target) return callback(Availability.READY)
+        val manager = manager ?: return callback(Availability.UNAVAILABLE)
+        // 서비스가 느려도 번역과 같은 제한 시간 안에 답한다 — 늦게 온 조회 결과는 버린다.
+        var done = false
+        val token = Any()
+        val finish = { availability: Availability ->
+            if (!done && !closed) {
+                done = true
+                mainHandler.removeCallbacksAndMessages(token)
+                callback(availability)
+            }
+        }
+        mainHandler.postAtTime({ finish(Availability.UNKNOWN) }, token, SystemClock.uptimeMillis() + TIMEOUT_MS)
+        worker.execute {
+            val state = capabilityState(manager, source, target)
+            mainHandler.post { finish(Availability.fromCapabilityState(state)) }
+        }
+    }
+
     private fun onCapability(manager: TranslationManager, prep: Preparation, state: Int?) {
         if (closed || preparing !== prep) return
         when (state) {
