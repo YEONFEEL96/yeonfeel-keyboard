@@ -5,10 +5,15 @@
 YEONFEEL Keyboard는 한글 입력 품질에 중점을 두고 개발한 안드로이드
 입력기(IME)입니다. 당연히 영어 입력도 지원합니다. 기본 키보드의 한글 입력이 아쉬운
 기기에서 사용하기 위해 Claude와 함께 처음부터 새로 작성했습니다. 완전한 오프라인
-동작이 설계 원칙이라 앱이 `INTERNET` 권한 자체를 요청하지 않습니다. 입력
-내용과 클립보드, 사용 기록은 기기 내부에 유지됩니다. 릴리스 APK는 약 1.2MB입니다.
-런타임 의존성은 `androidx.core` 하나입니다. 다른 안드로이드 기기에서
-삼성키보드의 대안을 찾고 있다면, 잘 찾아 오셨습니다!
+동작이 설계 원칙이라 키보드 앱은 `INTERNET` 권한 자체를 요청하지 않습니다.
+입력 내용과 클립보드, 사용 기록을 네트워크로 내보낼 수 없습니다. 릴리스 APK는
+약 2.4MB입니다. 다른 안드로이드 기기에서 삼성키보드의 대안을 찾고 있다면,
+잘 찾아 오셨습니다!
+
+입력하면서 바로 번역하는 기능도 있습니다. 번역 엔진은 모두 기기 안에서
+동작합니다([번역](#번역) 참고). 언어 모델을 내려받느라 네트워크 권한이 필요한
+ML Kit 엔진만 선택 설치하는 별도 애드온 앱으로 분리해, 키보드 자체는 계속
+오프라인으로 남습니다.
 
 ## 입력
 
@@ -41,6 +46,77 @@ JVM 단위 테스트로 검증합니다.
   교정 후보를 제안합니다. 66만 어절 블룸 필터가 실제로 있는 단어를 다른
   단어로 바꾸는 오교정을 막습니다.
 
+## 번역
+
+툴바의 번역 버튼을 누르면 번역 패널이 열립니다. 번역 버튼은 기본 툴바에
+들어 있습니다. 예전에 툴바 순서를 바꿔 저장했다면 툴바 편집 패널에서 추가하면
+됩니다. 원문을 입력하면 마지막 입력 후 약 350ms 뒤에 번역문이 앱 입력란에 조합
+중인 글자로 들어가고, 이전 번역문을 대신합니다. 엔터를 누르면 번역문이
+확정됩니다. 패널이 비어 있으면 엔터는 입력란의 원래 동작을 합니다. 언어
+칩을 누르면 두 언어가 바뀝니다. 원문은 2,000자까지 입력할 수 있습니다.
+비밀번호 입력란과, 앱이 입력 학습을 원하지 않는 입력란(시크릿 모드 등)에서는
+번역 버튼이 숨겨집니다.
+
+지원 언어는 한국어, 영어, 일본어, 중국어(간체), 스페인어, 프랑스어, 독일어,
+베트남어이고 기본값은 한국어 → 영어입니다. 실제로 어떤 언어 쌍이 되는지는
+엔진에 따라 다릅니다.
+
+엔진은 설정 → 번역에서 고릅니다. 이 화면에서 엔진별로 이 기기에서 쓸 수 있는지
+확인하고 시험 번역도 해 볼 수 있습니다.
+
+- **시스템 번역**(기본값): Android 12 이상의 `TranslationManager`. 제조사가
+  시스템 번역 서비스를 넣은 기기에서만 동작하며, 주로 Pixel입니다. 언어 팩은
+  시스템 설정에서 설치하고, 번역 설정 화면에 바로가기가 있습니다.
+- **ML Kit**: 대부분의 기기에서 동작하지만, 아래의 ML Kit 애드온 앱이
+  필요합니다.
+- **Gemini Nano**: AICore 시스템 앱을 통해 쓰는 Google의 온디바이스 모델로,
+  Android 8.0 이상의 지원 최신 플래그십에서만 동작합니다. 모델이 필요하면
+  AICore가 직접 내려받습니다. AICore는 화면 맨 앞에 있는 앱의 요청만 처리하는데
+  키보드는 그 앱이 아니므로, 키보드 안에서는 요청이 거절될 수 있습니다. 거절되면
+  키보드는 설치된 AICore 버전 기준으로 이를 기억하고 더 시도하지 않습니다.
+  AICore가 업데이트되거나 설정 → 번역의 "키보드에서 Gemini Nano 다시 시도"를
+  누르면 기록이 지워집니다. 설정 화면의 시험 번역이 성공해도 키보드 안에서
+  동작한다는 보장은 없습니다.
+
+어느 엔진이든 번역은 기기 안에서 이루어지고, 키보드는 입력한 글을 어떤 서버로도
+보내지 않습니다. 글은 고른 엔진의 기기 내 구성 요소로만 전달됩니다. 제조사의
+시스템 번역 서비스, Google의 AICore 시스템 앱, 또는 우리가 서명한 ML Kit
+애드온입니다. 앞의 둘은 이 프로젝트 밖의 시스템 앱이며 각 제조사의 약관을
+따릅니다.
+
+실제 기기에서의 동작, 특히 키보드 안의 Gemini Nano는 아직 검증되지 않았습니다.
+검증 항목은 [#22](https://github.com/YEONFEEL96/yeonfeel-keyboard/issues/22)에서
+관리합니다.
+
+### ML Kit 애드온
+
+ML Kit 엔진은 별도 앱 `dev.badalab.yeonfeel.translate.mlkit`(모듈
+`translate-mlkit/`)으로 배포합니다. ML Kit 엔진을 고른 경우에만 설치하면
+됩니다. 키보드와 분리한 이유는 두 가지입니다.
+
+- ML Kit의 네이티브 번역 엔진이 CPU 아키텍처당 11–17MB입니다. 애드온은 현재
+  네 아키텍처를 모두 담은 유니버설 APK 하나로 빌드하며, 크기는 약 63.8MB입니다.
+- ML Kit은 언어를 처음 쓸 때 언어 모델(언어당 약 30MB)을 내려받으므로 애드온은
+  `INTERNET`과 `ACCESS_NETWORK_STATE` 권한을 요청합니다. 키보드에서 번역할 때는
+  Wi-Fi에서만 모델을 받습니다. 설정 → 번역의 시험 번역은 모바일 데이터로도 받을
+  수 있습니다. 애드온 안의 Google ML Kit 라이브러리는 사용 통계를 Google에
+  보냅니다. 입력한 글은 기기 안에서 번역되며 전송되지 않습니다.
+
+애드온을 열면 내려받은 언어 모델 목록을 보고 삭제할 수 있습니다. 애드온이
+없으면 설정 → 번역에서 프로젝트의 GitHub 릴리스 페이지로 안내합니다.
+
+키보드와 애드온은 작은 Messenger IPC 프로토콜(`translate-protocol/`)로
+통신합니다. 애드온의 번역 서비스는 서명 권한
+`dev.badalab.yeonfeel.permission.TRANSLATE`로 보호되어, 같은 키로 서명한 앱만
+쓸 수 있습니다. 반대 방향으로는 키보드가 글을 보내기 전에 설치된 애드온이
+키보드와 같은 인증서로 서명됐는지 확인하고, 확인에 실패한 애드온은 설치되지
+않은 것으로 취급합니다. 애드온은 원문과 번역문을 로그에 남기지 않습니다.
+
+따라서 두 앱은 반드시 같은 키로 서명해야 합니다. 두 앱이 같은 권한을 선언하므로,
+다른 키로 서명한 애드온은 키보드와 함께 설치되지 않습니다. 소스에서 직접
+빌드한다면 두 앱 모두 직접 빌드한 것을 설치하고, 공식 릴리스 APK와 섞어 쓰지
+마세요.
+
 ## 데이터 처리
 
 - 클립보드 이력은 Android Keystore 키(AES-256-GCM)로 암호화해 저장합니다.
@@ -50,6 +126,18 @@ JVM 단위 테스트로 검증합니다.
 - 터치 보정용 타점 표본은 키 단위로만 저장하고 순서와 시각을 기록하지
   않습니다(만료 관리용 날짜만 남깁니다). 7일이 지난 표본은 삭제합니다.
   저장 파일을 통째로 읽어도 입력한 문장은 복원되지 않습니다.
+- 비밀번호 입력란과 입력 학습을 원하지 않는 입력란에서는 번역이 꺼집니다.
+  입력한 글은 고른 기기 내 엔진으로만 전달되고([번역](#번역) 참고), 키보드와
+  애드온 모두 로그에 남기지 않습니다.
+- 키보드의 런타임 의존성은 프로젝트 자체의 `translate-protocol` 모듈 외에
+  AndroidX 라이브러리 몇 개와 Gemini Nano용 Google ML Kit GenAI 라이브러리입니다.
+  이 라이브러리를 따라 Google Play 서비스, ML Kit common, Google 사용 통계
+  전송 라이브러리(`datatransport`)가 함께 들어옵니다. 사용 통계 구성 요소는
+  APK에 들어 있지만 키보드에 네트워크 권한이 없으므로 수집한 내용이 전송되지
+  않습니다. 이 라이브러리들이 추가하는 네트워크 권한은 키보드 매니페스트에서
+  걷어내고, 키보드를 빌드할 때마다 병합된 매니페스트가 `INTERNET`이나
+  `ACCESS_NETWORK_STATE`를 요청하면 실패하는 Gradle 검사
+  `verify<Variant>NoNetworkPermission`이 실행됩니다.
 
 ## 커스터마이징
 
@@ -62,23 +150,38 @@ JVM 단위 테스트로 검증합니다.
 ## 빌드 및 실행
 
 ```sh
-./gradlew test assembleDebug          # 단위 테스트 + 디버그 APK
+./gradlew test assembleDebug          # 단위 테스트 + 디버그 APK (키보드와 ML Kit 애드온)
 adb install app/build/outputs/apk/debug/app-debug.apk
+adb install translate-mlkit/build/outputs/apk/debug/translate-mlkit-debug.apk   # 선택
 ```
 
 빌드는 프로젝트의 Gradle 래퍼(Gradle 8.13)로 합니다. 별도 설치한 최신
-Gradle은 현재 AGP 버전과 호환되지 않습니다. 설치 후 YEONFEEL Keyboard 앱을
-열어 안내에 따라 키보드를 활성화합니다. minSdk는 23입니다.
+Gradle은 현재 AGP 버전과 호환되지 않습니다. Gradle이 Android SDK를 찾도록
+`ANDROID_HOME`을 설정하거나 저장소 루트의 `local.properties`에 `sdk.dir`를
+적어 둡니다. 설치 후 YEONFEEL Keyboard 앱을 열어 안내에 따라 키보드를
+활성화합니다. 애드온은 ML Kit 엔진을 쓸 때만 설치하면 됩니다. minSdk는
+23입니다.
+
+`./gradlew assembleRelease`는 `app-release.apk`(약 2.4MB)와
+`translate-mlkit-release.apk`(약 63.8MB)를 만듭니다.
+`YEONFEEL_RELEASE_STORE_FILE`, `YEONFEEL_RELEASE_STORE_PASSWORD`,
+`YEONFEEL_RELEASE_KEY_ALIAS`, `YEONFEEL_RELEASE_KEY_PASSWORD` Gradle 속성이
+있으면(예: `~/.gradle/gradle.properties`) 두 APK 모두 릴리스 키스토어로,
+없으면 디버그 키로 서명하므로, 한 번의 빌드에서 나온 두 APK는 항상 같은 키를
+씁니다.
 
 ## 프로젝트 구조
 
 ```
 app/src/main/java/dev/badalab/yeonfeel/
 ├── hangul/       # 조합 오토마타·어절 교정기 (순수 Kotlin, JVM 테스트)
-├── ime/          # InputMethodService, 렌더링, 레이아웃, 터치 모델
+├── ime/          # InputMethodService, 렌더링, 레이아웃, 터치 모델, 번역 패널
+├── translate/    # 번역 엔진 (시스템, Gemini Nano, ML Kit 애드온 클라이언트)
 ├── clipboard/    # Keystore 암호화 클립보드 이력
 ├── settings/     # 설정 화면 (View 기반 UI 킷)
 └── debug/        # 타점 표본 저장소
+translate-protocol/  # 키보드와 애드온이 함께 쓰는 IPC 프로토콜 (JVM 테스트)
+translate-mlkit/     # ML Kit 번역 애드온 앱
 scripts/          # 이모지 데이터·교정 사전 생성기
 ```
 
@@ -88,7 +191,8 @@ scripts/          # 이모지 데이터·교정 사전 생성기
 
 서드파티 자산 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에
 정리했습니다. 일부 아이콘은 [Lucide](https://lucide.dev)(ISC)에서 가져왔고,
-한국어 빈도 데이터는
+키보드의 Google ML Kit GenAI 라이브러리와 애드온의 ML Kit 번역에는 Google
+약관이 적용되며, 한국어 빈도 데이터는
 [FrequencyWords](https://github.com/hermitdave/FrequencyWords)
 (OpenSubtitles 2018)에서 파생했습니다. 파생 파일인
 `app/src/main/assets/ko_freq.txt`와 `ko_known.bloom`에는 앱 코드와 별도로
