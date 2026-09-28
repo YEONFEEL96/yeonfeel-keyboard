@@ -134,6 +134,21 @@ class TranslateSourceBufferTest {
     }
 
     @Test
+    fun `조합기를 바꾸면 조합 중이던 음절은 버리고 확정한 글자는 남는다`() {
+        val buffer = TranslateSourceBuffer().apply { composer = HangulComposer() }
+        buffer.inputChar('a')
+        buffer.typeSlow("ㄱㅏ")
+        assertTrue(buffer.isComposing)
+        assertEquals("a가", buffer.text)
+        // 패널이 열린 채로 자판을 두벌식에서 천지인으로 바꿨다.
+        buffer.composer = ChunjiinComposer()
+        assertFalse(buffer.isComposing)
+        assertEquals("a", buffer.text)
+        buffer.typeSlow("ㅇㅣㆍ")
+        assertEquals("a아", buffer.text)
+    }
+
+    @Test
     fun `조합 중인 음절도 길이에 들어간다`() {
         val buffer = TranslateSourceBuffer().apply { composer = HangulComposer() }
         repeat(TranslateSourceBuffer.MAX_LENGTH - 1) { buffer.inputChar('a') }

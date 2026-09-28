@@ -38,4 +38,14 @@ class ToolbarOrderTest {
             ToolbarOrder.keepHidden(listOf("emoji", "settings"), previous, listOf("translate")),
         )
     }
+
+    @Test
+    fun `여러 항목이 숨겨져 있어도 각자 이전 자리로 돌아간다`() {
+        val previous = listOf("a", "translate", "b", "onehand", "c")
+        val visible = listOf("c", "a", "b")
+        assertEquals(
+            listOf("c", "translate", "a", "onehand", "b"),
+            ToolbarOrder.keepHidden(visible, previous, listOf("translate", "onehand")),
+        )
+    }
 }
