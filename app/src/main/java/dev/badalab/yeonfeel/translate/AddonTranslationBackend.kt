@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
@@ -24,7 +25,9 @@ import dev.badalab.yeonfeel.translate.protocol.TranslateResponse
  * 애드온 서비스는 서명 권한으로 보호돼, 입력 문장은 우리가 서명한 애드온에만 건너간다.
  *
  * - 첫 요청 때 명시적 인텐트로 바인드하고 [close]에서 푼다. 연결되기 전 요청은 모아 두었다가 보낸다.
- * - 애드온이 없거나 바인드가 거절되면 [TranslationResult.Reason.ADDON_NOT_INSTALLED].
+ * - 애드온이 없거나, 키보드와 다른 인증서로 서명됐거나, 바인드가 거절되면
+ *   [TranslationResult.Reason.ADDON_NOT_INSTALLED]. 서명은 바인드 전과 연결 직후에 확인하고,
+ *   확인되지 않은 앱에는 입력 문장을 보내지 않는다.
  * - 애드온 프로세스가 죽으면 답을 기다리던 요청은 한 번씩 [TranslationResult.Reason.ERROR]로 끝난다.
  *   시스템이 다시 연결해 주면 이후 요청은 그대로 이어진다.
  * - 응답이 오지 않는 경우는 [TimeoutBackend]가 끝낸다.
@@ -76,8 +79,14 @@ internal class AddonTranslationBackend(
         lastId = if (lastId == Int.MAX_VALUE) 1 else lastId + 1
         val outgoing = Outgoing(lastId, TranslateRequest(text, source.code, target.code, allowMeteredDownload), callback)
         service?.let { return send(it, outgoing) }
-        if (connection == null && !bind()) {
-            return callback(TranslationResult.Failure(TranslationResult.Reason.ADDON_NOT_INSTALLED))
+        if (connection == null) {
+            // 같은 패키지 이름의 다른 앱(다른 키로 서명)에 입력 문장을 보내지 않도록 바인드 전에 서명을 확인한다.
+            // 서명 권한은 애드온 서비스를 다른 앱으로부터 지킬 뿐, 애드온이 진짜인지는 보장하지 않는다.
+            val trust = addonTrust(appContext)
+            if (trust != AddonTrust.TRUSTED) {
+                return callback(TranslationResult.Failure(TranslationResult.Reason.ADDON_NOT_INSTALLED, trust.detail))
+            }
+            if (!bind()) return callback(TranslationResult.Failure(TranslationResult.Reason.ADDON_NOT_INSTALLED))
         }
         // 애드온이 연결되지 않은 채 오래가도 원문을 붙든 요청이 쌓이지 않게 한다 — 가장 오래된 요청부터
         // 끝낸다 (TimeoutBackend가 이미 답했다면 이 콜백은 무시된다).
@@ -147,6 +156,14 @@ internal class AddonTranslationBackend(
         service = null
     }
 
+    companion object {
+        /**
+         * 애드온이 설치돼 있고 키보드와 같은 인증서로 서명됐는지. 패키지 이름만 보면 다른 사람이 같은 이름으로
+         * 만든 앱을 애드온으로 착각한다 — 설정 화면의 '설치됨' 표시도 이 확인을 쓴다.
+         */
+        fun isTrustedAddonInstalled(context: Context): Boolean = addonTrust(context) == AddonTrust.TRUSTED
+    }
+
     override fun close() {
         closed = true
         pending.clear()
@@ -162,6 +179,19 @@ internal class AddonTranslationBackend(
 
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             if (!current || binder == null) return
+            // 바인드와 연결 사이에 패키지가 바뀌었을 수 있다 — 원문을 보내기 전에 한 번 더 확인한다.
+            val trust = addonTrust(appContext)
+            if (name?.packageName != TranslateProtocol.ADDON_PACKAGE || trust != AddonTrust.TRUSTED) {
+                dropConnection(this)
+                failPending(
+                    TranslationResult.Failure(
+                        TranslationResult.Reason.ADDON_NOT_INSTALLED,
+                        (if (trust == AddonTrust.TRUSTED) AddonTrust.UNTRUSTED else trust).detail,
+                    ),
+                    andWaiting = true,
+                )
+                return
+            }
             val connected = Messenger(binder)
             service = connected
             val queued = waiting.toList()
@@ -198,6 +228,30 @@ internal class AddonTranslationBackend(
             dropConnection(this)
             failPending(TranslationResult.Failure(TranslationResult.Reason.ADDON_NOT_INSTALLED), andWaiting = true)
         }
+    }
+}
+
+/** 애드온 서명 확인 결과. [detail]은 실패 상세 메시지. */
+internal enum class AddonTrust(val detail: String?) {
+    TRUSTED(null),
+    NOT_INSTALLED(null),
+    UNTRUSTED("add-on signature mismatch"),
+}
+
+/**
+ * 애드온 패키지가 키보드와 같은 인증서로 서명됐는지 확인한다. API 28+의 checkSignatures는 키 교체(rotation)
+ * 이력도 따진다. 패키지 가시성은 매니페스트의 `<queries>`가 연다.
+ */
+internal fun addonTrust(context: Context): AddonTrust {
+    val result = try {
+        context.packageManager.checkSignatures(context.packageName, TranslateProtocol.ADDON_PACKAGE)
+    } catch (_: RuntimeException) {
+        return AddonTrust.UNTRUSTED
+    }
+    return when (result) {
+        PackageManager.SIGNATURE_MATCH -> AddonTrust.TRUSTED
+        PackageManager.SIGNATURE_UNKNOWN_PACKAGE -> AddonTrust.NOT_INSTALLED
+        else -> AddonTrust.UNTRUSTED
     }
 }
 
