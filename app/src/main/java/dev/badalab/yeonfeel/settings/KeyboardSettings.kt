@@ -370,6 +370,14 @@ class KeyboardSettings(context: Context) {
         )
         set(value) = prefs.edit().putString(KEY_TRANSLATION_TARGET, value.code).apply()
 
+    /**
+     * 키보드 안에서 Gemini Nano가 BACKGROUND_USE_BLOCKED로 막힌 것을 확인했을 때의 AICore 버전
+     * (확인한 적 없으면 -1). 판정은 [dev.badalab.yeonfeel.translate.GeminiBlockFlag]가 한다.
+     */
+    var geminiBlockedAicoreVersion: Long
+        get() = prefs.getLong(KEY_GEMINI_BLOCKED_AICORE_VERSION, -1L)
+        set(value) = prefs.edit().putLong(KEY_GEMINI_BLOCKED_AICORE_VERSION, value).apply()
+
     fun resetAll() = prefs.edit().clear().apply()
 
     companion object {
@@ -448,5 +456,6 @@ class KeyboardSettings(context: Context) {
         private const val KEY_TRANSLATION_ENGINE = "translation_engine"
         private const val KEY_TRANSLATION_SOURCE = "translation_source"
         private const val KEY_TRANSLATION_TARGET = "translation_target"
+        private const val KEY_GEMINI_BLOCKED_AICORE_VERSION = "gemini_blocked_aicore_version"
     }
 }
