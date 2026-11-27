@@ -62,4 +62,43 @@ class WordCorrectorTest {
         assertEquals("ㅇㅗㅏㄴㅈㅓㄴ", WordCorrector.decompose("완전"))
         assertEquals("ㅇㅏㄴㅎ", WordCorrector.decompose("않"))
     }
+
+    /** 저장소의 실제 사전·블룸 필터 (단위 테스트의 작업 디렉터리는 app 모듈). */
+    private fun shippedCorrector(): WordCorrector {
+        val corrector = WordCorrector()
+        java.io.File("src/main/assets/ko_freq.txt").inputStream().use(corrector::load)
+        corrector.loadKnown(java.io.File("src/main/assets/ko_known.bloom").readBytes())
+        return corrector
+    }
+
+    @Test
+    fun `표준어에 없는 표기는 말뭉치에 흔해도 보호하지 않고 교정한다`() {
+        val c = shippedCorrector()
+        assertEquals("됐어", c.correct("됬어"))
+        assertEquals("괜찮아", c.correct("괜찬아"))
+    }
+
+    @Test
+    fun `표준어에 없는 음절은 사전에 없는 활용형이어도 표준 표기로 바꾼다`() {
+        val c = shippedCorrector()
+        assertEquals("됐을때", c.correct("됬을때"))
+        assertEquals("뵀으면", c.correct("뵜으면"))
+        assertEquals("안된다고", c.correct("안됀다고"))
+        assertEquals("됐어", c.correct("됏어"))
+        assertEquals("됩니다", c.correct("됍니다"))
+        assertEquals("괜찮아요", c.correct("괜찬아요"))
+    }
+
+    @Test
+    fun `표준 표기는 그대로 둔다`() {
+        listOf("됐어", "돼", "뵀다", "봬요", "된다", "될까", "되고", "뵙다").forEach {
+            assertEquals(it, WordCorrector.standardSpelling(it))
+        }
+    }
+
+    @Test
+    fun `실제 사전의 흔한 어절은 그대로 둔다`() {
+        val c = shippedCorrector()
+        listOf("상상", "에게", "괜찮다", "잇는", "갓난", "안뇽").forEach { assertNull(it, c.correct(it)) }
+    }
 }

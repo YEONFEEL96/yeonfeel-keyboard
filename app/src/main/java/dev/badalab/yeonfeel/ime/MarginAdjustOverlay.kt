@@ -67,14 +67,15 @@ class MarginAdjustOverlay(
     }
 
     private val highlightPaint = Paint().apply { color = 0x80FFFFFF.toInt() }
+    // 핸들·완료 버튼은 팝업 선택 칸과 같은 색 짝을 쓴다 (고대비 테마에서는 글자색 반전).
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ACCENT
+        color = theme.selection
         style = Paint.Style.STROKE
         strokeWidth = dp(2f)
     }
-    private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ACCENT }
+    private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.selection }
     private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt()
+        color = theme.onSelection
         strokeWidth = dp(2f)
         strokeCap = Paint.Cap.ROUND
     }
@@ -172,9 +173,9 @@ class MarginAdjustOverlay(
         buttonTextPaint.color = theme.text
         drawCenteredText(canvas, resetLabel, resetRect, buttonTextPaint)
 
-        buttonPaint.color = ACCENT
+        buttonPaint.color = theme.selection
         canvas.drawRoundRect(doneRect, pillH / 2, pillH / 2, buttonPaint)
-        buttonTextPaint.color = 0xFFFFFFFF.toInt()
+        buttonTextPaint.color = theme.onSelection
         drawCenteredText(canvas, doneLabel, doneRect, buttonTextPaint)
     }
 
@@ -337,7 +338,6 @@ class MarginAdjustOverlay(
     }
 
     companion object {
-        private const val ACCENT = 0xFF3D8BFF.toInt()
 
         /** 위로 끌어올려도 남겨 두는 화면 상단 영역(dp). 앱 콘텐츠·툴바 가시성 확보용. */
         private const val RESERVED_SCREEN_TOP_DP = 160

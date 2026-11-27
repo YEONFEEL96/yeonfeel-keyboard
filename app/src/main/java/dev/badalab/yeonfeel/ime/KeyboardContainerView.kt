@@ -45,6 +45,8 @@ class KeyboardContainerView(
         fun clipboardEntries(): List<ClipboardHistory.Entry>
         fun onClipboardDelete(texts: List<String>)
         fun onClipboardPin(texts: List<String>, pinned: Boolean)
+        fun onRevertCorrection()
+        fun onCorrectionDismissed()
     }
 
     val keyboardView = KeyboardView(context) {
@@ -67,6 +69,7 @@ class KeyboardContainerView(
     private val keyboardWrapper = FrameLayout(context)
     private val contentFrame = FrameLayout(context)
     private var copiedBar: View? = null
+    private var correctionBar: View? = null
     private var clipboardPanel: View? = null
     private var emojiPanel: View? = null
     private var kaomojiPanel: View? = null
@@ -212,11 +215,24 @@ class KeyboardContainerView(
 
     private fun refreshTerminalColors() {
         for (i in 0 until terminalRow.childCount) {
-            (terminalRow.getChildAt(i) as? TextView)?.setTextColor(theme.subText)
+            (terminalRow.getChildAt(i) as? TextView)?.apply {
+                setTextColor(theme.subText)
+                background = null
+            }
         }
-        val accent = 0xFF3D8BFF.toInt()
-        if (ctrlArmed) ctrlButton?.setTextColor(accent)
-        if (altArmed) altButton?.setTextColor(accent)
+        // 무장 상태는 글자색만으로 구분하지 않는다 — 고대비 테마는 보조 글자색과 강조색이 같다.
+        fun arm(button: TextView?) = button?.apply {
+            setTextColor(theme.onSelection)
+            background = android.graphics.drawable.InsetDrawable(
+                android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = dp(8).toFloat()
+                    setColor(theme.selection)
+                },
+                dp(4),
+            )
+        }
+        if (ctrlArmed) arm(ctrlButton)
+        if (altArmed) arm(altButton)
     }
 
     /** 무장된 ctrl/alt 메타 마스크를 소비(해제)하고 돌려준다. */
@@ -365,7 +381,7 @@ class KeyboardContainerView(
                 if (emptyOnLeft) Gravity.START else Gravity.END,
             ).apply {
                 topMargin = dp(marginTopDp)
-                bottomMargin = dp(marginBottomDp) + navInsetPx
+                bottomMargin = panelBottomInsetPx()
             },
         )
     }
@@ -449,6 +465,8 @@ class KeyboardContainerView(
         clipboardHeader = null
         copiedBar?.let { removeView(it) }
         copiedBar = null
+        correctionBar?.let { removeView(it) }
+        correctionBar = null
         toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
         terminalRow.visibility = if (terminalRowEnabled) VISIBLE else GONE
         // 도구 줄이 켜져 있으면 툴바와 사이를 붙인다 (여백은 도구 줄 아래로).
@@ -490,6 +508,12 @@ class KeyboardContainerView(
     /** 가로는 세로 공간이 귀해 제스처 바 위 여백을 최소화한다 (인셋은 유지). */
     private fun effectiveBottomDp(bottomDp: Int): Int =
         if (isLandscape()) minOf(bottomDp, 10) else bottomDp
+
+    /**
+     * 패널(클립보드·이모지 등) 아래쪽에 비울 높이: 키 영역과 같은 하단 여백(가로는 줄인 값)과
+     * 시스템 하단 바. 패널은 키 영역 래퍼가 아니라 콘텐츠 영역 전체를 덮으므로 직접 비운다.
+     */
+    private fun panelBottomInsetPx(): Int = dp(effectiveBottomDp(marginBottomDp)) + navInsetPx
 
     private fun applyMargins(topDp: Int, bottomDp: Int, sideDp: Int, heightDp: Int) {
         marginTopDp = topDp
@@ -636,7 +660,7 @@ class KeyboardContainerView(
         val panel = LinearLayout(context).apply {
             orientation = VERTICAL
             setBackgroundColor(theme.background)
-            setPadding(dp(16), dp(10), dp(16), dp(marginBottomDp) + navBarInset())
+            setPadding(dp(16), dp(10), dp(16), panelBottomInsetPx())
         }
         panel.addView(TextView(context).apply {
             text = context.getString(R.string.toolbar_edit_hint)
@@ -741,7 +765,7 @@ class KeyboardContainerView(
         val content = LinearLayout(context).apply {
             orientation = VERTICAL
             // 하단 여백은 패널이 아니라 스크롤 내용의 패딩으로 — 항목이 그 영역까지 보인다.
-            setPadding(dp(8), dp(4), dp(8), dp(8) + dp(marginBottomDp) + navBarInset())
+            setPadding(dp(8), dp(4), dp(8), dp(8) + panelBottomInsetPx())
         }
         EmojiData.kaomojiGroupList().forEach { (title, items) ->
             content.addView(TextView(context).apply {
@@ -760,6 +784,7 @@ class KeyboardContainerView(
                             maxLines = 1
                             setTextColor(theme.text)
                             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                            background = cellPressBackground(oval = false)
                             setOnClickListener { callbacks.onEmoji(item) }
                         },
                         LayoutParams(0, dp(46), 1f),
@@ -910,6 +935,7 @@ class KeyboardContainerView(
                             maxLines = 1
                             setTextColor(theme.text)
                             setTextSize(TypedValue.COMPLEX_UNIT_DIP, textSp)
+                            background = cellPressBackground(oval = !category.wide)
                             setOnClickListener { callbacks.onEmoji(shown) }
                             if (EmojiData.supportsSkinTone(emoji)) {
                                 setOnLongClickListener {
@@ -997,7 +1023,7 @@ class KeyboardContainerView(
             orientation = VERTICAL
             setBackgroundColor(theme.background)
             // 시스템 하단바·키보드 하단 여백만큼 그리드가 일찍 끝나도록 띄운다.
-            setPadding(0, 0, 0, dp(marginBottomDp) + navBarInset())
+            setPadding(0, 0, 0, panelBottomInsetPx())
         }
         panel.addView(
             android.widget.HorizontalScrollView(context).apply {
@@ -1010,8 +1036,6 @@ class KeyboardContainerView(
         panel.addView(emojiScroll, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         return panel
     }
-
-    private fun navBarInset(): Int = navInsetPx
 
     /** 스킨톤 지원 이모지 롱프레스: 기본+5톤 선택 팝업. 선택한 톤은 기본값으로 저장된다. */
     private fun showSkinTonePopup(anchor: View, baseEmoji: String) {
@@ -1034,6 +1058,7 @@ class KeyboardContainerView(
                     text = toned
                     gravity = Gravity.CENTER
                     setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24f)
+                    background = cellPressBackground(oval = true)
                     setOnClickListener {
                         callbacks.onEmoji(toned)
                         if (skinTone != tone) {
@@ -1130,6 +1155,7 @@ class KeyboardContainerView(
                     this.text = shown
                     gravity = Gravity.CENTER
                     setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24f)
+                    background = cellPressBackground(oval = true)
                     setOnClickListener { callbacks.onEmoji(shown) }
                 },
                 LayoutParams(dp(46), LayoutParams.MATCH_PARENT),
@@ -1211,35 +1237,129 @@ class KeyboardContainerView(
         return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
     }
 
+    /** 툴바 자리에 바를 띄울 수 없는 상태 — 툴바가 꺼졌거나 패널·헤더·조정 화면이 열려 있다. */
+    private fun toolbarSlotBusy(): Boolean =
+        !toolbarEnabled || clipboardPanel != null || emojiPanel != null || kaomojiPanel != null ||
+            clipboardHeader != null || toolbarEditPanel != null || adjustOverlay != null
+
     /**
      * 복사가 감지되면 툴바 자리에 복사한 텍스트를 보여준다. 텍스트를 누르면 붙여넣고,
      * 오른쪽 X 로 툴바로 돌아온다. 패널이 열려 있거나 툴바가 꺼져 있으면 표시하지 않는다.
      */
     fun showCopiedText(text: String) {
-        if (!toolbarEnabled) return
-        if (clipboardPanel != null || emojiPanel != null || kaomojiPanel != null ||
-            clipboardHeader != null || toolbarEditPanel != null || adjustOverlay != null
-        ) {
-            return
-        }
+        if (toolbarSlotBusy()) return
+        // 툴바 자리는 하나라 나중 알림이 앞의 것을 대신한다.
+        hideCorrectionRevert()
         hideCopiedText()
+        val bar = buildSlotBar(
+            iconRes = R.drawable.ic_toolbar_clipboard,
+            text = text,
+            tapDescription = null,
+            closeDescription = context.getString(R.string.clipboard_back_to_keyboard),
+            onTap = {
+                callbacks.onPaste(text)
+                hideCopiedText()
+            },
+            onClose = { hideCopiedText() },
+        )
+        copiedBar = bar
+        placeSlotBar(bar)
+    }
+
+    fun hideCopiedText() {
+        copiedBar?.let { removeView(it) }
+        copiedBar = null
+        restoreToolbar()
+    }
+
+    /**
+     * 자동 교정 직후 툴바 자리에 원래 어절을 보여준다. 누르면 그 어절로 되돌린다.
+     * 글자가 바뀐 것을 화면으로 볼 수 없는 TalkBack 사용자에게는 바가 뜰 때 교정 내용을 읽어 준다.
+     */
+    fun showCorrectionRevert(original: String, fixed: String) {
+        hideCorrectionRevert()
+        if (toolbarSlotBusy()) return
+        hideCopiedText()
+        val bar = buildSlotBar(
+            iconRes = R.drawable.ic_icon_undo,
+            text = original,
+            tapDescription = context.getString(R.string.a11y_autocorrected, fixed, original),
+            tapActionLabel = context.getString(R.string.correction_revert_action),
+            closeDescription = context.getString(R.string.correction_dismiss_desc),
+            onTap = { callbacks.onRevertCorrection() },
+            onClose = {
+                hideCorrectionRevert()
+                callbacks.onCorrectionDismissed()
+            },
+        )
+        correctionBar = bar
+        placeSlotBar(bar)
+    }
+
+    fun hideCorrectionRevert() {
+        correctionBar?.let { removeView(it) }
+        correctionBar = null
+        restoreToolbar()
+    }
+
+    private fun placeSlotBar(bar: View) {
+        toolbar.visibility = GONE
+        addView(bar, indexOfChild(toolbar))
+    }
+
+    private fun restoreToolbar() {
+        if (copiedBar == null && correctionBar == null &&
+            toolbarEditPanel == null && clipboardHeader == null
+        ) {
+            toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
+        }
+    }
+
+    /** 툴바 자리 한 줄 바: 아이콘과 글자를 누르면 [onTap], 오른쪽 X는 [onClose]. */
+    private fun buildSlotBar(
+        iconRes: Int,
+        text: String,
+        tapDescription: String?,
+        closeDescription: String,
+        tapActionLabel: String? = null,
+        onTap: () -> Unit,
+        onClose: () -> Unit,
+    ): View {
         val bar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(theme.specialKey)
-            setPadding(dp(12), 0, dp(4), 0)
+            setPadding(dp(4), 0, dp(4), 0)
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply {
                 bottomMargin = if (terminalRowEnabled) 0 else dp(6)
             }
         }
-        bar.addView(
+        val tapArea = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), 0, dp(8), 0)
+            contentDescription = tapDescription
+            setOnClickListener { onTap() }
+            addIconPressEffect(this, circle = false)
+            if (tapActionLabel != null) {
+                // "두 번 탭하여 되돌리기"처럼 누르면 일어나는 일을 읽게 한다.
+                androidx.core.view.ViewCompat.replaceAccessibilityAction(
+                    this,
+                    androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,
+                    tapActionLabel,
+                ) { _, _ -> performClick() }
+                // 바가 나타날 때 내용을 읽는다 (announceForAccessibility 대체).
+                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            }
+        }
+        tapArea.addView(
             android.widget.ImageView(context).apply {
-                setImageResource(R.drawable.ic_toolbar_clipboard)
+                setImageResource(iconRes)
                 imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
                 layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10) }
             },
         )
-        bar.addView(
+        tapArea.addView(
             TextView(context).apply {
                 this.text = text
                 setTextColor(theme.text)
@@ -1247,38 +1367,32 @@ class KeyboardContainerView(
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 layoutParams = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
-                setOnClickListener {
-                    callbacks.onPaste(text)
-                    hideCopiedText()
-                }
+            },
+        )
+        bar.addView(
+            tapArea,
+            LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
+                topMargin = dp(4)
+                bottomMargin = dp(4)
             },
         )
         bar.addView(
             android.widget.ImageView(context).apply {
                 setImageResource(R.drawable.ic_icon_close)
                 imageTintList = android.content.res.ColorStateList.valueOf(theme.subText)
-                contentDescription = context.getString(R.string.clipboard_back_to_keyboard)
+                contentDescription = closeDescription
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
-                setOnClickListener { hideCopiedText() }
+                setOnClickListener { onClose() }
                 addIconPressEffect(this)
             },
         )
-        toolbar.visibility = GONE
-        copiedBar = bar
-        addView(bar, indexOfChild(toolbar))
-    }
-
-    fun hideCopiedText() {
-        copiedBar?.let { removeView(it) }
-        copiedBar = null
-        if (toolbarEditPanel == null && clipboardHeader == null) {
-            toolbar.visibility = if (toolbarEnabled) VISIBLE else GONE
-        }
+        return bar
     }
 
     private fun attachHeader(header: View, gapBelow: Boolean = true, heightDp: Int = 44) {
         hideCopiedText()
+        hideCorrectionRevert()
         toolbar.visibility = GONE
         terminalRow.visibility = GONE
         clipboardHeader?.let { removeView(it) }
@@ -1420,7 +1534,11 @@ class KeyboardContainerView(
                 setPadding(0, dp(40), 0, 0)
             })
         } else {
-            val list = LinearLayout(context).apply { orientation = VERTICAL }
+            // 마지막 항목이 시스템 하단 바 위까지 올라오도록 스크롤 내용 아래를 비운다.
+            val list = LinearLayout(context).apply {
+                orientation = VERTICAL
+                setPadding(0, 0, 0, panelBottomInsetPx())
+            }
             entries.forEach { entry -> list.addView(clipboardRow(entry)) }
             column.addView(ScrollView(context).apply { addView(list) })
         }
@@ -1443,7 +1561,7 @@ class KeyboardContainerView(
         if (clipboardMode != ClipboardMode.NORMAL) {
             row.addView(android.widget.CheckBox(context).apply {
                 isChecked = entry.text in clipboardSelected
-                buttonTintList = android.content.res.ColorStateList.valueOf(0xFF3D8BFF.toInt())
+                buttonTintList = android.content.res.ColorStateList.valueOf(theme.accent)
                 setOnCheckedChangeListener { _, checked ->
                     if (checked) clipboardSelected.add(entry.text) else clipboardSelected.remove(entry.text)
                 }
@@ -1531,21 +1649,31 @@ class KeyboardContainerView(
         layoutParams = LayoutParams(0, dp(36), 1f)
     }
 
-    /** 아이콘 버튼용 누름 효과: 아이콘 크기에 맞는 작은 원형 하이라이트가 즉시 나타난다. */
+    /**
+     * 아이콘 버튼용 누름 효과: 아이콘 크기에 맞는 작은 원형 하이라이트가 즉시 나타난다.
+     * [circle]이 false면 뷰 전체에 둥근 사각형으로 그린다 (툴바 자리 바의 글자 영역).
+     */
     @SuppressLint("ClickableViewAccessibility")
-    private fun addIconPressEffect(view: View) {
+    private fun addIconPressEffect(view: View, circle: Boolean = true) {
         // 셀이 가로로 넓어도(가중치 분배 툴바) 타원으로 늘어나지 않도록,
         // 짧은 변 기준의 정원을 뷰 중앙에 그린다.
         val overlay = object : android.graphics.drawable.Drawable() {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            private val rect = android.graphics.RectF()
             private var alphaValue = 255
 
             override fun draw(canvas: android.graphics.Canvas) {
                 val b = bounds
+                // 어두운 바탕에서 검정 그림자는 보이지 않는다 — 테마 밝기에 맞춰 흰색으로 덮는다.
+                paint.color = pressOverlayColor()
+                paint.alpha = paint.alpha * alphaValue / 255
+                if (!circle) {
+                    rect.set(b)
+                    canvas.drawRoundRect(rect, dp(10).toFloat(), dp(10).toFloat(), paint)
+                    return
+                }
                 val radius = minOf(b.width(), b.height()) / 2f - dp(1)
                 if (radius <= 0f) return
-                paint.color = 0x000000
-                paint.alpha = 0x22 * alphaValue / 255
                 canvas.drawCircle(b.exactCenterX(), b.exactCenterY(), radius, paint)
             }
 
@@ -1585,6 +1713,31 @@ class KeyboardContainerView(
             }
             false
         }
+    }
+
+    /** 눌림 표시 색: 어두운 테마는 흰색, 밝은 테마는 검정을 옅게 덮는다. */
+    private fun pressOverlayColor(): Int = if (theme.isDark) 0x2EFFFFFF else 0x22000000
+
+    /**
+     * 이모지·이모티콘 칸 눌림 효과. 스크롤 안의 칸이라 스크롤을 시작하면 표시되지 않도록
+     * 눌림 상태를 늦게 받는 RippleDrawable을 쓴다. [oval]이면 칸 안의 원, 아니면 둥근 사각형.
+     */
+    private fun cellPressBackground(oval: Boolean): android.graphics.drawable.Drawable {
+        val mask = android.graphics.drawable.GradientDrawable().apply {
+            if (oval) {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+            } else {
+                cornerRadius = dp(10).toFloat()
+            }
+            setColor(0xFFFFFFFF.toInt())
+        }
+        // 플랫폼 기본 하이라이트(12~20%)보다 약간 진하게 — 구형 플랫폼은 리플 알파를 절반으로 그린다.
+        val color = if (theme.isDark) 0x40FFFFFF else 0x33000000
+        return android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(color),
+            null,
+            android.graphics.drawable.InsetDrawable(mask, dp(2)),
+        )
     }
 
     private fun dp(v: Int): Int =

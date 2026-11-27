@@ -91,6 +91,9 @@ class WordCorrector {
     fun correct(word: String): String? {
         val (words, buckets) = loaded ?: return null
         if (word.length !in 2..10 || !word.all { it in '가'..'힣' }) return null
+        // 표준어에 없는 표기는 고칠 형태가 하나뿐이라 빈도 검색보다 먼저, 그대로 바꾼다
+        // (사전에 없는 활용형도 됬을때→됐을때처럼 맞게 고친다. 검색하면 왔을때가 이긴다).
+        standardSpelling(word).let { if (it != word) return it }
         if (words.containsKey(word)) return null
         // 말뭉치에 한 번이라도 등장한 어절은 실제 단어로 보고 교정하지 않는다.
         if (knownBloom?.contains(word) == true) return null
@@ -137,6 +140,41 @@ class WordCorrector {
             "ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ".forEachIndexed { i, c -> put(c, i.toFloat() to 0f) }
             "ㅁㄴㅇㄹㅎㅗㅓㅏㅣ".forEachIndexed { i, c -> put(c, i + 0.5f to 1f) }
             "ㅋㅌㅊㅍㅠㅜㅡ".forEachIndexed { i, c -> put(c, i + 1.5f to 2f) }
+        }
+
+        private val JUNG_WAE = HangulTables.JUNG_LIST.indexOf('ㅙ')
+        private val JUNG_OE = HangulTables.JUNG_LIST.indexOf('ㅚ')
+        private val JONG_S = HangulTables.JONG_LIST.indexOf('ㅅ') + 1
+        private val JONG_SS = HangulTables.JONG_LIST.indexOf('ㅆ') + 1
+        private val CHO_DWAE = setOf(HangulTables.CHO_LIST.indexOf('ㄷ'), HangulTables.CHO_LIST.indexOf('ㅂ'))
+
+        /**
+         * 표준어에 없는 표기를 고친 어절. 되어·뵈어의 준말은 '돼·봬'라 받침은 ㅆ만 붙는다:
+         * 됬·뵜 → 됐·뵀, 됏 → 됐(시프트 누락), 됀·됄·됌·됍 → 된·될·됨·됩 (봬도 같음).
+         * 괜찬- → 괜찮-. 고칠 것이 없으면 [word] 그대로.
+         */
+        fun standardSpelling(word: String): String {
+            val fixed = buildString(word.length) {
+                word.forEach { ch ->
+                    if (ch !in '가'..'힣') {
+                        append(ch)
+                        return@forEach
+                    }
+                    val s = ch - '가'
+                    val cho = s / 588
+                    var jung = (s % 588) / 28
+                    var jong = s % 28
+                    if (cho in CHO_DWAE) {
+                        when {
+                            jung == JUNG_OE && jong == JONG_SS -> jung = JUNG_WAE
+                            jung == JUNG_WAE && jong == JONG_S -> jong = JONG_SS
+                            jung == JUNG_WAE && jong != 0 && jong != JONG_SS -> jung = JUNG_OE
+                        }
+                    }
+                    append('가' + cho * 588 + jung * 28 + jong)
+                }
+            }
+            return fixed.replace("괜찬", "괜찮")
         }
 
         /** 어절 → 두벌식 키 입력열. 한글 음절이 아니면 null. */

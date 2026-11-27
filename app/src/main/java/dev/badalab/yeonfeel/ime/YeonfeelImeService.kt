@@ -33,8 +33,20 @@ class YeonfeelImeService : InputMethodService() {
     private lateinit var touchModel: TouchModel
     private val wordCorrector = dev.badalab.yeonfeel.hangul.WordCorrector()
 
-    /** 직전 자동 교정 (원래 어절, 교정 어절) — 백스페이스 한 번으로 되돌린다. */
-    private var lastCorrection: Pair<String, String>? = null
+    /** 직전 자동 교정. 다음 어절을 끝낼 때까지 툴바에서 되돌릴 수 있다. */
+    private var correction: Correction? = null
+
+    /** 교정 직후 아무 글자도 치지 않았으면 백스페이스 한 번이 교정을 되돌린다. */
+    private var revertOnBackspace = false
+
+    /** 커서 앞에 이 키보드가 이어서 써 넣은 글자 — 교정할 어절의 범위이자 되돌리기의 꼬리 길이. */
+    private val typedRun = TypedRun()
+
+    /**
+     * 사용자가 되돌린 어절. 다시 교정하지 않는다. 입력한 단어라 기기에 저장하지 않고
+     * 키보드 프로세스가 살아 있는 동안만 유지한다.
+     */
+    private val keptWords = LinkedHashSet<String>()
 
     /** 우리 편집과 사용자의 커서 이동을 가르기 위한 기대 커서 위치 추적. */
     private val selection = SelectionTracker()
@@ -244,6 +256,7 @@ class YeonfeelImeService : InputMethodService() {
         container?.keyboardView?.enterActionLabel = enterActionLabel(info)
         composer.reset()
         selection.abandonComposition(cursorKnown = true)
+        breakTypingRun()
         composer = when (settings.koreanLayout) {
             KoreanLayoutType.CHUNJIIN -> chunjiinComposer
             KoreanLayoutType.NARATGUL, KoreanLayoutType.NARATGUL_CENTER -> naratgulComposer
@@ -312,7 +325,7 @@ class YeonfeelImeService : InputMethodService() {
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd,
         )
         if (verdict != SelectionTracker.Verdict.MOVED) return
-        lastCorrection = null
+        breakTypingRun()
         lastSpaceTime = 0
         symbolCycle = null
         if (composer.isComposing) {
@@ -338,6 +351,8 @@ class YeonfeelImeService : InputMethodService() {
         // 조합 영역이 남아 있다면(일시적 -1) 그 자리에서 확정해 다음 조합이 덮어쓰지 않게 한다.
         ic.finishComposingText()
         selection.abandonComposition(cursorKnown = !moved)
+        // 제자리에서 닫혔으면 쓴 글자는 그대로 커서 앞에 있다. 커서가 옮겨졌으면 흐름이 끊긴 것이다.
+        if (moved) breakTypingRun() else typedRun.onFinishComposing()
         return false
     }
 
@@ -346,21 +361,38 @@ class YeonfeelImeService : InputMethodService() {
     private fun commit(ic: InputConnection, text: String) {
         ic.commitText(text, 1)
         selection.onCommit(text)
+        typedRun.onCommit(text)
     }
 
     private fun setComposing(ic: InputConnection, text: String) {
         ic.setComposingText(text, 1)
         selection.onSetComposing(text)
+        typedRun.onSetComposing(text)
     }
 
     private fun closeComposing(ic: InputConnection) {
         ic.finishComposingText()
         selection.onFinishComposing()
+        typedRun.onFinishComposing()
     }
 
     private fun deleteBefore(ic: InputConnection, length: Int) {
         ic.deleteSurroundingText(length, 0)
         selection.onDeleteBefore(length)
+        typedRun.onDeleteBefore(length)
+    }
+
+    /** 커서 앞 글을 더 이상 이어 친 것으로 볼 수 없다 — 교정 범위와 되돌리기를 함께 끝낸다. */
+    private fun breakTypingRun() {
+        typedRun.reset()
+        dropCorrection()
+    }
+
+    private fun dropCorrection() {
+        revertOnBackspace = false
+        if (correction == null) return
+        correction = null
+        container?.hideCorrectionRevert()
     }
 
     /** 키 이벤트는 앱이 무엇을 할지(몇 글자 지울지, 줄바꿈할지) 알 수 없다. */
@@ -371,6 +403,8 @@ class YeonfeelImeService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         finishComposition()
+        // 키보드가 내려가 있는 동안 커서가 어디로 갈지 모른다.
+        breakTypingRun()
         val tail = pendingTouchSample
         pendingTouchSample = null
         ioExecutor.execute {
@@ -386,12 +420,22 @@ class YeonfeelImeService : InputMethodService() {
         override fun onPaste(text: String) {
             finishComposition()
             currentInputConnection?.let { commit(it, text) }
+            // 붙여넣은 글은 친 글이 아니다 — 그 안의 어절을 교정하지 않는다.
+            breakTypingRun()
             container?.showKeyboard()
         }
 
         override fun onEmoji(emoji: String) {
             finishComposition()
+            revertOnBackspace = false
             currentInputConnection?.let { commit(it, emoji) }
+        }
+
+        override fun onRevertCorrection() = revertCorrection()
+
+        override fun onCorrectionDismissed() {
+            revertOnBackspace = false
+            correction = null
         }
 
         override fun onEmojiSearchStateChanged(open: Boolean) {
@@ -563,6 +607,7 @@ class YeonfeelImeService : InputMethodService() {
         val view = container?.keyboardView ?: return
         when (key.type) {
             KeyType.CHAR, KeyType.GHOST -> {
+                revertOnBackspace = false
                 // ctrl/alt가 무장돼 있으면 문자 대신 조합 키 이벤트로 보낸다 (터미널용).
                 val meta = container?.consumeModifierMeta() ?: 0
                 if (meta != 0 && sendCharWithMeta(key.char, meta)) {
@@ -686,7 +731,6 @@ class YeonfeelImeService : InputMethodService() {
     }
 
     private fun onChar(rawChar: Char) {
-        lastCorrection = null
         val c = if (mode == LayoutMode.KOREAN) applyMzMode(rawChar) else rawChar
         val ic = currentInputConnection ?: return
         if (mode == LayoutMode.KOREAN && isComposerInput(c)) {
@@ -713,6 +757,7 @@ class YeonfeelImeService : InputMethodService() {
         ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
         ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
         selection.onUnpredictableEdit()
+        breakTypingRun()
     }
 
     /** 키코드 매핑이 있는 문자(영문·숫자)만 조합 이벤트로 보낸다. 한글이면 false. */
@@ -763,7 +808,6 @@ class YeonfeelImeService : InputMethodService() {
             val before = ic.getTextBeforeCursor(1, 0)
             if (before?.length == 1 && before[0] == cycle[symbolCycleIndex]) {
                 symbolCycleIndex = (symbolCycleIndex + 1) % cycle.length
-                lastCorrection = null
                 ic.beginBatchEdit()
                 deleteBefore(ic, 1)
                 commit(ic, cycle[symbolCycleIndex].toString())
@@ -780,6 +824,11 @@ class YeonfeelImeService : InputMethodService() {
 
     companion object {
         private const val CAPS_LOCK_TAP_MS = 350L
+
+        /** 되돌리기로 다시 쓸 수 있는 최대 길이 — 띄어쓰기 없이 길게 이어 친 꼬리는 포기한다. */
+        private const val MAX_REVERT_SPAN = 64
+
+        private const val KEPT_WORDS_MAX = 200
     }
 
     private fun onSpace() {
@@ -793,31 +842,82 @@ class YeonfeelImeService : InputMethodService() {
             return
         }
         val now = System.currentTimeMillis()
+        // 다음 어절이 끝났으니 이전 교정은 더 이상 되돌리지 않는다.
+        dropCorrection()
         if (settings.doubleSpacePeriod && now - lastSpaceTime < doubleSpaceMs && canDoubleSpacePeriod(ic)) {
             deleteBefore(ic, 1)
             commit(ic, ". ")
+            typedRun.reset()
             lastSpaceTime = 0
             return
         }
         finishComposition()
-        maybeAutoCorrect(ic)
+        ic.beginBatchEdit()
+        val made = maybeAutoCorrect(ic)
         commit(ic, " ")
+        ic.endBatchEdit()
+        // 공백 뒤로는 다음 어절의 흐름이고, 교정이 있었다면 그 꼬리 길이다.
+        typedRun.reset()
+        if (made != null) offerRevert(made)
         lastSpaceTime = now
     }
 
     /** AI 보정(노이지 채널): 스페이스바로 어절이 끝날 때 사전 밖 어절을 교정한다. */
-    private fun maybeAutoCorrect(ic: android.view.inputmethod.InputConnection) {
-        lastCorrection = null
-        if (sensitiveField || noLearnField || noAutoTextHelp || mode != LayoutMode.KOREAN) return
-        if (!(settings.touchCorrectionEnabled && settings.touchCorrectionAi)) return
-        val before = ic.getTextBeforeCursor(16, 0) ?: return
+    private fun maybeAutoCorrect(ic: InputConnection): Correction? {
+        if (sensitiveField || noLearnField || noAutoTextHelp || mode != LayoutMode.KOREAN) return null
+        if (!(settings.touchCorrectionEnabled && settings.touchCorrectionAi)) return null
+        // 키 인접도 비용표가 두벌식 배열 기준이라 다른 자판의 오타 모양과 맞지 않는다.
+        if (settings.koreanLayout != KoreanLayoutType.DUBEOLSIK) return null
+        val before = ic.getTextBeforeCursor(16, 0) ?: return null
         val word = before.takeLastWhile { it in '가'..'힣' }.toString()
-        if (word.length < 2) return
-        val fixed = wordCorrector.correct(word) ?: return
-        if (fixed == word) return
+        if (word.length < 2) return null
+        // 어절 전체를 방금 이어 친 경우만 — 커서를 옮겨 둔 기존 글·붙여넣은 글은 고치지 않는다.
+        if (word.length > typedRun.length) return null
+        if (word in keptWords) return null
+        val fixed = wordCorrector.correct(word) ?: return null
+        if (fixed == word) return null
         deleteBefore(ic, word.length)
         commit(ic, fixed)
-        lastCorrection = word to fixed
+        return Correction(word, fixed)
+    }
+
+    private fun offerRevert(made: Correction) {
+        correction = made
+        revertOnBackspace = true
+        container?.showCorrectionRevert(made.original, made.fixed)
+    }
+
+    /**
+     * 툴바에서 교정을 되돌린다. 그 뒤로 다음 어절을 치고 있었어도, 커서 앞이 아직
+     * "교정 어절 + 공백 + 이어 친 글자"일 때만 교정 어절을 원래대로 바꾸고 꼬리는 다시 쓴다.
+     */
+    private fun revertCorrection() {
+        // 이어 치던 글자를 먼저 확정해 꼬리 길이에 넣는다 (커서가 옮겨졌으면 여기서 교정이 버려진다).
+        finishComposition()
+        val made = correction ?: return
+        val ic = currentInputConnection
+        val tail = typedRun.length
+        val span = made.spanLength(tail)
+        val replacement = if (ic != null && span <= MAX_REVERT_SPAN) {
+            made.revertText(ic.getTextBeforeCursor(span, 0), tail)
+        } else {
+            null
+        }
+        dropCorrection()
+        if (ic == null || replacement == null) return
+        ic.beginBatchEdit()
+        deleteBefore(ic, span)
+        commit(ic, replacement)
+        ic.endBatchEdit()
+        typedRun.reset(keep = tail)
+        keepWord(made.original)
+    }
+
+    /** 되돌린 어절을 기억해 다시 교정하지 않는다. 오래된 것부터 잊는다. */
+    private fun keepWord(word: String) {
+        keptWords.remove(word)
+        keptWords.add(word)
+        if (keptWords.size > KEPT_WORDS_MAX) keptWords.remove(keptWords.first())
     }
 
     /** 직전이 "글자 + 공백"일 때만 마침표 축약을 적용한다. */
@@ -845,11 +945,18 @@ class YeonfeelImeService : InputMethodService() {
         val ic = currentInputConnection ?: return
         // 자동 교정 직후 백스페이스는 삭제 대신 원래 어절로 되돌린다.
         // 그 사이 다른 편집(엔터·붙여넣기 등)이 있었으면 커서 앞이 달라져 있으므로 보통 삭제한다.
-        lastCorrection?.let { (original, fixed) ->
-            lastCorrection = null
-            if (ic.getTextBeforeCursor(fixed.length + 1, 0)?.toString() == "$fixed ") {
-                deleteBefore(ic, fixed.length + 1)
-                commit(ic, "$original ")
+        val made = correction
+        if (made != null && revertOnBackspace) {
+            revertOnBackspace = false
+            val replacement = made.revertText(ic.getTextBeforeCursor(made.spanLength(0), 0), 0)
+            if (replacement != null) {
+                dropCorrection()
+                ic.beginBatchEdit()
+                deleteBefore(ic, made.spanLength(0))
+                commit(ic, replacement)
+                ic.endBatchEdit()
+                typedRun.reset()
+                keepWord(made.original)
                 return
             }
         }
@@ -863,12 +970,37 @@ class YeonfeelImeService : InputMethodService() {
                 setComposing(ic, result.composing)
             }
         } else {
+            trackKeyDelete(ic)
             sendDownUpKey(KeyEvent.KEYCODE_DEL)
         }
     }
 
+    /** 키 이벤트로 지울 글자 수를 이어 친 범위에 반영한다 — 선택 영역이면 흐름을 끊는다. */
+    private fun trackKeyDelete(ic: InputConnection) {
+        if (selection.expectedSelStart != selection.expectedSelEnd) {
+            breakTypingRun()
+            return
+        }
+        if (typedRun.length == 0) {
+            // 이어 친 글자를 다 지우고 그 앞(교정 어절 뒤 공백 등)을 지운다 — 더는 되돌릴 수 없다.
+            dropCorrection()
+            return
+        }
+        // 이모지 같은 서로게이트 쌍은 백스페이스 한 번에 두 글자(UTF-16)가 지워진다.
+        val before = ic.getTextBeforeCursor(2, 0)
+        val count = if (before != null && before.length == 2 &&
+            Character.isSurrogatePair(before[0], before[1])
+        ) {
+            2
+        } else {
+            1
+        }
+        typedRun.onDeleteBefore(count)
+    }
+
     private fun onEnter() {
         finishComposition()
+        breakTypingRun()
         val action = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)
         if (action != null && action != EditorInfo.IME_ACTION_NONE &&
             currentInputEditorInfo.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION == 0

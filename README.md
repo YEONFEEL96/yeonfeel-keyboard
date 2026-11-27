@@ -24,7 +24,7 @@ key rollover during fast typing.
 
 Smaller input options include an auto-replacement of the common misspelling
 됬 with 됐, double-tap shift for caps lock, spacebar language switching,
-configurable multi-tap timing, and backspace undo for auto-corrections.
+and configurable multi-tap timing.
 Holding down ㅋ repeats it until the key is released.
 
 Two humor options ship as well, both off by default and disabled in password
@@ -32,16 +32,23 @@ fields. One retypes ㅋㅋㅋ bursts as ㅋㅋㅎㅋ so the typist reads as a yo
 texter; the other reproduces the ㅋㅋㅋㅋㄱㅋㅋ typos of the feature-phone
 천지인 generation.
 
-## Correction (experimental, off by default)
+## Correction (experimental)
 
-Two correction features can be enabled in the 실험실 menu. Both run on the
-device.
+Two correction features live in the 실험실 menu. Both run on the device.
 
-- Touch correction builds a per-key Gaussian model of where the user
-  actually taps, and re-scores ambiguous touches near key boundaries.
-- Word correction proposes replacements using keyboard-adjacency edit
-  distance over a 28,000-word frequency lexicon. A bloom filter of 660,000
-  known words prevents real words from being replaced.
+- Touch correction (on by default) builds a per-key Gaussian model of where
+  the user actually taps, and re-scores ambiguous touches near key
+  boundaries. Tap collection, which feeds it, is also on by default.
+- Word correction (AI correction, off by default) picks replacements on the
+  Dubeolsik layout using keyboard-adjacency edit distance over a
+  28,000-word frequency lexicon. A bloom filter of 660,000 known words
+  prevents real words from being replaced, and text the user did not just
+  type (existing text after a cursor move, pasted text) is left alone.
+  Nonstandard spellings such as 됬 and 됀 are rewritten to the standard form
+  without a lexicon lookup. After
+  a correction the original word appears in the toolbar slot and can be
+  restored with a tap while the next word is being typed, or with backspace
+  right after the correction. Restored words are not corrected again.
 
 ## Data handling
 
@@ -52,6 +59,8 @@ device.
 - Touch-correction samples are stored per key with no ordering and no
   timestamps beyond day granularity, and are deleted after 7 days. Typed
   text cannot be reconstructed from the stored file.
+- Words restored from an auto-correction are kept in memory only, never
+  written to storage.
 
 ## Customization
 

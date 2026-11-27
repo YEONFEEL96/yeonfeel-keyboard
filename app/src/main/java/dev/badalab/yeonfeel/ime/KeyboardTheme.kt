@@ -1,6 +1,12 @@
 package dev.badalab.yeonfeel.ime
 
-/** 키보드 색상 팔레트. [keyBorder]가 null이 아니면 고대비용 키 외곽선을 그린다. */
+/**
+ * 키보드 색상 팔레트. [keyBorder]가 null이 아니면 고대비용 키 외곽선을 그린다.
+ *
+ * [accent]는 키 위에 그리는 강조 글자·아이콘(엔터 동작 라벨, 켜진 시프트, 무장된 ctrl/alt),
+ * [selection]·[onSelection]은 팝업에서 고른 칸의 바탕과 그 위 글자다. 모두 놓이는 바탕과
+ * 4.5:1 이상 대비가 나도록 테마마다 정한다. 고대비 테마는 파랑 대신 글자색을 쓴다.
+ */
 data class KeyboardTheme(
     val background: Int,
     val key: Int,
@@ -9,8 +15,23 @@ data class KeyboardTheme(
     val text: Int,
     val subText: Int,
     val keyBorder: Int? = null,
+    val accent: Int = text,
+    val selection: Int = text,
+    val onSelection: Int = background,
 ) {
+    /** 바탕이 어두운 테마인지 — 눌림 효과처럼 바탕 위에 겹치는 색의 밝기를 정한다. */
+    val isDark: Boolean
+        get() {
+            val r = (specialKey shr 16) and 0xFF
+            val g = (specialKey shr 8) and 0xFF
+            val b = specialKey and 0xFF
+            return r * 299 + g * 587 + b * 114 < 128_000
+        }
+
     companion object {
+        /** 흰 글자와 5.2:1 — 일반 테마의 팝업 선택 칸 바탕. */
+        private const val SELECTION_BLUE = 0xFF2563EB.toInt()
+
         val DARK = KeyboardTheme(
             background = 0xFF24272E.toInt(),
             key = 0xFF3A3D45.toInt(),
@@ -18,6 +39,9 @@ data class KeyboardTheme(
             pressed = 0xFF5A5E6A.toInt(),
             text = 0xFFFFFFFF.toInt(),
             subText = 0xFFB9BDC7.toInt(),
+            accent = 0xFF6AA6FF.toInt(),
+            selection = SELECTION_BLUE,
+            onSelection = 0xFFFFFFFF.toInt(),
         )
 
         val LIGHT = KeyboardTheme(
@@ -27,6 +51,9 @@ data class KeyboardTheme(
             pressed = 0xFFA9AFBA.toInt(),
             text = 0xFF1B1D22.toInt(),
             subText = 0xFF4A4E57.toInt(),
+            accent = 0xFF174AB8.toInt(),
+            selection = SELECTION_BLUE,
+            onSelection = 0xFFFFFFFF.toInt(),
         )
 
         val DARK_HIGH_CONTRAST = KeyboardTheme(
