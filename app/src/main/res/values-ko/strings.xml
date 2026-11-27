@@ -112,7 +112,10 @@
     <string name="touch_basic">기본 보정</string>
     <string name="touch_basic_sub">나의 타점 분포로 경계 터치를 재판정합니다</string>
     <string name="touch_ai">AI 보정</string>
-    <string name="touch_ai_sub">스페이스바로 어절이 끝나면 오타를 교정합니다.\n백스페이스를 입력하여 되돌릴 수 있습니다.</string>
+    <string name="touch_ai_sub">두벌식 자판에서 스페이스바로 어절이 끝나면 오타를 교정합니다.\n툴바나 백스페이스로 되돌릴 수 있습니다.</string>
+    <string name="correction_revert_action">되돌리기</string>
+    <string name="correction_dismiss_desc">닫기</string>
+    <string name="a11y_autocorrected">자동 교정: %1$s. 원래 어절 %2$s</string>
     <string name="dwaet_fix_title">됬이라는 글자는 존재하지 않습니다</string>
     <string name="dwaet_fix_sub">됬을 입력하면 무조건 됐으로 고칩니다</string>
     <string name="debug_touch_correction_dialog_message">터치 보정은 수집된 타점 데이터로 동작합니다. 타점 수집이 함께 켜집니다.</string>

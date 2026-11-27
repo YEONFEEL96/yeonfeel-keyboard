@@ -114,7 +114,10 @@
     <string name="touch_basic">Basic correction</string>
     <string name="touch_basic_sub">Re-scores boundary touches against your tap distribution</string>
     <string name="touch_ai">AI correction</string>
-    <string name="touch_ai_sub">Fixes typos when a word ends with the spacebar.\nPress backspace to undo.</string>
+    <string name="touch_ai_sub">On the Dubeolsik layout, fixes typos when a word ends with the spacebar.\nUndo from the toolbar or with backspace.</string>
+    <string name="correction_revert_action">Revert</string>
+    <string name="correction_dismiss_desc">Dismiss</string>
+    <string name="a11y_autocorrected">Autocorrected to %1$s. Was %2$s</string>
     <string name="dwaet_fix_title">됬 is not a word</string>
     <string name="dwaet_fix_sub">Replaces 됬 with 됐 whenever it is typed</string>
     <string name="debug_touch_correction_dialog_message">Touch correction runs on collected tap data. Tap collection will be turned on as well.</string>

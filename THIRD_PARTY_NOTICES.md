@@ -58,7 +58,8 @@ ML Kit 애드온은 Google의 ML Kit 번역 라이브러리(`com.google.mlkit:tr
 
 - 라이선스: [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/)
 - 변경 내용: 빈도 하한으로 필터링(`ko_freq.txt`), 어절 목록을 블룸 필터로
-  해시(`ko_known.bloom`). 생성 절차는 `scripts/generate_lexicon.py` 참고.
+  해시(`ko_known.bloom`), 표준어에 없는 표기(됬·됀 등, 괜찬-)가 든 어절
+  제외. 생성 절차는 `scripts/generate_lexicon.py` 참고.
 - ShareAlike에 따라 **이 두 파일은 앱 코드의 Apache-2.0과 무관하게
   CC BY-SA 4.0으로 배포된다.** 이 파일들을 재사용·재가공할 때는 같은
   라이선스를 적용해야 한다.

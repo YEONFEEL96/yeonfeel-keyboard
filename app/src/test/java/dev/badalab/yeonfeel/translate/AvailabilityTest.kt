@@ -21,8 +21,13 @@ class AvailabilityTest {
         )
         assertEquals(
             Availability.LANGUAGE_UNSUPPORTED,
-            Availability.fromCapabilityState(TranslationCapability.STATE_REMOVED_AND_AVAILABLE),
+            Availability.fromCapabilityState(STATE_REMOVED_AND_AVAILABLE),
         )
+    }
+
+    private companion object {
+        /** TranslationCapability.STATE_REMOVED_AND_AVAILABLE — @hide라 공개 SDK로는 컴파일되지 않는다. */
+        const val STATE_REMOVED_AND_AVAILABLE = 1000
     }
 
     @Test

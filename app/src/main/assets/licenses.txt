@@ -39,4 +39,4 @@ FrequencyWords(https://github.com/hermitdave/FrequencyWords)의
 International 라이선스로 배포됩니다.
 https://creativecommons.org/licenses/by-sa/4.0/
 
-변경 내용: 빈도 하한 필터링, 어절 목록의 블룸 필터 해시화.
+변경 내용: 빈도 하한 필터링, 어절 목록의 블룸 필터 해시화, 표준어에 없는 표기가 든 어절 제외.

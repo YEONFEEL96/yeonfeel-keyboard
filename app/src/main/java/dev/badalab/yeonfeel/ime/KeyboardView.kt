@@ -145,9 +145,9 @@ class KeyboardView(
             canvas.drawPath(bgPath, previewBorderPaint)
             state.rows.forEachIndexed { index, row ->
                 if (index == state.selected) {
-                    canvas.drawRoundRect(row, dp(10f), dp(10f), iconFillPaint)
+                    canvas.drawRoundRect(row, dp(10f), dp(10f), selectionPaint)
                 }
-                langTextPaint.color = if (index == state.selected) 0xFFFFFFFF.toInt() else theme.text
+                langTextPaint.color = if (index == state.selected) theme.onSelection else theme.text
                 val y = row.centerY() - (langTextPaint.ascent() + langTextPaint.descent()) / 2
                 canvas.drawText(languageList[index], row.centerX(), y, langTextPaint)
             }
@@ -486,6 +486,9 @@ class KeyboardView(
         strokeJoin = Paint.Join.ROUND
     }
     private val iconFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+    /** 변형·언어 팝업에서 고른 칸의 바탕. */
+    private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = sp(20f)
@@ -517,7 +520,6 @@ class KeyboardView(
     private val enterActionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = sp(14f)
-        color = ACCENT
     }
     private val hintTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.RIGHT
@@ -532,7 +534,6 @@ class KeyboardView(
     private val previewSelectedTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = sp(20f)
-        color = 0xFFFFFFFF.toInt()
     }
 
     init {
@@ -551,7 +552,11 @@ class KeyboardView(
         iconPaint.color = theme.text
         iconPaint.strokeWidth = dp(1.8f)
         iconPaint.pathEffect = CornerPathEffect(dp(1.5f))
-        iconFillPaint.color = ACCENT
+        // 강조색은 테마가 정한다 — 고대비 테마에서 파랑은 바탕과 대비가 2:1 안팎이다.
+        iconFillPaint.color = theme.accent
+        enterActionPaint.color = theme.accent
+        selectionPaint.color = theme.selection
+        previewSelectedTextPaint.color = theme.onSelection
         previewBgPaint.color = theme.key
         previewBorderPaint.color = theme.subText and 0x60FFFFFF.toInt()
         previewBorderPaint.strokeWidth = dp(1f)
@@ -820,7 +825,7 @@ class KeyboardView(
         canvas.drawRoundRect(panelRect, radius, radius, previewBorderPaint)
         popup.cells.forEachIndexed { index, cell ->
             if (index == popup.selected) {
-                canvas.drawRoundRect(cell, dp(8f), dp(8f), iconFillPaint)
+                canvas.drawRoundRect(cell, dp(8f), dp(8f), selectionPaint)
             } else if (index == 0) {
                 canvas.drawRoundRect(cell, dp(8f), dp(8f), specialKeyPaint)
             }
@@ -1528,7 +1533,6 @@ class KeyboardView(
     companion object {
         const val SHORTCUT_CLIPBOARD = '\uE020'
         const val SHORTCUT_SETTINGS = '\uE021'
-        private const val ACCENT = 0xFF3D8BFF.toInt()
         private const val KEY_SOUND_VOLUME = 0.5f
         private const val LANG_POPUP_DELAY_MS = 300L
         private const val SPACE_SWIPE_THRESHOLD_DP = 30f
