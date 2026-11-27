@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 키보드 설정 화면의 파란 액센트와 같은 색 -->
+    <color name="addon_icon_background">#FF3D8BFF</color>
+</resources>

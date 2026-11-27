@@ -2,6 +2,8 @@ package dev.badalab.yeonfeel.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.badalab.yeonfeel.translate.TranslationEngine
+import dev.badalab.yeonfeel.translate.TranslationLanguage
 
 enum class BackspaceSpeed(val intervalMs: Long) {
     SLOW(80),
@@ -347,6 +349,35 @@ class KeyboardSettings(context: Context) {
         get() = prefs.getInt(KEY_KEYBOARD_HEIGHT, HEIGHT_DEFAULT)
         set(value) = prefs.edit().putInt(KEY_KEYBOARD_HEIGHT, value).apply()
 
+    /** 키보드 번역 엔진. 기본은 추가 다운로드·네트워크가 필요 없는 시스템 번역. */
+    var translationEngine: TranslationEngine
+        get() = TranslationEngine.fromName(prefs.getString(KEY_TRANSLATION_ENGINE, null))
+        set(value) = prefs.edit().putString(KEY_TRANSLATION_ENGINE, value.name).apply()
+
+    /** 번역 원문 언어 (번역 패널에 입력하는 언어). */
+    var translationSource: TranslationLanguage
+        get() = TranslationLanguage.fromCodeOrDefault(
+            prefs.getString(KEY_TRANSLATION_SOURCE, null),
+            TranslationLanguage.DEFAULT_SOURCE,
+        )
+        set(value) = prefs.edit().putString(KEY_TRANSLATION_SOURCE, value.code).apply()
+
+    /** 번역 결과 언어 (입력란에 들어가는 언어). */
+    var translationTarget: TranslationLanguage
+        get() = TranslationLanguage.fromCodeOrDefault(
+            prefs.getString(KEY_TRANSLATION_TARGET, null),
+            TranslationLanguage.DEFAULT_TARGET,
+        )
+        set(value) = prefs.edit().putString(KEY_TRANSLATION_TARGET, value.code).apply()
+
+    /**
+     * 키보드 안에서 Gemini Nano가 BACKGROUND_USE_BLOCKED로 막힌 것을 확인했을 때의 AICore 버전
+     * (확인한 적 없으면 -1). 판정은 [dev.badalab.yeonfeel.translate.GeminiBlockFlag]가 한다.
+     */
+    var geminiBlockedAicoreVersion: Long
+        get() = prefs.getLong(KEY_GEMINI_BLOCKED_AICORE_VERSION, -1L)
+        set(value) = prefs.edit().putLong(KEY_GEMINI_BLOCKED_AICORE_VERSION, value).apply()
+
     fun resetAll() = prefs.edit().clear().apply()
 
     companion object {
@@ -370,7 +401,7 @@ class KeyboardSettings(context: Context) {
         const val MARGIN_SIDE_MAX = 120
         const val HEIGHT_MIN = 160
         const val HEIGHT_DEFAULT = 240
-        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,kaomoji,onehand"
+        const val TOOLBAR_ORDER_DEFAULT = "settings,layout,clipboard,emoji,kaomoji,translate,onehand"
 
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SHOW_TOOLBAR = "show_toolbar"
@@ -422,5 +453,9 @@ class KeyboardSettings(context: Context) {
         private const val KEY_MARGIN_BOTTOM = "margin_bottom_dp"
         private const val KEY_MARGIN_SIDE = "margin_side_dp"
         private const val KEY_KEYBOARD_HEIGHT = "keyboard_height_dp"
+        private const val KEY_TRANSLATION_ENGINE = "translation_engine"
+        private const val KEY_TRANSLATION_SOURCE = "translation_source"
+        private const val KEY_TRANSLATION_TARGET = "translation_target"
+        private const val KEY_GEMINI_BLOCKED_AICORE_VERSION = "gemini_blocked_aicore_version"
     }
 }

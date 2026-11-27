@@ -82,6 +82,12 @@ class SettingsActivity : Activity() {
             ui.textRow(getString(R.string.extra_input_menu)) {
                 openDetail(ExtraInputSettingsActivity::class.java)
             },
+            ui.textRow(
+                getString(R.string.translate_menu),
+                TranslationSettingsActivity.engineName(this, settings.translationEngine),
+            ) {
+                openDetail(TranslationSettingsActivity::class.java)
+            },
         )
 
         ui.caption(getString(R.string.settings_section_general))

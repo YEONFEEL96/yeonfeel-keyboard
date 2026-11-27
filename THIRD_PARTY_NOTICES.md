@@ -1,14 +1,18 @@
 # Third-Party Notices
 
-연필키보드(YEONFEEL Keyboard)는 아래 서드파티 자산을 포함한다. 앱 코드는
-저장소 루트의 [LICENSE](LICENSE)(Apache License 2.0)를 따르며, 아래 자산에는
-각 항목의 라이선스가 별도로 적용된다. 이 고지는 앱 내
-"설정 → 일반 → 오픈소스 라이선스" 화면에도 포함된다.
+연필키보드(YEONFEEL Keyboard)와 선택 설치하는 ML Kit 번역 애드온
+(`translate-mlkit/`)은 아래 서드파티 자산을 포함한다. 앱 코드는 저장소 루트의
+[LICENSE](LICENSE)(Apache License 2.0)를 따르며, 아래 자산에는 각 항목의
+라이선스나 약관이 별도로 적용된다. Lucide 아이콘과 한국어 빈도 데이터 고지는
+키보드 앱 내 "설정 → 일반 → 오픈소스 라이선스" 화면에도 포함된다.
 
 ## Lucide Icons — ISC License
 
 `app/src/main/res/drawable/`의 일부 벡터 아이콘은 [Lucide](https://lucide.dev)에서
-가져왔다 (각 파일 상단에 원본 아이콘 이름을 주석으로 표기).
+가져왔다 (각 파일 상단에 원본 아이콘 이름을 주석으로 표기). 키보드 툴바의 번역
+버튼(`ic_toolbar_translate.xml`)과 ML Kit 애드온의 앱 아이콘
+(`translate-mlkit/src/main/res/drawable/ic_launcher_foreground.xml`)은 Lucide
+`languages` 아이콘을 쓴다.
 
 > ISC License
 >
@@ -27,6 +31,24 @@
 > WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 > ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 > OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+## Google ML Kit GenAI (Gemini Nano) — 키보드
+
+키보드는 Gemini Nano 번역 엔진을 위해 Google의 ML Kit GenAI Prompt API
+라이브러리(`com.google.mlkit:genai-prompt`)를 포함한다. 이 라이브러리와 함께
+들어오는 Google 라이브러리(ML Kit common, Google Play 서비스, Firebase
+components, `datatransport`)도 APK에 포함된다. 사용에는 다음 약관이 적용된다.
+
+- [ML Kit 약관](https://developers.google.com/ml-kit/terms) — [Google APIs 서비스 약관](https://developers.google.com/terms)을 포함한다.
+- [ML Kit GenAI API 추가 서비스 약관](https://developers.google.com/ml-kit/genai-terms)
+
+## Google ML Kit 번역 — ML Kit 애드온
+
+ML Kit 애드온은 Google의 ML Kit 번역 라이브러리(`com.google.mlkit:translate`)와
+그 네이티브 번역 엔진, 그리고 함께 들어오는 Google 라이브러리를 포함한다.
+언어 모델은 설치 후 Google에서 내려받는다. 사용에는
+[ML Kit 약관](https://developers.google.com/ml-kit/terms)과 그에 포함된
+[Google APIs 서비스 약관](https://developers.google.com/terms)이 적용된다.
 
 ## 한국어 빈도 데이터 — CC BY-SA 4.0
 

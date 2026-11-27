@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="addon_app_name">연필키보드 ML Kit 애드온</string>
+    <string name="addon_intro">연필키보드에 ML Kit 번역 엔진을 더하는 앱입니다. 키보드의 번역 설정에서 번역 엔진을 ML Kit으로 고르면 사용할 수 있어요.</string>
+    <string name="addon_privacy">번역은 이 기기 안에서 이루어집니다. 네트워크는 언어 모델(언어당 약 30MB)을 내려받을 때만 쓰며, 연필키보드는 Wi-Fi에서만 내려받아요.</string>
+    <string name="addon_models_title">내려받은 언어 모델</string>
+    <string name="addon_models_empty">아직 내려받은 언어 모델이 없습니다. 언어를 처음 번역할 때 내려받아요.</string>
+    <string name="addon_models_loading">언어 모델을 확인하는 중…</string>
+    <string name="addon_models_error">언어 모델 목록을 읽지 못했습니다.</string>
+    <string name="addon_model_delete">삭제</string>
+    <string name="addon_model_delete_confirm">%1$s 언어 모델을 삭제할까요? 이 언어를 다음에 번역할 때 다시 내려받습니다.</string>
+    <string name="addon_model_delete_failed">%1$s 언어 모델을 삭제하지 못했습니다.</string>
+    <string name="addon_cancel">취소</string>
+</resources>

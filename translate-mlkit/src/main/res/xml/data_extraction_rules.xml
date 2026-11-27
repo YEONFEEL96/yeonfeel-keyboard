@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  애드온 저장소는 ML Kit 언어 모델과 그 메타데이터뿐이다. 기기마다 다시 내려받으면 되므로
+  클라우드 백업과 기기 간 이전(D2D) 양쪽에서 제외한다.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+    </device-transfer>
+</data-extraction-rules>
